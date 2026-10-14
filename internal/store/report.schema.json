@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ledge:report",
+  "title": "ledge report",
+  "description": "The full report behind an event, shown in its own window when the event's card is clicked. Sent as the event's `report`. The same shape as a morning-report section.",
+  "type": "object",
+  "$defs": {
+    "tone": {"enum": ["high", "medium", "low"]},
+    "link": {
+      "type": "object",
+      "properties": {"text": {"type": "string", "minLength": 1}, "url": {"type": "string"}, "tone": {"$ref": "#/$defs/tone"}},
+      "required": ["text"],
+      "additionalProperties": false
+    },
+    "vscode": {
+      "type": "string",
+      "pattern": "^[~/]",
+      "description": "A file or folder to open in VS Code: an absolute path or one starting with ~, optionally ending in :line or :line:col."
+    },
+    "cell": {
+      "description": "A string, a {text, url?, tone?} object, or a list of those. A url starting with \"#\" jumps to the item with that id.",
+      "anyOf": [{"type": "string"}, {"$ref": "#/$defs/link"},
+                {"type": "array", "items": {"anyOf": [{"type": "string"}, {"$ref": "#/$defs/link"}]}}]
+    }
+  },
+  "properties": {
+    "summary": {"type": "string", "description": "A sentence or two to read first."},
+    "vscode": {"$ref": "#/$defs/vscode", "description": "Shows an \"Open in VS Code\" link at the top of the report."},
+    "stats": {
+      "type": "array",
+      "description": "A few headline numbers, shown as tiles.",
+      "items": {
+        "type": "object",
+        "properties": {"label": {"type": "string"}, "value": {"type": ["string", "number"]},
+                       "url": {"type": "string"}, "tone": {"$ref": "#/$defs/tone"}},
+        "required": ["label", "value"],
+        "additionalProperties": false
+      }
+    },
+    "items": {
+      "type": "array",
+      "description": "The entries, most important first.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {"type": "string", "minLength": 1},
+          "vscode": {"$ref": "#/$defs/vscode", "description": "Shows a \"VS Code\" link on the item."},
+          "url": {"type": "string"},
+          "id": {"type": "string", "description": "Anchor, so a cell url \"#<id>\" can link here."},
+          "detail": {"type": "string"},
+          "priority": {"$ref": "#/$defs/tone"},
+          "tags": {"type": "array", "items": {"type": "string"}},
+          "links": {"type": "array", "items": {"$ref": "#/$defs/link"}},
+          "code": {
+            "description": "A block of code or command output, shown monospaced after the detail. A string, or {text, language?} to label it.",
+            "anyOf": [{"type": "string"},
+                      {"type": "object",
+                       "properties": {"text": {"type": "string"}, "language": {"type": "string", "minLength": 1}},
+                       "required": ["text"], "additionalProperties": false}]
+          },
+          "table": {
+            "type": "object",
+            "properties": {"columns": {"type": "array", "items": {"type": "string"}},
+                           "rows": {"type": "array", "items": {"type": "array", "items": {"$ref": "#/$defs/cell"}}}},
+            "required": ["columns", "rows"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["title"],
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

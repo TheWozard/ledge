@@ -1,0 +1,21 @@
+# desktop-view, the Python version ledge replaces, has its own repo
+desktop-view
+PLAN.md
+
+# Go build artifacts
+*.test
+*.out
+/dist/
+
+# Claude Code
+.claude/settings.local.json
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ledge:section",
+  "title": "ledge section",
+  "description": "Everything one source currently has to show. Sent to POST /event, it replaces all of that source's events and statuses with `items`.",
+  "type": "object",
+  "properties": {
+    "source": {"type": "string", "minLength": 1, "description": "The source to replace. Each item's own `source` is overridden by this one."},
+    "items": {"type": "array", "description": "Events and statuses, each checked against its own schema (event.schema.json or status.schema.json). An empty list clears the source."}
+  },
+  "required": ["source", "items"],
+  "additionalProperties": false
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ledge:event",
+  "title": "ledge event",
+  "description": "A card in the bar: a headline, and optionally a report with the details. Send it to POST /event, or pipe it to `ledge event`.",
+  "type": "object",
+  "properties": {
+    "kind": {"const": "event", "description": "Optional; an object without `kind` is an event."},
+    "id": {"type": "string", "minLength": 1,
+           "description": "Send an existing id to replace that event. Without one, a new id is generated and returned."},
+    "tags": {"type": "array", "items": {"type": "string", "minLength": 1},
+             "description": "Short labels shown as pills at the right of the card's bottom line."},
+    "title": {"type": "string", "minLength": 1, "description": "The headline."},
+    "description": {"type": "string", "minLength": 1, "description": "A line or two under the title."},
+    "url": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9+.-]*:",
+            "description": "Instead of a report: clicking the card runs `open <url>`, so it opens in whatever app handles it (https: in your browser, vscode: in VS Code). Must start with a scheme."},
+    "priority": {"enum": ["high", "medium", "low"], "description": "Sorts the card and colours its left edge."},
+    "source": {"type": "string", "minLength": 1,
+               "description": "Who sent it (default: manual). A section ({source, items}) replaces all of a source's events."},
+    "report": {"$ref": "urn:ledge:report",
+               "description": "The details: a report (see report.schema.json), opened in its own window by clicking the card."},
+    "expires": {"type": "string",
+                "description": "When the card goes away: an ISO 8601 time, or a duration from now such as \"30m\", \"4h\" or \"2d\"."}
+  },
+  "required": ["title"],
+  "not": {"required": ["url", "report"], "description": "`url` and `report` can't both be set: clicking the card either opens the url or shows the report"},
+  "additionalProperties": false
+}

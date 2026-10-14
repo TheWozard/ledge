@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ledge:status",
+  "title": "ledge status",
+  "description": "A status pill at the start of the bar: a label in a colour that can change on a schedule. Send it to POST /event, or pipe it to `ledge event`.",
+  "type": "object",
+  "$defs": {
+    "color": {
+      "description": "A named colour (green, yellow, red, blue or gray; theme-aware) or a #rrggbb hex colour.",
+      "type": "string",
+      "pattern": "^(green|yellow|red|blue|gray|#[0-9a-fA-F]{6})$"
+    }
+  },
+  "properties": {
+    "kind": {"const": "status"},
+    "id": {"type": "string", "minLength": 1,
+           "description": "Send an existing id to replace that pill. Give a fixed one (e.g. \"aws-auth\") so re-sending updates the pill instead of adding another."},
+    "title": {"type": "string", "minLength": 1, "description": "The pill's label."},
+    "url": {"type": "string", "description": "What clicking the label opens. Only http(s) urls become links."},
+    "detail": {"type": "string", "description": "Shown when hovering over the pill."},
+    "command": {"type": "string", "minLength": 1,
+                "description": "A bash command to run when the pill is clicked, e.g. a login that re-sends this status. Runs with `bash -lc` in your home directory; its output is appended to commands.log in the state directory. Can't be combined with `url`."},
+    "source": {"type": "string", "minLength": 1, "description": "Who sent it (default: manual)."},
+    "color": {"$ref": "#/$defs/color", "description": "The colour until the first schedule step (default: gray)."},
+    "schedule": {
+      "type": "array",
+      "description": "Colour changes. The pill shows the colour of the latest step whose time has passed, and counts down to the last step.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "at": {"type": "string",
+                 "description": "An ISO 8601 time, or a duration from when it's sent such as \"50m\" or \"8h\"."},
+          "color": {"$ref": "#/$defs/color"}
+        },
+        "required": ["at", "color"],
+        "additionalProperties": false
+      }
+    },
+    "expires": {"type": "string",
+                "description": "When the pill goes away: an ISO 8601 time, or a duration from now such as \"8h\"."}
+  },
+  "required": ["kind", "title"],
+  "not": {"required": ["url", "command"], "description": "`url` and `command` can't both be set: a click either opens the url or runs the command"},
+  "additionalProperties": false
+}

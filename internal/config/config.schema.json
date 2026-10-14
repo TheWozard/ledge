@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ledge:config",
+  "title": "ledge config",
+  "description": "Window settings, passed with --config. Leave out a key to get its default.",
+  "type": "object",
+  "properties": {
+    "screen": {"type": "integer", "minimum": 0,
+               "description": "An index into the screens; 0 is the one with the menu bar. Default 0."},
+    "edge": {"enum": ["bottom", "top"], "description": "The edge the bar runs along. Default bottom."},
+    "height": {"type": "integer", "minimum": 1, "description": "The bar's height in points. Default 110."}
+  },
+  "additionalProperties": false
+}
