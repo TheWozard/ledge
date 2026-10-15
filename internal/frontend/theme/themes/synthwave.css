@@ -22,8 +22,6 @@ li.high { --neon: #ff2e63; }
 li.medium { --neon: #f9c80e; }
 li.low { --neon: #2de2e6; }
 li.opens:hover { box-shadow: 0 0 18px var(--neon), 0 0 2px #fff, inset 0 0 18px color-mix(in srgb, var(--neon) 35%, transparent); }
-li[data-new] { animation: swoosh .5s cubic-bezier(.2,.9,.3,1.2) both; animation-delay: calc(var(--i) * 60ms); }
-@keyframes swoosh { from { transform: translateX(-40px) skewX(-14deg); opacity: 0; filter: blur(4px); } }
 .title { -webkit-line-clamp: 1; font: bold 11px/1.4 Futura, "Avenir Next", sans-serif; text-transform: uppercase; letter-spacing: .06em; color: #fff;
          text-shadow: 0 0 6px rgba(255,110,199,.7); }
 .description { margin-top: 2px; color: #c8b6ff; }
@@ -31,3 +29,14 @@ li[data-new] { animation: swoosh .5s cubic-bezier(.2,.9,.3,1.2) both; animation-
 .tag { padding: 0 5px; border: 1px solid #2de2e6; border-radius: 3px; color: #2de2e6; line-height: 15px; font-size: 10px; box-shadow: 0 0 4px #2de2e6; }
 .dismiss { color: #ff6ec7; font-size: 15px; }
 .dismiss:hover { color: #fff; text-shadow: 0 0 8px #ff2e88; }
+
+/* Entering and leaving: a card swooshes in from the left, overshooting, and streaks
+   off to the right to leave; a pill's tube flickers on, and flickers off. */
+li[data-new] { animation: swoosh-in .5s cubic-bezier(.2,.9,.3,1.2) backwards; animation-delay: calc(var(--i) * 60ms); }
+li[data-leaving] { animation: swoosh-out .35s cubic-bezier(.6,0,.9,.4) both, collapse .25s .25s ease-in-out both; }
+.pill[data-new] { animation: tube-on .45s backwards; animation-delay: calc(var(--i) * 60ms); }
+.pill[data-leaving] { animation: tube-off .3s both, collapse .2s .25s ease-in-out both; }
+@keyframes swoosh-in { from { transform: translateX(-40px) skewX(-14deg); opacity: 0; filter: blur(4px); } }
+@keyframes swoosh-out { to { transform: translateX(60px) skewX(14deg); opacity: 0; filter: blur(4px); } }
+@keyframes tube-on { 0%, 20%, 40% { opacity: 0; } 10%, 30% { opacity: .6; } 100% { opacity: 1; } }
+@keyframes tube-off { 0% { opacity: 1; } 20% { opacity: .3; } 30% { opacity: .9; } 100% { opacity: 0; box-shadow: 0 0 30px var(--pill); } }

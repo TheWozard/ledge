@@ -8,9 +8,15 @@ default:
 generate:
     templ generate
 
-# Fail if the committed *_templ.go files aren't what the .templ files compile to.
-check-generated: generate
-    git diff --exit-code -- '*_templ.go'
+# Fail if the *_templ.go files weren't what the .templ files compile to (and fix them).
+check-generated:
+    #!/usr/bin/env sh
+    before=$(cat components/*_templ.go | shasum)
+    templ generate >/dev/null || exit 1
+    if [ "$before" != "$(cat components/*_templ.go | shasum)" ]; then
+        echo "the *_templ.go files were stale; they've been regenerated" >&2
+        exit 1
+    fi
 
 # The tests that don't open windows.
 test: generate

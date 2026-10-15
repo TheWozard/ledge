@@ -40,3 +40,11 @@ li.low { border-left-color: var(--low); }
 .dismiss:hover { background: var(--line); color: var(--text); }
 
 .empty { color: var(--muted); font-size: 12px; }
+
+/* Entering and leaving: cards and pills fade up into place, staggered, and fade back
+   down to leave while the row or column closes up behind them. */
+li[data-new] { animation: rise .3s ease-out backwards; animation-delay: calc(var(--i) * 40ms); }
+.pill[data-new] { animation: rise .25s ease-out backwards; animation-delay: calc(var(--i) * 30ms); }
+li[data-leaving], .pill[data-leaving] { animation: sink .18s ease-in both, collapse .2s .15s ease-in-out both; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+@keyframes sink { to { opacity: 0; transform: translateY(6px); } }

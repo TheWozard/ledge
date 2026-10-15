@@ -35,3 +35,10 @@ li.opens:hover .description { outline: 1px dotted #000; outline-offset: -4px; }
 .dismiss { top: 5px; right: 5px; width: 16px; height: 14px; background: #c0c0c0; box-shadow: var(--raised);
            font: bold 12px/13px Tahoma, sans-serif; }
 .dismiss:active { box-shadow: var(--sunken); }
+
+/* Entering and leaving: a card or pill wipes in from the left in chunky steps, as a
+   slow 486 would draw it, and wipes out to the right to leave. */
+li[data-new], .pill[data-new] { animation: draw .24s steps(6) backwards; animation-delay: calc(var(--i) * 50ms); }
+li[data-leaving], .pill[data-leaving] { animation: undraw .2s steps(5) both, collapse .1s .2s steps(2) both; }
+@keyframes draw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+@keyframes undraw { from { clip-path: inset(0); } to { clip-path: inset(0 0 0 100%); } }

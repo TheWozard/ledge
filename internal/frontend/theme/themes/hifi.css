@@ -37,10 +37,17 @@ li::after { content: ""; position: absolute; inset: 0; pointer-events: none; bor
 li.high { --vfd: #ff6a4d; }
 li.medium { --vfd: #ffc24a; }
 li.opens:hover { filter: brightness(1.3) saturate(1.1); }
-li[data-new] { animation: warm .7s ease-out both; animation-delay: calc(var(--i) * 70ms); }
-@keyframes warm { 0% { opacity: 0; filter: brightness(3) blur(3px); } 30% { opacity: 1; } }
 .title { font-size: 14px; line-height: 1.15; text-transform: uppercase; letter-spacing: .06em; }
 .description { margin-top: 2px; color: color-mix(in srgb, var(--vfd) 70%, #000); }
 .meta { color: color-mix(in srgb, var(--vfd) 55%, #000); font-size: 11px; text-transform: uppercase; }
 .tag { padding: 0 4px; border: 1px solid currentColor; border-radius: 2px; line-height: 13px; font-size: 10px; }
 .dismiss { z-index: 2; color: var(--vfd); font-size: 15px; }
+
+/* Entering and leaving: a card's display warms up from a bright blur, and fades to
+   dark to leave, like a vacuum fluorescent tube switching off; a lamp lights and goes
+   out the same way. */
+li[data-new] { animation: warm .7s ease-out backwards; animation-delay: calc(var(--i) * 70ms); }
+.pill[data-new] { animation: warm .5s ease-out backwards; animation-delay: calc(var(--i) * 50ms); }
+li[data-leaving], .pill[data-leaving] { animation: cool .45s ease-in both, collapse .25s .35s ease-in-out both; }
+@keyframes warm { 0% { opacity: 0; filter: brightness(3) blur(3px); } 30% { opacity: 1; } }
+@keyframes cool { 0% { filter: none; } 25% { filter: brightness(1.8); } 100% { opacity: 0; filter: brightness(.2) blur(2px); } }

@@ -8,7 +8,8 @@ import (
 // BarPage is the bar's page, styled by themeCSS (theme.CSS for theme.Bar), for a bar
 // along edge: "top" or "bottom". Its #app is empty until it's given BarContent: it
 // posts {action: "ready"} once loaded, and from then takes update(html), with html
-// rendered from BarContent, to replace what it shows.
+// rendered from BarContent, and morphs what it shows into it: only what's changed is
+// touched, so a card or pill that's still there keeps its element, hover and scroll.
 //
 // The page posts to window.webkit.messageHandlers.ledge only {action, id}: "dismiss"
 // from a card's ×, "open" from a card that opens or a pill's link, and "run" from a
@@ -25,9 +26,17 @@ templ BarPage(themeCSS string, edge string) {
 	   page behind the bar, and --c-green, --c-yellow, --c-red, --c-blue and --c-gray
 	   for pills.
 
-	   A pill carries its current colour in data-color, and a card new since the last
-	   render has data-new and --i, its place among the new ones, for an entrance
-	   animation. */
+	   A pill carries its current colour in data-color.
+
+	   Entering and leaving: a pill or card new since the last render has data-new and
+	   --i, its place among the new ones of its kind, for an entrance animation; the
+	   next render takes them off. An entrance should fill backwards, not both: it ends
+	   at how the element looks anyway, and WebKit can hold a stepped one a step short
+	   of its end. Each render morphs the page rather than replacing
+	   it, so that only plays for what's really new. A pill or card that's gone stays,
+	   with data-leaving, until its animations end, then goes. A theme's exit should
+	   end with "collapse", which closes up the space it leaves so what follows slides
+	   into place; without one, it just collapses. */
 	* { box-sizing: border-box; }
 	html, body { margin: 0; height: 100%; background: var(--bar); overflow: hidden; }
 	/* The bar stays put against the window's edges: no rubber-band bounce. */
@@ -72,12 +81,22 @@ templ BarPage(themeCSS string, edge string) {
 	           background: none; color: inherit; font: inherit; cursor: pointer; }
 
 	.empty { flex: 1; display: flex; align-items: center; }
+	/* The column and the row are always there, so the last of them can leave; empty,
+	   they're hidden, and "No events." shows once the last card has gone. */
+	.pills:empty, ul:empty { display: none; }
+	ul:not(:empty) ~ .empty { display: none; }
+
+	/* --collapse-x and --collapse-y are set on a leaving element to minus the room it
+	   takes in its row or column, gap included. */
+	[data-leaving] { pointer-events: none; animation: collapse .2s ease-in-out both; }
+	@keyframes collapse { to { margin-right: var(--collapse-x, 0); margin-bottom: var(--collapse-y, 0); } }
 	@keyframes blink { 50% { opacity: 0; } }
 			</style>
 			@templ.Raw("<style>\n" + themeCSS + "</style>")
 		</head>
 		<body class={ edge }>
 			<div id="app"></div>
+			@templ.Raw("<script>" + idiomorph + "</script>")
 			<script>
 	const app = document.getElementById("app");
 
@@ -87,16 +106,48 @@ templ BarPage(themeCSS string, edge string) {
 	}
 
 	// update shows html, rendered by Go from BarContent, with its text escaped. It
-	// keeps the row's and the pills' scroll positions, so a new card arriving doesn't
-	// jump you back to the start while you're reading further along.
+	// morphs #app into it, matching pills and cards by their ids, so what's still
+	// there keeps its element: the row and the pills keep their scroll, a hover its
+	// tooltip, and a run pill its flash: "ran" is the page's own class, not in html,
+	// so it's carried over rather than morphed away. A pill or card that's gone
+	// leaves rather than vanishing.
 	function update(html) {
-	  const scrolled = app.querySelector("ul")?.scrollLeft || 0;
-	  const scrolledPills = app.querySelector(".pills")?.scrollTop || 0;
-	  app.innerHTML = html;
-	  const row = app.querySelector("ul");
-	  if (row) row.scrollLeft = scrolled;
-	  const pills = app.querySelector(".pills");
-	  if (pills) pills.scrollTop = scrolledPills;
+	  Idiomorph.morph(app, html, {
+	    morphStyle: "innerHTML",
+	    callbacks: {
+	      beforeNodeMorphed(from, to) {
+	        if (from.classList?.contains("ran")) to.classList.add("ran");
+	      },
+	      beforeNodeRemoved(node) {
+	        if (!node.matches?.("#pills > .pill, #cards > li")) return true;
+	        if (!node.hasAttribute("data-leaving")) leave(node);
+	        return false;
+	      },
+	    },
+	  });
+	}
+
+	// leave marks node data-leaving, with the room it takes, and removes it once its
+	// theme's animations end; or after a few seconds regardless, as a hidden window's
+	// may not run. If it comes back first, a render morphs it back into place, taking
+	// data-leaving off, and it stays.
+	function leave(node) {
+	  node.removeAttribute("data-new");
+	  node.classList.remove("ran");
+	  const parent = getComputedStyle(node.parentElement);
+	  if (node.classList.contains("pill")) {
+	    node.style.setProperty("--collapse-y", -(node.offsetHeight + (parseFloat(parent.rowGap) || 0)) + "px");
+	  } else {
+	    node.style.setProperty("--collapse-x", -(node.offsetWidth + (parseFloat(parent.columnGap) || 0)) + "px");
+	  }
+	  node.setAttribute("data-leaving", "");
+	  const leaving = node.leaving = {};
+	  const gone = () => {
+	    if (node.leaving === leaving && node.hasAttribute("data-leaving")) node.remove();
+	  };
+	  const ending = node.getAnimations().filter(a => a.effect?.getComputedTiming().endTime !== Infinity);
+	  Promise.all(ending.map(a => a.finished)).then(gone, gone);
+	  setTimeout(gone, 3000);
 	}
 
 	// A click on anything with data-action posts that action and its data-id. A pill
@@ -138,33 +189,40 @@ templ BarPage(themeCSS string, edge string) {
 }
 
 // BarContent is what the bar shows at now: pills in one column, then cards in a row.
-// fresh gives each card new since the bar last showed, by ID, its place among the new
-// ones, for the theme's entrance animation.
+// fresh gives each pill and card new since the bar last showed, by ElementID, its
+// place among the new ones of its kind, for the theme's entrance animation. The
+// column and the row are there even when empty, so the last of them can animate out.
 templ BarContent(pills []Pill, cards []Card, now time.Time, fresh map[string]int) {
-	if len(pills) > 0 {
-		<div class="pills">
-			for _, p := range pills {
-				@pill(p, now)
-			}
-		</div>
-	}
-	if len(cards) > 0 {
-		<ul>
-			for _, c := range cards {
-				@card(c, now, fresh)
-			}
-		</ul>
-	} else {
+	<div class="pills" id="pills">
+		for _, p := range pills {
+			@pill(p, now, fresh)
+		}
+	</div>
+	<ul id="cards">
+		for _, c := range cards {
+			@card(c, now, fresh)
+		}
+	</ul>
+	if len(cards) == 0 {
 		<div class="empty">No events.</div>
 	}
 }
 
+// entering is the style that gives a new pill or card its place among the new ones.
+func entering(i int) string { return fmt.Sprintf("--i: %d", i) }
+
 // pill is a dot and a label. A pill with a command is itself the button; otherwise a
 // pill with a link has its label as one.
-templ pill(p Pill, now time.Time) {
+templ pill(p Pill, now time.Time, fresh map[string]int) {
 	<div
+		id={ p.ElementID() }
 		class={ "pill", templ.KV("runs", p.Command != ""), templ.KV("opens", p.Link && p.Command == "") }
-		style={ templ.SafeCSS("--pill: " + cssColor(p.ColorAt(now))) }
+		if i, ok := fresh[p.ElementID()]; ok {
+			data-new
+			style={ templ.SafeCSS("--pill: " + cssColor(p.ColorAt(now)) + "; " + entering(i)) }
+		} else {
+			style={ templ.SafeCSS("--pill: " + cssColor(p.ColorAt(now))) }
+		}
 		data-color={ p.ColorAt(now) }
 		if hint := p.hint(now); hint != "" {
 			title={ hint }
@@ -187,6 +245,7 @@ templ pill(p Pill, now time.Time) {
 // but × opens it, if it opens anything.
 templ card(c Card, now time.Time, fresh map[string]int) {
 	<li
+		id={ c.ElementID() }
 		class={ templ.KV(c.Priority, c.Priority != ""), templ.KV("opens", c.Opens) }
 		if c.Hint != "" {
 			title={ c.Hint }
@@ -195,9 +254,9 @@ templ card(c Card, now time.Time, fresh map[string]int) {
 			data-action="open"
 			data-id={ c.ID }
 		}
-		if i, ok := fresh[c.ID]; ok {
+		if i, ok := fresh[c.ElementID()]; ok {
 			data-new
-			style={ templ.SafeCSS(fmt.Sprintf("--i: %d", i)) }
+			style={ templ.SafeCSS(entering(i)) }
 		}
 	>
 		<button class="dismiss" title="Dismiss" data-action="dismiss" data-id={ c.ID }>×</button>

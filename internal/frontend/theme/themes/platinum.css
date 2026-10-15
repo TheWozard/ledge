@@ -40,3 +40,10 @@ li::after { content: ""; position: absolute; top: 3px; right: 5px; width: 13px; 
 .dismiss:active { background: #555; }
 
 .empty { color: #555; }
+
+/* Entering and leaving: a card rolls down out of WindowShade, a line at a time, and
+   rolls back up into its title bar to leave; a pill does the same. */
+li[data-new], .pill[data-new] { animation: unshade .2s steps(5) backwards; animation-delay: calc(var(--i) * 50ms); }
+li[data-leaving], .pill[data-leaving] { animation: shade .2s steps(5) both, collapse .12s .2s steps(3) both; }
+@keyframes unshade { from { clip-path: inset(0 0 calc(100% - 17px) 0); } to { clip-path: inset(0 0 -4px 0); } }
+@keyframes shade { from { clip-path: inset(0 0 -4px 0); } to { clip-path: inset(0 0 calc(100% - 17px) 0); opacity: 0; } }

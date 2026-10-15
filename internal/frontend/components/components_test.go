@@ -44,7 +44,7 @@ func TestCard(t *testing.T) {
 			Tags: []string{"prod"}, Priority: "high", Opens: true, Hint: "https://example.com"},
 		{ID: "plain", Title: "Plain", Source: "manual", Received: now},
 	}
-	html := render(t, BarContent(nil, cards, now, map[string]int{"plain": 0}))
+	html := render(t, BarContent(nil, cards, now, map[string]int{"card-plain": 0}))
 	contains(t, html,
 		`class="high opens"`, `data-action="open" data-id="deploy"`, `title="https://example.com"`,
 		`&lt;b&gt;Deploy&lt;/b&gt;`, `<div class="description">done</div>`,
@@ -52,12 +52,14 @@ func TestCard(t *testing.T) {
 		`<span class="tag">prod</span>`,
 		`data-action="dismiss" data-id="deploy"`,
 		`data-new style="--i: 0;"`)
-	lacks(t, html, "<b>Deploy", `class="pills"`, "No events.")
+	// With no pills, their column is there but empty, to be hidden.
+	contains(t, html, `<div class="pills" id="pills"></div>`)
+	lacks(t, html, "<b>Deploy", "No events.")
 	// The plain card neither opens nor is marked new twice.
 	if strings.Count(html, "data-new") != 1 || strings.Count(html, `data-action="open"`) != 1 {
 		t.Errorf("wrong cards open or are new:\n%s", html)
 	}
-	contains(t, render(t, BarContent(nil, nil, now, nil)), `<div class="empty">No events.</div>`)
+	contains(t, render(t, BarContent(nil, nil, now, nil)), `<ul id="cards"></ul><div class="empty">No events.</div>`)
 }
 
 func TestPill(t *testing.T) {
@@ -67,14 +69,19 @@ func TestPill(t *testing.T) {
 		{ID: "ci", Title: "CI", Color: "#9b59b6", Link: true},
 		{ID: "bad", Title: "Bad", Color: "red; background: url(x)"},
 	}
-	html := render(t, BarContent(pills, nil, now, nil))
+	html := render(t, BarContent(pills, nil, now, map[string]int{"pill-ci": 2}))
 	contains(t, html,
+		// A new pill is marked, with its place among the new ones beside its colour.
+		`data-new style="--pill: #9b59b6; --i: 2;"`,
 		// The step that has passed sets the colour; the one to come is in the tooltip.
 		`class="pill runs"`, `--pill: var(--c-red);`, `data-color="red"`, `data-action="run" data-id="aws"`,
 		"Session\nClick to run: aws sso login\nyellow at",
 		`--pill: #9b59b6;`, `<span class="label" data-action="open" data-id="ci">CI</span>`,
 		// A colour that isn't one shows as gray, and can't add CSS.
 		`style="--pill: var(--c-gray);" data-color="red; background: url(x)"`)
+	if strings.Count(html, "data-new") != 1 {
+		t.Errorf("only the new pill should be marked new:\n%s", html)
+	}
 
 	if c, ok := pills[0].NextChange(now); !ok || !c.Equal(now.Add(time.Hour)) {
 		t.Errorf("NextChange = %v, %v", c, ok)
@@ -96,7 +103,16 @@ func TestBarPage(t *testing.T) {
 	html := render(t, BarPage(":root { --bar: #fff; }", "top"))
 	contains(t, html, `<body class="top">`, "<style>\n:root { --bar: #fff; }</style>", `<div id="app"></div>`,
 		// The layout and the script come through as written.
-		"html, body { margin: 0;", `send("ready");`, `event.target.closest("[data-action]")`)
+		"html, body { margin: 0;", `send("ready");`, `event.target.closest("[data-action]")`,
+		// Idiomorph is inlined whole, and update morphs with it.
+		"<script>var Idiomorph=", `Idiomorph.morph(app, html, {`)
+}
+
+// Pills, cards and what holds them have stable ids, for update to morph each into
+// itself.
+func TestBarContentIDs(t *testing.T) {
+	html := render(t, BarContent([]Pill{{ID: "aws", Title: "AWS"}}, []Card{{ID: "ci", Title: "CI", Received: now}}, now, nil))
+	contains(t, html, `<div class="pills" id="pills">`, `id="pill-aws"`, `<ul id="cards">`, `id="card-ci"`)
 }
 
 func TestReportPage(t *testing.T) {

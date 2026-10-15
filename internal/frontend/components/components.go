@@ -9,6 +9,7 @@
 package components
 
 import (
+	_ "embed"
 	"fmt"
 	"math"
 	"regexp"
@@ -16,6 +17,13 @@ import (
 	"strings"
 	"time"
 )
+
+// idiomorph is Idiomorph 0.8.0 (github.com/bigskysoftware/idiomorph, 0BSD; see
+// vendor/idiomorph.LICENSE), dist/idiomorph.min.js from npm. The bar's page inlines
+// it, since it can't fetch files, to morph what it shows rather than replace it.
+//
+//go:embed vendor/idiomorph.min.js
+var idiomorph string
 
 // Card is an event on the bar.
 type Card struct {
@@ -40,6 +48,12 @@ type Pill struct {
 	Command  string // if set, clicking the pill posts "run" with its ID; shown on hover
 	Link     bool   // clicking the label posts "open" with its ID; ignored with a Command
 }
+
+// ElementID is the card's id on the page, and its key in BarContent's fresh.
+func (c Card) ElementID() string { return "card-" + c.ID }
+
+// ElementID is the pill's id on the page, and its key in BarContent's fresh.
+func (p Pill) ElementID() string { return "pill-" + p.ID }
 
 // Step is a colour change on a pill's schedule.
 type Step struct {

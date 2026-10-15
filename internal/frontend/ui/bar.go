@@ -26,7 +26,7 @@ type Bar struct {
 	mu     sync.Mutex
 	pills  []components.Pill
 	cards  []components.Card
-	shown  map[string]bool // the ids of the cards on the bar, to tell which are new
+	shown  map[string]bool // the element ids of the pills and cards on the bar, to tell which are new
 	ready  bool            // the page has loaded and can take updates
 	redraw *time.Timer     // for the next relative time or scheduled colour to change
 
@@ -90,13 +90,23 @@ func (b *Bar) draw() {
 		return
 	}
 	now := time.Now()
+	// Each pill and card new since the last draw gets its place among the new ones of
+	// its kind, for the theme's entrance animation.
 	fresh := map[string]int{}
 	shown := map[string]bool{}
-	for _, card := range b.cards {
-		if !b.shown[card.ID] {
-			fresh[card.ID] = len(fresh)
+	var newPills, newCards int
+	mark := func(id string, count *int) {
+		if !b.shown[id] {
+			fresh[id] = *count
+			*count++
 		}
-		shown[card.ID] = true
+		shown[id] = true
+	}
+	for _, pill := range b.pills {
+		mark(pill.ElementID(), &newPills)
+	}
+	for _, card := range b.cards {
+		mark(card.ElementID(), &newCards)
 	}
 	b.shown = shown
 
@@ -178,7 +188,7 @@ func (b *Bar) handle(data []byte) {
 	case "ready":
 		b.mu.Lock()
 		b.ready = true
-		b.shown = map[string]bool{} // a fresh page shows every card arriving
+		b.shown = map[string]bool{} // a fresh page shows every pill and card arriving
 		b.mu.Unlock()
 		b.draw()
 	case "dismiss":

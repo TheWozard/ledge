@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -129,11 +130,15 @@ func eventually(t *testing.T, what string, check func() bool) {
 	t.Fatalf("timed out waiting for %s", what)
 }
 
-// show renders pills and cards for the length of the test.
+// show renders pills and cards for the length of the test. Afterwards it clears the
+// bar, and waits for them to have left.
 func show(t *testing.T, pills []components.Pill, cards []components.Card) {
 	t.Helper()
 	testBar.Render(pills, cards)
-	t.Cleanup(func() { testBar.Render(nil, nil) })
+	t.Cleanup(func() {
+		testBar.Render(nil, nil)
+		waitFor(t, `document.querySelector("#pills > *, #cards > *") === null`, "true")
+	})
 }
 
 // withTheme reloads the bar's page in theme for the length of the test; the page then
@@ -209,7 +214,7 @@ func TestRender(t *testing.T) {
 		`document.querySelector("li .title b") === null`:        "true",
 		`document.querySelector("li").className`:                `"high opens"`,
 		`document.querySelector("li .when").textContent`:        `"ci · 2m"`,
-		`document.querySelector(".pill").getAttribute("style")`: `"--pill: var(--c-red);"`,
+		`document.querySelector(".pill").getAttribute("style")`: `"--pill: var(--c-red); --i: 0;"`,
 		`document.querySelector(".pill").dataset.color`:         `"red"`,
 		`document.querySelector("a") === null`:                  "true",
 		`document.querySelectorAll("li[data-new]").length > 0`:  "true",
@@ -325,6 +330,124 @@ func TestPillsScrollVertically(t *testing.T) {
 	if got := eval(t, `document.querySelector(".pills").scrollTop`); got != "40" {
 		t.Errorf("after a render the pills are scrolled to %s, want 40", got)
 	}
+}
+
+// A render morphs the bar: cards and pills still there keep their elements, the row
+// its scroll and a run pill its flash, while what changed changes.
+func TestRenderMorphs(t *testing.T) {
+	gui(t)
+	pills := []components.Pill{{ID: "run", Title: "Run", Command: "true"}, {ID: "still", Title: "Still"}}
+	var cards []components.Card
+	for i := range 12 {
+		cards = append(cards, components.Card{ID: fmt.Sprintf("m-%02d", i), Title: fmt.Sprintf("Card %02d", i), Source: "x", Received: received})
+	}
+	show(t, pills, cards)
+	waitFor(t, `document.querySelectorAll("li").length`, "12")
+	eval(t, `window.kept = document.getElementById("card-m-05");
+		window.keptPill = document.getElementById("pill-still");
+		document.getElementById("cards").scrollLeft = 300;
+		document.getElementById("pill-run").click(), true`)
+	if got := eval(t, `document.getElementById("cards").scrollLeft`); got != "300" {
+		t.Fatalf("the row scrolled to %s, want 300; the test needs more cards", got)
+	}
+
+	// The first card goes, one changes its title, and one arrives.
+	changed := slices.Clone(cards[1:])
+	changed[4].Title = "Renamed"
+	changed = append(changed, components.Card{ID: "m-new", Title: "New", Source: "x", Received: received})
+	testBar.Render(pills, changed)
+	waitFor(t, `document.getElementById("card-m-new") !== null`, "true")
+	for js, want := range map[string]string{
+		`document.getElementById("card-m-05") === window.kept`:                             "true",
+		`document.getElementById("pill-still") === window.keptPill`:                        "true",
+		`window.kept.querySelector(".title").textContent`:                                  `"Renamed"`,
+		`document.getElementById("card-m-00").hasAttribute("data-leaving")`:                "true",
+		`document.getElementById("cards").scrollLeft`:                                      "300",
+		`document.getElementById("pill-run").classList.contains("ran")`:                    "true",
+		`window.kept.hasAttribute("data-new")`:                                             "false",
+		`document.getElementById("card-m-new").hasAttribute("data-new")`:                   "true",
+		`[...document.querySelectorAll("li:not([data-leaving])")].map(li => li.id).join()`: `"` + strings.Join(idsOf(changed), ",") + `"`,
+	} {
+		if got := eval(t, js); got != want {
+			t.Errorf("%s = %s, want %s", js, got, want)
+		}
+	}
+	waitFor(t, `document.getElementById("card-m-00") === null`, "true")
+}
+
+// In every theme, new pills and cards animate in, and gone ones animate out before
+// they're removed, while what follows closes up; "No events." waits for the last.
+func TestEnterAndLeave(t *testing.T) {
+	gui(t)
+	pills := []components.Pill{{ID: "a", Title: "A"}, {ID: "b", Title: "B"}}
+	cards := []components.Card{
+		{ID: "x", Title: "X", Source: "s", Received: received},
+		{ID: "y", Title: "Y", Source: "s", Received: received},
+	}
+	for _, name := range theme.Names {
+		t.Run(name, func(t *testing.T) {
+			withTheme(t, name)
+			show(t, pills, cards)
+			waitFor(t, `document.querySelectorAll("#pills > .pill, #cards > li").length`, "4")
+			// Everything's new on a fresh page, and animates in.
+			if got := eval(t, `[...document.querySelectorAll(".pill, li")].every(e => e.hasAttribute("data-new") && e.getAnimations().length > 0)`); got != "true" {
+				t.Errorf("not every new pill and card is animating in")
+			}
+			// Once in, nothing's left of the animation: none holds its end, which
+			// WebKit can leave a step short of how the element looks.
+			waitFor(t, `[...document.querySelectorAll(".pill, li")].every(e => e.getAnimations().length === 0)`, "true")
+
+			// Pill a and card x go: each is kept, leaving, out of reach of clicks,
+			// and told how far to collapse.
+			testBar.Render(pills[1:], cards[1:])
+			waitFor(t, `document.getElementById("card-x")?.hasAttribute("data-leaving")`, "true")
+			for _, id := range []string{"pill-a", "card-x"} {
+				got := eval(t, `(e => [e.hasAttribute("data-leaving"), getComputedStyle(e).pointerEvents,
+					e.getAnimations().length > 0,
+					parseFloat(e.style.getPropertyValue(e.classList.contains("pill") ? "--collapse-y" : "--collapse-x")) < 0].join())(document.getElementById("`+id+`"))`)
+				if got != `"true,none,true,true"` {
+					t.Errorf("%s: leaving, pointer-events, animating, collapsing = %s", id, got)
+				}
+			}
+			waitFor(t, `document.getElementById("card-x") === null && document.getElementById("pill-a") === null`, "true")
+			if got := eval(t, `document.getElementById("card-y").getBoundingClientRect().left === document.getElementById("cards").getBoundingClientRect().left + parseFloat(getComputedStyle(document.getElementById("cards")).paddingLeft)`); got != "true" {
+				t.Error("card y didn't close up into card x's place")
+			}
+
+			// The last card leaves before "No events." shows.
+			testBar.Render(nil, nil)
+			waitFor(t, `document.getElementById("card-y")?.hasAttribute("data-leaving")`, "true")
+			if got := eval(t, `getComputedStyle(document.querySelector(".empty")).display`); got != `"none"` {
+				t.Errorf(`"No events." shows while the last card is leaving (display %s)`, got)
+			}
+			waitFor(t, `document.getElementById("card-y") === null && getComputedStyle(document.querySelector(".empty")).display !== "none"`, "true")
+		})
+	}
+}
+
+// A card that comes back while it's leaving stays.
+func TestComesBackWhileLeaving(t *testing.T) {
+	gui(t)
+	cards := []components.Card{{ID: "back", Title: "Back", Source: "s", Received: received}, {ID: "other", Title: "Other", Source: "s", Received: received}}
+	show(t, nil, cards)
+	waitFor(t, `document.querySelectorAll("li").length`, "2")
+	eval(t, `window.back = document.getElementById("card-back"), true`)
+	testBar.Render(nil, cards[1:])
+	waitFor(t, `window.back.hasAttribute("data-leaving")`, "true")
+	testBar.Render(nil, cards)
+	waitFor(t, `window.back.hasAttribute("data-leaving")`, "false")
+	time.Sleep(3500 * time.Millisecond) // past the longest a leaving card is kept
+	if got := eval(t, `document.getElementById("card-back") === window.back && window.back.isConnected`); got != "true" {
+		t.Error("a card that came back was removed anyway")
+	}
+}
+
+func idsOf(cards []components.Card) []string {
+	var ids []string
+	for _, c := range cards {
+		ids = append(ids, "card-"+c.ID)
+	}
+	return ids
 }
 
 // Each theme loads, shows the cards, and paints the whole bar.

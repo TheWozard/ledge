@@ -53,10 +53,12 @@ func main() {
 
 ### Components
 
-The bar is rendered in Go: `Bar.Render` renders `BarContent` and swaps it into the page,
-keeping the row's and the pills' scroll positions. It renders again on its own when a
-relative time ("5m") goes stale or a pill's scheduled colour change is due, and marks
-cards that weren't there before for the theme's entrance animation.
+The bar is rendered in Go: `Bar.Render` renders `BarContent`, and the page morphs into it
+with [Idiomorph](https://github.com/bigskysoftware/idiomorph), matching pills and cards
+by id. Only what changed is touched, so the rest keep their elements: the row and the
+pills keep their scroll, a hovered card its tooltip, a clicked pill its flash. New pills
+and cards animate in, and gone ones animate out before they're removed. It renders again on its own when a
+relative time ("5m") goes stale or a pill's scheduled colour change is due.
 
 A report is a title and any `templ.Component`s, drawn top to bottom, shown for an id
 such as the card it's about. Each id has its own window: showing the same id again
@@ -95,7 +97,9 @@ stylesheets in [theme/themes/](theme/themes/): `<name>.css` on top of the bar's 
 and `<name>.report.css` on top of the report window's. The comments at the top of the
 layout styles in [bar.templ](components/bar.templ) and
 [report.templ](components/report.templ) say what a theme can hook into: the colour
-variables it sets, a pill's `data-color`, a new card's `data-new`, the report window's
+variables it sets, a pill's `data-color`, a new pill's or card's `data-new` and a gone
+one's `data-leaving` (for enter and exit animations, the exit ending with the layout's
+`collapse` so the rest close up), the report window's
 `.titlebar` and its buttons, and the `main` that scrolls under it. `theme.Frames` says whether a theme's report window is
 light or dark, and whether the theme draws the whole window (square corners, its own
 buttons and border).
@@ -125,4 +129,5 @@ can't check hover, a real mouse drag, keyboard shortcuts or how the windows look
 
 ## License
 
-MIT; the bundled fonts are under the SIL Open Font License.
+MIT; the bundled fonts are under the SIL Open Font License, and the vendored Idiomorph
+([components/vendor/](components/vendor/)) under 0BSD.
