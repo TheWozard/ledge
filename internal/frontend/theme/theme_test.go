@@ -21,7 +21,7 @@ func TestCSS(t *testing.T) {
 				continue
 			}
 			used[file] = true
-			if strings.Contains(css, "url(fonts/") {
+			if fontURL.MatchString(css) {
 				t.Errorf("%s: a font wasn't inlined", file)
 			}
 			// Each page uses one variable for the opaque colour behind everything.
@@ -54,5 +54,22 @@ func TestFrames(t *testing.T) {
 		if !slices.Contains(Names, name) || !slices.Contains([]string{"", "light", "dark"}, frame.Appearance) {
 			t.Errorf("Frames[%q] = %+v", name, frame)
 		}
+	}
+}
+
+// A font's url is inlined whether it's quoted or not; a missing font is an error.
+func TestInlineFonts(t *testing.T) {
+	for _, css := range []string{
+		`src: url(fonts/silkscreen.woff2)`,
+		`src: url("fonts/silkscreen.woff2")`,
+		`src: url( 'fonts/silkscreen.woff2' )`,
+	} {
+		got, err := inlineFonts(css)
+		if err != nil || !strings.HasPrefix(got, "src: url(data:font/woff2;base64,") || strings.Contains(got, "fonts/") {
+			t.Errorf("inlineFonts(%s) = %.60s…, %v", css, got, err)
+		}
+	}
+	if _, err := inlineFonts(`url(fonts/missing.woff2)`); err == nil {
+		t.Error("a missing font should be an error")
 	}
 }

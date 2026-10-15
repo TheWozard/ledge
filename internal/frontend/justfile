@@ -8,6 +8,10 @@ default:
 generate:
     templ generate
 
+# Fail if the committed *_templ.go files aren't what the .templ files compile to.
+check-generated: generate
+    git diff --exit-code -- '*_templ.go'
+
 # The tests that don't open windows.
 test: generate
     go test ./...

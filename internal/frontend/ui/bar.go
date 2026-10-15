@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/TheWozard/ledge-frontend/components"
@@ -30,9 +31,15 @@ type Bar struct {
 	redraw *time.Timer     // for the next relative time or scheduled colour to change
 }
 
-// Open creates the bar, places it and loads its page. Call it after Init and before
-// Run, on the main goroutine.
+// opened is whether Open has made the bar: there's one, and the shim's handlers are its.
+var opened atomic.Bool
+
+// Open creates the bar, places it and loads its page. Call it once, after Init and
+// before Run, on the main goroutine.
 func Open(options Options, handlers Handlers) (*Bar, error) {
+	if opened.Load() {
+		return nil, errors.New("ui: the bar is already open")
+	}
 	css, err := theme.CSS(options.Theme, theme.Bar)
 	if err != nil {
 		return nil, err
@@ -41,6 +48,7 @@ func Open(options Options, handlers Handlers) (*Bar, error) {
 	if err := components.BarPage(css, options.Edge).Render(context.Background(), &page); err != nil {
 		return nil, err
 	}
+	opened.Store(true)
 	b := &Bar{options: options, handlers: handlers, shown: map[string]bool{}}
 	shim.CreateBar(BarWindow)
 	shim.SetLevel(BarWindow, options.Level)
@@ -68,8 +76,9 @@ func (b *Bar) Render(pills []components.Pill, cards []components.Card) {
 }
 
 // draw renders what the bar has into its page, once the page is ready, and sets a
-// timer for the next time it would look different: a relative time going stale (once
-// a minute) or a pill's scheduled colour change.
+// timer for the next time it would look different: a card's relative time going stale
+// (once a minute) or a pill's scheduled colour change. With neither, it waits for the
+// next Render.
 func (b *Bar) draw() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -96,16 +105,22 @@ func (b *Bar) draw() {
 	js, _ := json.Marshal(html.String())
 	shim.Eval(BarWindow, "update("+string(js)+")")
 
-	next := now.Add(time.Minute)
+	var next time.Time
+	if len(b.cards) > 0 {
+		next = now.Add(time.Minute)
+	}
 	for _, pill := range b.pills {
-		if at, ok := pill.NextChange(now); ok && at.Before(next) {
+		if at, ok := pill.NextChange(now); ok && (next.IsZero() || at.Before(next)) {
 			next = at.Add(50 * time.Millisecond)
 		}
 	}
 	if b.redraw != nil {
 		b.redraw.Stop()
+		b.redraw = nil
 	}
-	b.redraw = time.AfterFunc(time.Until(next), b.draw)
+	if !next.IsZero() {
+		b.redraw = time.AfterFunc(time.Until(next), b.draw)
+	}
 }
 
 // Place puts the bar along its edge of its screen, and returns where it went. The bar

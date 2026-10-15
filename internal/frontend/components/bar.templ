@@ -30,6 +30,8 @@ templ BarPage(themeCSS string, edge string) {
 	   animation. */
 	* { box-sizing: border-box; }
 	html, body { margin: 0; height: 100%; background: var(--bar); overflow: hidden; }
+	/* The bar stays put against the window's edges: no rubber-band bounce. */
+	html { overscroll-behavior: none; }
 	body { -webkit-user-select: none; cursor: default; }
 
 	/* The bar fills the window: status pills on the left, then the scrolling row of cards. */

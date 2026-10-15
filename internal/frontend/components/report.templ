@@ -32,7 +32,9 @@ templ ReportPage(themeCSS string, title string, blocks []templ.Component) {
 	   title bar's .close, .minimise and .zoom buttons, hidden here, and any border. */
 	:root { --titlebar: 28px; }
 	* { box-sizing: border-box; }
-	html { background: var(--page); }
+	/* No rubber-band bounce at either end: it would pull the page, title bar and a
+	   theme's drawn border away from the window's edges. */
+	html { background: var(--page); overscroll-behavior: none; }
 	body { margin: 0; padding: calc(var(--titlebar) + 18px) 24px 28px; overflow-wrap: anywhere; }
 	.titlebar { position: fixed; z-index: 1; top: 0; left: 0; right: 0; height: var(--titlebar); padding: 0 78px;
 	            line-height: var(--titlebar); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;

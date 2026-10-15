@@ -14,7 +14,7 @@ void ledgeInit(void);
 void ledgeRun(void);
 void ledgeStop(void);
 
-// ledgeCreateBar creates `window` as the bar: borderless, at the normal window level.
+// ledgeCreateBar creates `window` as the bar, if it doesn't exist yet: borderless, at the normal window level.
 // It opens on the current Space and stays there, like any window.
 void ledgeCreateBar(int window);
 // ledgePlaceBar stretches the bar across the visible area of screen `screen` (screen
@@ -43,7 +43,7 @@ void ledgeSetLevel(int window, int level);
 void ledgeSetAppearance(int window, int appearance);
 
 // Every navigation in every window asks goLedgeNavigate, which says whether to allow
-// it. One that would open a new window is loaded in the same one if allowed.
+// it. One that would open a new window goes nowhere.
 void ledgeLoadHTML(int window, const char *html);
 void ledgeEval(int window, const char *js);
 // ledgeEvalResult runs js and reports its result, as JSON, to goLedgeEvalResult.

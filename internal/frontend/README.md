@@ -110,6 +110,7 @@ files are committed, so building doesn't need it:
 ```sh
 go install github.com/a-h/templ/cmd/templ@v0.3.1001
 just generate      # templ generate
+just check-generated # fail if the committed *_templ.go are stale
 just test          # go test ./...
 just gui           # the tests that open windows: LEDGE_GUI_TEST=1 go test ./ui
 just preview win95 # a bar and a report window in a theme, until ctrl-c

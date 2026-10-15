@@ -274,6 +274,25 @@ func TestMessagesAreChecked(t *testing.T) {
 	}
 }
 
+// A value that can't be JSON, posted or returned, is dropped or an error, not a crash.
+func TestNotJSON(t *testing.T) {
+	gui(t)
+	eval(t, `[new Date(), NaN, {n: Infinity}].forEach(m => window.webkit.messageHandlers.ledge.postMessage(m)), true`)
+	if _, err := shim.EvalResult(BarWindow, `new Date()`); err == nil {
+		t.Error("a Date result should be an error")
+	}
+	if got := eval(t, `1 + 1`); got != "2" {
+		t.Errorf("after values that aren't JSON, 1 + 1 = %s", got)
+	}
+}
+
+func TestOpenOnce(t *testing.T) {
+	gui(t)
+	if _, err := Open(defaults, Handlers{}); err == nil {
+		t.Error("a second Open should be an error")
+	}
+}
+
 func TestNoNavigation(t *testing.T) {
 	gui(t)
 	waitFor(t, `document.getElementById("app") !== null`, "true")
@@ -361,6 +380,13 @@ var reportBlocks = []templ.Component{
 	components.Link("The run", "https://example.com/from-report"),
 }
 
+// setTheme sets the theme the next report is shown in.
+func setTheme(name string) {
+	testBar.mu.Lock()
+	defer testBar.mu.Unlock()
+	testBar.options.Theme = name
+}
+
 func showReport(t *testing.T, title string, blocks []templ.Component) {
 	t.Helper()
 	if err := testBar.ShowReport(title, blocks); err != nil {
@@ -381,6 +407,8 @@ func TestReportWindow(t *testing.T) {
 		`document.querySelector(".note").dataset.color`:                                          `"yellow"`,
 		`getComputedStyle(document.documentElement).backgroundColor.startsWith("rgb(")`:          "true",
 		`(s => s.position + " " + s.top)(getComputedStyle(document.querySelector(".titlebar")))`: `"fixed 0px"`,
+		// Scrolling past an end doesn't bounce the page away from the window's edges.
+		`getComputedStyle(document.documentElement).overscrollBehaviorY`: `"none"`,
 		// The page can't post to the app.
 		`!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.ledge)`: "true",
 	} {
@@ -402,9 +430,9 @@ func TestReportWindow(t *testing.T) {
 // Every theme draws a report on an opaque background.
 func TestReportThemes(t *testing.T) {
 	gui(t)
-	defer func() { testBar.options.Theme = theme.Default }()
+	defer setTheme(theme.Default)
 	for _, name := range theme.Names {
-		testBar.options.Theme = name
+		setTheme(name)
 		showReport(t, "Themed report", reportBlocks)
 		// Each report stylesheet starts with a comment naming its theme.
 		waitIn(t, ReportWindow, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* `+name+`:"))`, "true")
@@ -418,7 +446,7 @@ func TestReportThemes(t *testing.T) {
 // can't do even that. A theme that draws its own buttons shows them, and they work.
 func TestReportFrame(t *testing.T) {
 	gui(t)
-	defer func() { testBar.options.Theme = theme.Default }()
+	defer setTheme(theme.Default)
 	if got := eval(t, `!!window.webkit.messageHandlers.frame`); got != "false" {
 		t.Error("the bar page has the frame handler")
 	}
@@ -439,7 +467,7 @@ func TestReportFrame(t *testing.T) {
 	}
 
 	// Win 95 draws the whole window, buttons included; its close button closes it.
-	testBar.options.Theme = "win95"
+	setTheme("win95")
 	showReport(t, "Framed report", blocks)
 	waitIn(t, ReportWindow, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* win95:"))`, "true")
 	for _, button := range []string{"close", "minimise", "zoom"} {

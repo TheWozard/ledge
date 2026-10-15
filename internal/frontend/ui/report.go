@@ -17,7 +17,10 @@ import (
 // brings it forward. There's one report window, reused for each report. A block is
 // any component; components has the usual ones.
 func (b *Bar) ShowReport(title string, blocks []templ.Component) error {
-	css, err := theme.CSS(b.options.Theme, theme.Report)
+	b.mu.Lock()
+	name := b.options.Theme
+	b.mu.Unlock()
+	css, err := theme.CSS(name, theme.Report)
 	if err != nil {
 		return err
 	}
@@ -25,7 +28,7 @@ func (b *Bar) ShowReport(title string, blocks []templ.Component) error {
 	if err := components.ReportPage(css, title, blocks).Render(context.Background(), &page); err != nil {
 		return err
 	}
-	frame := theme.Frames[b.options.Theme]
+	frame := theme.Frames[name]
 	shim.CreateWindow(ReportWindow, title, 900, 700)
 	shim.SetTitle(ReportWindow, title)
 	shim.SetAppearance(ReportWindow, frame.Appearance)

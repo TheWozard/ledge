@@ -9,6 +9,7 @@ import (
 	"path"
 	"regexp"
 	"slices"
+	"sync"
 )
 
 //go:embed themes/*.css themes/fonts/*.woff2
@@ -49,8 +50,13 @@ var Frames = map[string]Frame{
 	"hifi":      {Appearance: "light"},
 }
 
-// fontURL is how a stylesheet names one of themes/fonts: url(fonts/<file>).
-var fontURL = regexp.MustCompile(`url\(fonts/([a-z0-9-]+\.woff2)\)`)
+// fontURL is how a stylesheet names one of themes/fonts: url(fonts/<file>), its url
+// quoted or not.
+var fontURL = regexp.MustCompile(`url\(\s*["']?fonts/([a-z0-9-]+\.woff2)["']?\s*\)`)
+
+// stylesheets is each stylesheet CSS has made, by theme and page: they're built in,
+// so they never change.
+var stylesheets sync.Map
 
 // CSS is theme's stylesheet for page, with its fonts inlined as data: urls, since
 // ledge's pages are loaded from strings and can't fetch files.
@@ -58,16 +64,29 @@ func CSS(name string, page Page) (string, error) {
 	if !slices.Contains(Names, name) {
 		return "", fmt.Errorf("no theme %q", name)
 	}
-	css, err := files.ReadFile(path.Join("themes", name+"."+string(page)))
+	file := name + "." + string(page)
+	if css, ok := stylesheets.Load(file); ok {
+		return css.(string), nil
+	}
+	css, err := files.ReadFile(path.Join("themes", file))
 	if err != nil {
 		return "", fmt.Errorf("theme %s: %w", name, err)
 	}
+	inlined, err := inlineFonts(string(css))
+	if err != nil {
+		return "", fmt.Errorf("theme %s: %w", name, err)
+	}
+	stylesheets.Store(file, inlined)
+	return inlined, nil
+}
+
+// inlineFonts replaces each of css's urls for themes/fonts with the font as a data: url.
+func inlineFonts(css string) (string, error) {
 	var missing error
-	inlined := fontURL.ReplaceAllStringFunc(string(css), func(url string) string {
-		file := fontURL.FindStringSubmatch(url)[1]
-		data, err := files.ReadFile(path.Join("themes/fonts", file))
+	inlined := fontURL.ReplaceAllStringFunc(css, func(url string) string {
+		data, err := files.ReadFile(path.Join("themes/fonts", fontURL.FindStringSubmatch(url)[1]))
 		if err != nil {
-			missing = fmt.Errorf("theme %s: %w", name, err)
+			missing = err
 			return url
 		}
 		return "url(data:font/woff2;base64," + base64.StdEncoding.EncodeToString(data) + ")"

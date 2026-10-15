@@ -73,7 +73,7 @@ func Run() { C.ledgeRun() }
 // Stop makes Run return.
 func Stop() { C.ledgeStop() }
 
-// CreateBar creates window id as the bar.
+// CreateBar creates window id as the bar, if it doesn't exist yet.
 func CreateBar(id int) { C.ledgeCreateBar(C.int(id)) }
 
 // PlaceBar puts the bar along the top or bottom of a screen and returns its frame.

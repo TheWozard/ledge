@@ -7,6 +7,18 @@
 // without escaping "/" as "\/".
 static const NSJSONWritingOptions jsonOptions = NSJSONWritingFragmentsAllowed | NSJSONWritingWithoutEscapingSlashes;
 
+// jsonString is value as JSON, or nil if it can't be: NSJSONSerialization throws,
+// rather than failing, on a value such as a Date or NaN.
+static NSString *jsonString(id value) {
+    NSData *data = nil;
+    @try {
+        data = [NSJSONSerialization dataWithJSONObject:value options:jsonOptions error:nil];
+    } @catch (NSException *e) {
+        return nil;
+    }
+    return data == nil ? nil : [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+}
+
 // Runs block on the main thread, waiting for it. Calls already on the main thread
 // run straight away, so a callback into Go can call back into the shim.
 static void onMainSync(dispatch_block_t block) {
@@ -41,6 +53,13 @@ static void onMain(dispatch_block_t block) {
         [super performClose:sender];
     }
 }
+@end
+
+// The bar never closes: Cmd-W while it's key would otherwise close it for good.
+@interface LedgeBarWindow : LedgeWindow
+@end
+@implementation LedgeBarWindow
+- (void)performClose:(id)sender {}
 @end
 
 // Takes the first click even when ledge isn't the active app, so a click on the bar
@@ -111,11 +130,10 @@ static NSMutableDictionary<NSNumber *, NSString *> *pages;
 - (void)userContentController:(WKUserContentController *)controller didReceiveScriptMessage:(WKScriptMessage *)message {
     // Anything JSON goes to Go, which checks it against a schema; a value that can't
     // be JSON is dropped here.
-    NSData *data = [NSJSONSerialization dataWithJSONObject:message.body options:jsonOptions error:nil];
-    if (data == nil) {
+    NSString *json = jsonString(message.body);
+    if (json == nil) {
         return;
     }
-    NSString *json = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
     goLedgeMessage(self.windowID, (char *)json.UTF8String);
 }
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)action
@@ -126,12 +144,8 @@ static NSMutableDictionary<NSNumber *, NSString *> *pages;
         decisionHandler(WKNavigationActionPolicyCancel);
         return;
     }
-    if (action.targetFrame == nil) {
-        // A link to a new window (target=_blank): there are no others, so load it here.
-        decisionHandler(WKNavigationActionPolicyCancel);
-        [webView loadRequest:action.request];
-        return;
-    }
+    // One for a new window (target=_blank) does nothing even if allowed: there's no
+    // WKUIDelegate to make one.
     decisionHandler(WKNavigationActionPolicyAllow);
 }
 // The page's process was killed (memory pressure, a WebKit crash), leaving the window
@@ -212,11 +226,14 @@ static WKWebView *newWebView(int window, NSRect frame, BOOL messages) {
 
 void ledgeCreateBar(int window) {
     onMainSync(^{
+        if (windows[@(window)] != nil) {
+            return;
+        }
         NSRect frame = NSMakeRect(0, 0, 800, 110);
-        NSWindow *win = [[LedgeWindow alloc] initWithContentRect:frame
-                                                       styleMask:NSWindowStyleMaskBorderless
-                                                         backing:NSBackingStoreBuffered
-                                                           defer:NO];
+        NSWindow *win = [[LedgeBarWindow alloc] initWithContentRect:frame
+                                                          styleMask:NSWindowStyleMaskBorderless
+                                                            backing:NSBackingStoreBuffered
+                                                              defer:NO];
         win.releasedWhenClosed = NO;
         // Left out of Cmd-` cycling; otherwise managed like any window, so it opens on
         // the current Space. It starts at the normal level; see ledgeSetLevel.
@@ -365,9 +382,15 @@ void ledgeEvalResult(int window, const char *js, uintptr_t handle) {
                 goLedgeEvalResult(handle, NULL, (char *)error.localizedDescription.UTF8String);
                 return;
             }
-            NSData *data = result == nil ? nil
-                : [NSJSONSerialization dataWithJSONObject:result options:jsonOptions error:nil];
-            NSString *json = data == nil ? @"null" : [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+            if (result == nil) {
+                goLedgeEvalResult(handle, "null", NULL);
+                return;
+            }
+            NSString *json = jsonString(result);
+            if (json == nil) {
+                goLedgeEvalResult(handle, NULL, "the result isn't JSON");
+                return;
+            }
             goLedgeEvalResult(handle, (char *)json.UTF8String, NULL);
         }];
     });
