@@ -162,3 +162,7 @@ LEDGE_GUI_TEST=1 go test ./internal/bar
 
 They read the page's DOM through the shim. They can't check hover, real clicks
 or how the bar looks; those need a person.
+
+## License
+
+[MIT](LICENSE)
