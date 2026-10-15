@@ -4,9 +4,8 @@
 # go at the swap, and the expiring card within 90 seconds of it (ledge drops expired
 # events every 30 seconds).
 #
-# Its cards open local pages this script writes. The swap rewrites the feed's report
-# file, so clicking a card with it before and after shows each version: the report
-# window reads the file afresh on each click.
+# A card opens a local page this script writes; the others have reports, which differ
+# before and after the swap.
 #
 #   feed.sh [SECONDS]   pause SECONDS before the swap (default 5)
 #   feed.sh clear       remove everything this script sent, and its pages
@@ -64,18 +63,18 @@ if [[ "${1:-}" == "clear" ]]; then
 fi
 seconds="${1:-5}"
 
-report="$(page "$PAGES/report.html" "Feed report, first version" "<p>Sent with items 1 and 2.</p>")"
 link="$(url "$(page "$PAGES/item-2.html" "Feed item 2" "<p>Item 2's url.</p>")")"
 send '{"source": "example-feed", "items": [
-  {"id": "feed-1", "title": "Feed item 1", "description": "Opens the feed report.", "report": "'"$report"'"},
+  {"id": "feed-1", "title": "Feed item 1", "description": "Opens the feed report.",
+   "report": [{"type": "text", "text": "Feed report, first version: sent with items 1 and 2."}]},
   {"id": "feed-2", "title": "Feed item 2", "priority": "medium", "description": "Opens a local page.", "url": "'"$link"'"},
   {"kind": "status", "id": "feed-status", "title": "Feed", "color": "yellow"}]}'
 echo "Sent the feed; replacing it in ${seconds}s..." >&2
 sleep "$seconds"
 
-page "$PAGES/report.html" "Feed report, second version" "<p>Rewritten when item 3 replaced items 1 and 2.</p>" >/dev/null
 send '{"source": "example-feed", "items": [
   {"id": "feed-3", "title": "Feed item 3 (replaced 1 and 2)", "expires": "1m",
-   "description": "Expires 1 minute after it was sent. Opens the rewritten report.", "report": "'"$report"'"},
+   "description": "Expires 1 minute after it was sent. Opens the second report.",
+   "report": [{"type": "text", "text": "Feed report, second version: sent when item 3 replaced items 1 and 2."}]},
   {"kind": "status", "id": "feed-status", "title": "Feed", "color": "green"}]}'
 echo "Replaced the feed" >&2

@@ -29,7 +29,7 @@ build:
 bar *args:
     scripts/bar.sh {{args}}
 
-# An example card with an HTML report.
+# Example cards with reports.
 report *args:
     scripts/report.sh {{args}}
 

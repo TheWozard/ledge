@@ -27,22 +27,79 @@ static void onMain(dispatch_block_t block) {
 }
 
 // A borderless window can't become key by default, which stops the page taking clicks.
+// Nor can it close with performClose: (Cmd-W, or a page's close button), which acts
+// as a click on the close button it hasn't got, so it just closes.
 @interface LedgeWindow : NSWindow
 @end
 @implementation LedgeWindow
 - (BOOL)canBecomeKeyWindow { return YES; }
 - (BOOL)canBecomeMainWindow { return YES; }
+- (void)performClose:(id)sender {
+    if ([self standardWindowButton:NSWindowCloseButton] == nil) {
+        [self close];
+    } else {
+        [super performClose:sender];
+    }
+}
 @end
 
 // Takes the first click even when ledge isn't the active app, so a click on the bar
-// acts rather than only activating it.
+// acts rather than only activating it. Keeps the last mouse-down, which a window drag
+// the page asks for starts from.
 @interface LedgeWebView : WKWebView
+@property(strong) NSEvent *lastMouseDown;
 @end
 @implementation LedgeWebView
 - (BOOL)acceptsFirstMouse:(NSEvent *)event { return YES; }
+- (void)mouseDown:(NSEvent *)event {
+    self.lastMouseDown = event;
+    [super mouseDown:event];
+}
 @end
 
-// Passes page messages, navigations and title changes to Go. A page with the message
+// Lets a page move and close its own window, as the title bar it draws would. It posts
+// one of four strings with window.webkit.messageHandlers.frame.postMessage(...):
+// "drag" on a mouse-down in its title bar, and "close", "minimise" or "zoom" from its
+// own buttons. Anything else is dropped, and none of it reaches Go.
+@interface LedgeFrameHandler : NSObject <WKScriptMessageHandler>
+@end
+@implementation LedgeFrameHandler
+- (void)userContentController:(WKUserContentController *)controller didReceiveScriptMessage:(WKScriptMessage *)message {
+    LedgeWebView *webView = (LedgeWebView *)message.webView;
+    NSWindow *win = webView.window;
+    if (win == nil || ![message.body isKindOfClass:[NSString class]]) {
+        return;
+    }
+    NSString *action = message.body;
+    if ([action isEqualToString:@"drag"]) {
+        NSEvent *down = webView.lastMouseDown;
+        // The page posts as the button goes down, so it's normally still held; a
+        // click that's already over doesn't start a drag.
+        if (down == nil || (NSEvent.pressedMouseButtons & 1) == 0) {
+            return;
+        }
+        if (down.clickCount == 2) {
+            // A double-click on a title bar does what System Settings says.
+            NSString *pref = [[NSUserDefaults standardUserDefaults] stringForKey:@"AppleActionOnDoubleClick"];
+            if ([pref isEqualToString:@"Minimize"]) {
+                [win miniaturize:nil];
+            } else if (![pref isEqualToString:@"None"]) {
+                [win zoom:nil];
+            }
+            return;
+        }
+        [win performWindowDragWithEvent:down];
+    } else if ([action isEqualToString:@"close"]) {
+        [win performClose:nil];
+    } else if ([action isEqualToString:@"minimise"]) {
+        [win miniaturize:nil];
+    } else if ([action isEqualToString:@"zoom"]) {
+        [win zoom:nil];
+    }
+}
+@end
+
+// Passes page messages and navigations to Go. A page with the message
 // handler posts {action, id...} with window.webkit.messageHandlers.ledge.postMessage(...).
 @interface LedgeDelegate : NSObject <WKScriptMessageHandler, WKNavigationDelegate>
 @property int windowID;
@@ -73,11 +130,6 @@ static void onMain(dispatch_block_t block) {
         return;
     }
     decisionHandler(WKNavigationActionPolicyAllow);
-}
-- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object
-                        change:(NSDictionary *)change context:(void *)context {
-    NSString *title = ((WKWebView *)object).title ?: @"";
-    goLedgeTitleChanged(self.windowID, (char *)title.UTF8String);
 }
 @end
 
@@ -127,16 +179,19 @@ void ledgeStop(void) {
     });
 }
 
+// newWebView makes a window's web view. A page in the bar can post messages to Go; a
+// page in any other window can only ask for its own window to move or close.
 static WKWebView *newWebView(int window, NSRect frame, BOOL messages) {
     LedgeDelegate *delegate = [LedgeDelegate new];
     delegate.windowID = window;
     WKWebViewConfiguration *config = [WKWebViewConfiguration new];
     if (messages) {
         [config.userContentController addScriptMessageHandler:delegate name:@"ledge"];
+    } else {
+        [config.userContentController addScriptMessageHandler:[LedgeFrameHandler new] name:@"frame"];
     }
     WKWebView *webView = [[LedgeWebView alloc] initWithFrame:frame configuration:config];
     webView.navigationDelegate = delegate;
-    [webView addObserver:delegate forKeyPath:@"title" options:0 context:NULL];
     webView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     delegates[@(window)] = delegate;
     webViews[@(window)] = webView;
@@ -152,15 +207,19 @@ void ledgeCreateBar(int window) {
                                                            defer:NO];
         win.releasedWhenClosed = NO;
         // Left out of Cmd-` cycling; otherwise managed like any window, so it opens on
-        // the current Space.
+        // the current Space. It starts at the normal level; see ledgeSetLevel.
         win.collectionBehavior = NSWindowCollectionBehaviorIgnoresCycle;
-        win.level = NSStatusWindowLevel;
         win.hidesOnDeactivate = NO;
         win.hasShadow = NO;
         win.contentView = newWebView(window, frame, YES);
         windows[@(window)] = win;
     });
 }
+
+// The report window's style: titled, with the page under a see-through title bar. A
+// frameless one drops the title bar, and with it the rounded corners and buttons.
+static const NSWindowStyleMask titledMask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
+    | NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskFullSizeContentView;
 
 void ledgeCreateWindow(int window, const char *title, double width, double height) {
     NSString *text = [NSString stringWithUTF8String:title];
@@ -169,12 +228,18 @@ void ledgeCreateWindow(int window, const char *title, double width, double heigh
             return;
         }
         NSRect frame = NSMakeRect(0, 0, width, height);
-        NSWindow *win = [[NSWindow alloc] initWithContentRect:frame
-                                                    styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
-                                                            | NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable
-                                                      backing:NSBackingStoreBuffered
-                                                        defer:NO];
+        // A LedgeWindow, so it can still take keys with ledgeSetFrameless.
+        NSWindow *win = [[LedgeWindow alloc] initWithContentRect:frame
+                                                       styleMask:titledMask
+                                                         backing:NSBackingStoreBuffered
+                                                           defer:NO];
         win.releasedWhenClosed = NO;
+        // The page fills the whole window, title bar included: the title bar is
+        // see-through and its title hidden, leaving only the close, minimise and zoom
+        // buttons over the page, which draws its own title. The title is still set,
+        // for Mission Control and the Window menu of other apps.
+        win.titlebarAppearsTransparent = YES;
+        win.titleVisibility = NSWindowTitleHidden;
         win.title = text;
         win.contentMinSize = NSMakeSize(480, 320);
         win.contentView = newWebView(window, frame, NO);
@@ -196,18 +261,47 @@ void ledgeShowWindow(int window) {
     });
 }
 
+void ledgeSetFrameless(int window, int frameless) {
+    onMainSync(^{
+        NSWindow *win = windows[@(window)];
+        NSWindowStyleMask mask = frameless ? titledMask & ~NSWindowStyleMaskTitled : titledMask;
+        if (win == nil || win.styleMask == mask) {
+            return;
+        }
+        win.styleMask = mask;
+        win.hasShadow = YES;
+        if (!frameless) {
+            win.titlebarAppearsTransparent = YES;
+            win.titleVisibility = NSWindowTitleHidden;
+        }
+    });
+}
+
+int ledgeWindowVisible(int window) {
+    __block int visible = 0;
+    onMainSync(^{
+        visible = windows[@(window)].isVisible;
+    });
+    return visible;
+}
+
+void ledgeSetLevel(int window, int level) {
+    onMain(^{
+        windows[@(window)].level = level == 2 ? NSStatusWindowLevel : level == 1 ? NSFloatingWindowLevel : NSNormalWindowLevel;
+    });
+}
+
+void ledgeSetAppearance(int window, int appearance) {
+    onMain(^{
+        NSAppearanceName name = appearance == 1 ? NSAppearanceNameAqua : appearance == 2 ? NSAppearanceNameDarkAqua : nil;
+        windows[@(window)].appearance = name ? [NSAppearance appearanceNamed:name] : nil;
+    });
+}
+
 void ledgeSetTitle(int window, const char *title) {
     NSString *text = [NSString stringWithUTF8String:title];
     onMain(^{
         windows[@(window)].title = text;
-    });
-}
-
-void ledgeLoadFile(int window, const char *path, const char *dir) {
-    NSURL *file = [NSURL fileURLWithPath:[NSString stringWithUTF8String:path]];
-    NSURL *access = [NSURL fileURLWithPath:[NSString stringWithUTF8String:dir] isDirectory:YES];
-    onMain(^{
-        [webViews[@(window)] loadFileURL:file allowingReadAccessToURL:access];
     });
 }
 

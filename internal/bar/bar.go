@@ -8,7 +8,6 @@ import (
 	"log"
 	"os/exec"
 	"strings"
-	"sync"
 
 	"ledge/internal/config"
 	"ledge/internal/pages"
@@ -40,10 +39,6 @@ type Bar struct {
 	// start runs a command in the background: `open` for a url, or a status's
 	// command. Tests replace it.
 	start func(*exec.Cmd) error
-
-	mu          sync.Mutex
-	reportDir   string // the report window may load files in here
-	reportTitle string // its title when the page has none
 }
 
 // Open creates the bar, places it and loads its page. Call it after shim.Init and
@@ -51,10 +46,10 @@ type Bar struct {
 func Open(events *store.Store, cfg config.Config, stateDir string) *Bar {
 	b := &Bar{store: events, config: cfg, stateDir: stateDir, start: startDetached}
 	shim.CreateBar(Window)
+	shim.SetLevel(Window, cfg.Level)
 	b.place()
 	shim.OnScreensChanged(func() { b.place() })
 	shim.OnNavigate(b.navigate)
-	shim.OnTitleChanged(b.titleChanged)
 	shim.OnMessage(func(window int, message []byte) {
 		if window == Window {
 			go b.handle(message)

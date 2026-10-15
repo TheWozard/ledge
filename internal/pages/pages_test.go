@@ -27,37 +27,38 @@ func TestThemesMatchConfigSchema(t *testing.T) {
 		t.Fatal(err)
 	}
 	allowed := slices.Sorted(slices.Values(schema.Properties.Theme.Enum))
-	var names []string
-	for name := range Themes {
-		names = append(names, name)
-	}
-	slices.Sort(names)
+	names := slices.Sorted(slices.Values(Themes))
 	if !slices.Equal(allowed, names) {
 		t.Errorf("config.schema.json allows themes %v, but there are %v", allowed, names)
 	}
 }
 
-// Every theme loads into the page with its fonts inlined, and every stylesheet and
-// font in themes/ is used.
+// Every theme's two stylesheets load into their pages with fonts inlined, and every
+// file in themes/ is used.
 func TestThemes(t *testing.T) {
 	used := map[string]bool{}
-	for name, files := range Themes {
-		css, err := Theme(name)
-		if err != nil {
-			t.Errorf("%s: %v", name, err)
-			continue
-		}
-		if strings.Contains(css, "url(fonts/") {
-			t.Errorf("%s: a font wasn't inlined", name)
-		}
-		if !strings.Contains(css, "--bar:") {
-			t.Errorf("%s doesn't set --bar, the colour behind the bar", name)
-		}
-		if page := Bar(name); !strings.Contains(page, css+"</style>\n</head>") {
-			t.Errorf("%s: the theme isn't at the end of the page's <head>", name)
-		}
-		for _, file := range files {
+	for _, name := range Themes {
+		for suffix, page := range map[string]func() string{
+			"css":        func() string { return Bar(name) },
+			"report.css": func() string { page, _ := Report(name, "Title", []any{}); return page },
+		} {
+			css, err := Theme(name, suffix)
+			if err != nil {
+				t.Errorf("%s: %v", name, err)
+				continue
+			}
+			file := name + "." + suffix
 			used[file] = true
+			if strings.Contains(css, "url(fonts/") {
+				t.Errorf("%s: a font wasn't inlined", file)
+			}
+			// Each page's base style uses one variable for the colour behind everything.
+			if variable := map[string]string{"css": "--bar:", "report.css": "--page:"}[suffix]; !strings.Contains(css, variable) {
+				t.Errorf("%s doesn't set %s", file, variable)
+			}
+			if !strings.Contains(page(), css+"</style>\n</head>") {
+				t.Errorf("%s isn't at the end of its page's <head>", file)
+			}
 			data, _ := themeFiles.ReadFile(path.Join("themes", file))
 			for _, match := range fontURL.FindAllStringSubmatch(string(data), -1) {
 				used["fonts/"+match[1]] = true
@@ -70,7 +71,30 @@ func TestThemes(t *testing.T) {
 		}
 		return err
 	})
-	if _, err := Theme("neon"); err == nil {
+	if _, err := Theme("neon", "css"); err == nil {
 		t.Error("an unknown theme should be an error")
+	}
+}
+
+// The report's data can't break out of its <script>, whatever its text.
+func TestReportData(t *testing.T) {
+	page, err := Report("default", "</script><script>alert(1)</script>", []any{map[string]any{"type": "text", "text": "<!-- & -->"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(page, "</script>") != strings.Count(report, "</script>")+1 {
+		t.Error("the report's text closed a <script>")
+	}
+	if strings.Contains(page, "<!-- report -->") || strings.Contains(page, "<!-- & -->") {
+		t.Error("the report's data wasn't put in, or was put in unescaped")
+	}
+}
+
+// Every theme with a frame is a theme, and its appearance is light, dark or unset.
+func TestFrames(t *testing.T) {
+	for theme, frame := range Frames {
+		if !slices.Contains(Themes, theme) || !slices.Contains([]string{"", "light", "dark"}, frame.Appearance) {
+			t.Errorf("Frames[%q] = %+v", theme, frame)
+		}
 	}
 }

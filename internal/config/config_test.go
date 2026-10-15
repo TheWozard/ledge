@@ -18,6 +18,8 @@ func TestLoad(t *testing.T) {
 		`{"edge": "left"}`:                    "edge: value must be one of",
 		`{"edge": "top", "theme": "default"}`: "",
 		`{"theme": "neon"}`:                   "theme: value must be one of",
+		`{"edge": "top", "level": "normal"}`:  "",
+		`{"level": "above"}`:                  "level: value must be one of",
 		`{"height": 0}`:                       "height: minimum",
 		`{"screen": 1.5}`:                     "screen: got number, want integer",
 		`[]`:                                  "got array, want object",
@@ -29,7 +31,7 @@ func TestLoad(t *testing.T) {
 		}
 		config, err := Load(path)
 		if want == "" {
-			if err != nil || config != (Config{Screen: 0, Edge: "top", Height: 110, Theme: "default"}) {
+			if err != nil || config != (Config{Screen: 0, Edge: "top", Height: 110, Theme: "default", Level: "normal"}) {
 				t.Errorf("%s: %+v, %v", body, config, err)
 			}
 		} else if err == nil || !strings.Contains(err.Error(), want) {

@@ -294,7 +294,7 @@ func TestThemes(t *testing.T) {
 	}()
 	add(t, `{"id": "themed", "title": "Themed", "priority": "high", "tags": ["a"]}`)
 	add(t, `{"kind": "status", "id": "themed-pill", "title": "Pill", "color": "red"}`)
-	for name := range pages.Themes {
+	for _, name := range pages.Themes {
 		cfg := config.Defaults
 		cfg.Theme = name
 		shim.LoadHTML(Window, page(cfg))

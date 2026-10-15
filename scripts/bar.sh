@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Example cards and status pills on the bar. Cards that open something open local
-# pages this script writes: a report (shown in the report window) or a file:// url
-# (opened in your browser), so they work offline.
+# Example cards and status pills on the bar. A card opens a report (shown in the
+# report window) or a file:// url of a local page this script writes (opened in your
+# browser), so they work offline.
 #
 #   bar.sh [CARDS [PILLS]]   the examples, plus CARDS extra cards and PILLS extra pills
 #                            (so the row scrolls sideways and the pills vertically)
@@ -66,11 +66,10 @@ pills="${2:-0}"
 
 # Cards: each priority, tags, a description, a long title that clamps, a report, a
 # url, and text that looks like HTML but must show as plain text.
-report="$(page "$PAGES/deploy.html" "Deploy to production failed" \
-  "<p>The migration step timed out after 10 minutes.</p><pre>migrate: context deadline exceeded</pre>")"
 send '{"id": "bar-high", "source": "example-bar", "priority": "high", "title": "Deploy to production failed",
        "description": "The migration step timed out after 10 minutes. Click for the report.", "tags": ["deploy", "prod"],
-       "report": "'"$report"'"}'
+       "report": [{"type": "text", "text": "The migration step timed out after 10 minutes."},
+                  {"type": "code", "text": "migrate: context deadline exceeded"}]}'
 send '{"id": "bar-medium", "source": "example-bar", "priority": "medium", "title": "Review requested: fix flaky login test",
        "description": "@someone asked for your review", "tags": ["review"]}'
 send '{"id": "bar-low", "source": "example-bar", "priority": "low", "title": "Weekly dependency update is ready",
@@ -102,7 +101,7 @@ priorities=(high medium low "")
 for i in $(seq 1 "$cards"); do
   priority="${priorities[$(( i % 4 ))]}"
   case $(( i % 3 )) in
-    1) opens=", \"report\": \"$(page "$PAGES/card-$i.html" "Card $i of $cards" "<p>The report for card $i.</p>")\"" ;;
+    1) opens=", \"report\": [{\"type\": \"text\", \"text\": \"The report for card $i.\"}]" ;;
     2) opens=", \"url\": \"$(url "$(page "$PAGES/card-$i-url.html" "Card $i of $cards" "<p>The url for card $i.</p>")")\"" ;;
     *) opens="" ;;
   esac

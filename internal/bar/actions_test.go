@@ -5,6 +5,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"ledge/internal/config"
+	"ledge/internal/pages"
+	"ledge/internal/shim"
 )
 
 // clickCard clicks the card with this title, once the bar shows it.
@@ -60,104 +65,134 @@ func TestPillRunsCommand(t *testing.T) {
 	})
 }
 
-// writeReport writes a report with an image beside it, links to try, and an image
-// from outside its directory: testdata/outside.svg, in the repo. (Not a file beside the
-// temp dir: WebKit's web process can read the user's whole temp directory anyway.)
-func writeReport(t *testing.T, heading string) string {
-	t.Helper()
-	dir := t.TempDir()
-	outside, err := filepath.Abs("testdata/outside.svg")
-	if err != nil {
-		t.Fatal(err)
-	}
-	files := map[string]string{
-		"dot.svg":      `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="10"><rect width="20" height="10" fill="red"/></svg>`,
-		"details.html": `<!doctype html><title>Details</title><h1 id="details">Details</h1>`,
-		"index.html": `<!doctype html><title>Report title</title><h1>` + heading + `</h1>
-<img id="inside" src="dot.svg"><img id="outside" src="file://` + outside + `">
-<a id="to-details" href="details.html">details</a>
-<a id="to-hosts" href="file:///etc/hosts">hosts</a>
-<a id="to-web" href="https://example.com/from-report">web</a>`,
-	}
-	for name, content := range files {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
-	return filepath.Join(dir, "index.html")
-}
+// reportJSON is a report with one of each block, its text partly HTML-looking.
+const reportJSON = `[
+	{"type": "heading", "text": "Summary"},
+	{"type": "text", "text": "<b>not bold</b>\nsecond line"},
+	{"type": "fields", "items": [{"label": "Branch", "value": "main"}, {"label": "Failures", "value": 2}]},
+	{"type": "table", "columns": ["Job", "Result"], "rows": [["lint", "ok"], ["test"], ["build", "ok", "extra"]]},
+	{"type": "list", "items": ["one", "two"], "ordered": true},
+	{"type": "code", "text": "$ go test\nFAIL"},
+	{"type": "note", "text": "Flaky", "color": "yellow"},
+	{"type": "link", "text": "The run", "url": "https://example.com/from-report"}
+]`
 
 func TestReportWindow(t *testing.T) {
-	path := writeReport(t, "First version")
-	add(t, `{"id": "card-report", "title": "Card with a report", "report": "`+path+`"}`)
+	add(t, `{"id": "card-report", "title": "Card with a report", "report": `+reportJSON+`}`)
 	clickCard(t, "Card with a report")
 
-	waitIn(t, ReportWindow, `document.querySelector("h1")?.textContent`, `"First version"`)
-	if got := evalIn(t, ReportWindow, `document.title`); got != `"Report title"` {
-		t.Errorf("title = %s", got)
+	waitIn(t, ReportWindow, `document.querySelector(".titlebar")?.textContent`, `"Card with a report"`)
+	for js, want := range map[string]string{
+		`[...document.querySelectorAll("main > *")].map(e => e.tagName).join(" ")`: `"H2 P DL DIV OL PRE DIV P"`,
+		`document.querySelector("p").textContent`:                                  `"<b>not bold</b>\nsecond line"`,
+		`document.querySelector("p b") === null`:                                   "true",
+		`[...document.querySelectorAll("dd")].map(e => e.textContent).join()`:      `"main,2"`,
+		// Rows are padded or cut to the columns.
+		`[...document.querySelectorAll("tbody tr")].map(r => r.children.length).join()`: `"2,2,2"`,
+		`document.querySelector(".note").dataset.color`:                                 `"yellow"`,
+		`getComputedStyle(document.documentElement).backgroundColor.startsWith("rgb(")`: "true",
+		// The page's title bar is fixed across the top, under the window's buttons.
+		`(s => s.position + " " + s.top)(getComputedStyle(document.querySelector(".titlebar")))`: `"fixed 0px"`,
+	} {
+		if got := evalIn(t, ReportWindow, js); got != want {
+			t.Errorf("%s = %s, want %s", js, got, want)
+		}
 	}
-	// It can read its own directory and nothing outside it.
-	waitIn(t, ReportWindow, `document.getElementById("inside").complete && document.getElementById("outside").complete`, "true")
-	if got := evalIn(t, ReportWindow, `[document.getElementById("inside").naturalWidth, document.getElementById("outside").naturalWidth]`); got != "[20,0]" {
-		t.Errorf("image widths (inside, outside the directory) = %s, want [20,0]", got)
-	}
-	// And it can't post to ledge.
+	// The page can't post to ledge.
 	if got := evalIn(t, ReportWindow, `!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.ledge)`); got != "true" {
 		t.Error("the report page has ledge's message handler")
 	}
 
-	// A link outside the directory goes nowhere; an https one opens in the browser.
-	evalIn(t, ReportWindow, `document.getElementById("to-hosts").click(), true`)
-	evalIn(t, ReportWindow, `document.getElementById("to-web").click(), true`)
+	// The link opens in the browser, and the report stays put.
+	evalIn(t, ReportWindow, `document.querySelector("a").click(), true`)
 	eventually(t, "open https://example.com/from-report", func() bool { return opened.has("https://example.com/from-report") })
-	if got := evalIn(t, ReportWindow, `location.pathname.endsWith("/index.html")`); got != "true" {
-		t.Errorf("a blocked link moved the report to %s", evalIn(t, ReportWindow, `location.href`))
+	if got := evalIn(t, ReportWindow, `location.href`); got != `"about:blank"` {
+		t.Errorf("the link moved the report to %s", got)
 	}
 
-	// A link to a file beside it opens in the window.
-	evalIn(t, ReportWindow, `document.getElementById("to-details").click(), true`)
-	waitIn(t, ReportWindow, `document.getElementById("details")?.textContent`, `"Details"`)
-
-	// Clicking the card again reads the file afresh.
-	if err := os.WriteFile(path, []byte(`<!doctype html><title>Report title</title><h1>Second version</h1>`), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	// Sending the event again changes its report.
+	add(t, `{"id": "card-report", "title": "Card with a report", "report": [{"type": "text", "text": "Second version"}]}`)
 	clickCard(t, "Card with a report")
-	waitIn(t, ReportWindow, `document.querySelector("h1")?.textContent`, `"Second version"`)
+	waitIn(t, ReportWindow, `document.querySelector("p")?.textContent`, `"Second version"`)
 }
 
-func TestMissingReport(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "nowhere.html")
-	add(t, `{"id": "card-missing", "title": "Card with a missing report", "report": "`+path+`"}`)
-	clickCard(t, "Card with a missing report")
-	waitIn(t, ReportWindow, `document.getElementById("path")?.textContent`, jsString(path))
-	if got := evalIn(t, ReportWindow, `document.getElementById("reason").textContent`); got != `"There's no file there."` {
-		t.Errorf("reason = %s", got)
+// Every theme draws a report on an opaque background.
+func TestReportThemes(t *testing.T) {
+	defer func() { testBar.config = config.Defaults }()
+	add(t, `{"id": "card-themed-report", "title": "Themed report", "report": `+reportJSON+`}`)
+	for _, name := range pages.Themes {
+		testBar.config.Theme = name
+		clickCard(t, "Themed report")
+		// Each report stylesheet starts with a comment naming its theme.
+		waitIn(t, ReportWindow, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* `+name+`:"))`, "true")
+		if got := evalIn(t, ReportWindow, `getComputedStyle(document.documentElement).backgroundColor`); !strings.HasPrefix(got, `"rgb(`) {
+			t.Errorf("%s: report background = %s, want an opaque colour", name, got)
+		}
 	}
 }
 
 func TestNavigate(t *testing.T) {
-	dir := t.TempDir()
-	testBar.mu.Lock()
-	testBar.reportDir = dir
-	testBar.mu.Unlock()
 	for _, c := range []struct {
-		window int
-		url    string
-		want   bool
+		window  int
+		url     string
+		clicked bool
+		want    bool
 	}{
-		{Window, "about:blank", true},
-		{Window, "file://" + dir + "/a.html", false},
-		{Window, "https://example.com", false},
-		{ReportWindow, "file://" + dir + "/a.html", true},
-		{ReportWindow, "file://" + dir + "/sub/b.html#part", true},
-		{ReportWindow, "file://" + dir + "/../escape.html", false},
-		{ReportWindow, "file://" + dir + "-sibling/a.html", false},
-		{ReportWindow, "https://example.com", false},
-		{ReportWindow, "javascript:alert(1)", false},
+		{Window, "about:blank", false, true},
+		{Window, "https://example.com", true, false},
+		{ReportWindow, "about:blank", false, true},
+		{ReportWindow, "file:///etc/hosts", true, false},
+		{ReportWindow, "https://example.com", false, false},
+		{ReportWindow, "https://example.com", true, false}, // opened in the browser instead
+		{ReportWindow, "javascript:alert(1)", true, false},
 	} {
-		if got := testBar.navigate(c.window, c.url, false); got != c.want {
-			t.Errorf("navigate(%d, %s) = %v, want %v", c.window, c.url, got, c.want)
+		if got := testBar.navigate(c.window, c.url, c.clicked); got != c.want {
+			t.Errorf("navigate(%d, %s, %v) = %v, want %v", c.window, c.url, c.clicked, got, c.want)
 		}
 	}
+}
+
+// The report page can move and close its own window and nothing else; the bar page
+// can't do even that. A theme that draws its own buttons shows them, and they work.
+func TestReportFrame(t *testing.T) {
+	defer func() { testBar.config = config.Defaults }()
+	add(t, `{"id": "card-frame", "title": "Framed report", "report": [{"type": "text", "text": "Framed"}]}`)
+	if got := eval(t, `!!window.webkit.messageHandlers.frame`); got != "false" {
+		t.Error("the bar page has the frame handler")
+	}
+
+	clickCard(t, "Framed report")
+	waitIn(t, ReportWindow, `document.querySelector(".titlebar span")?.textContent`, `"Framed report"`)
+	if got := evalIn(t, ReportWindow, `!!window.webkit.messageHandlers.frame`); got != "true" {
+		t.Fatal("the report page has no frame handler")
+	}
+	// Anything but the four actions is dropped, and a drag needs the mouse held down.
+	evalIn(t, ReportWindow, `["open", {action: "close"}, 1, "drag"].forEach(m => window.webkit.messageHandlers.frame.postMessage(m)), true`)
+	time.Sleep(200 * time.Millisecond)
+	if !shim.WindowVisible(ReportWindow) {
+		t.Fatal("a message other than close closed the report window")
+	}
+	if got := evalIn(t, ReportWindow, `getComputedStyle(document.querySelector(".titlebar .close")).display`); got != `"none"` {
+		t.Errorf("the default theme shows its own close button (display %s)", got)
+	}
+
+	// Win 95 draws the whole window, buttons included; its close button closes it.
+	testBar.config.Theme = "win95"
+	clickCard(t, "Framed report")
+	waitIn(t, ReportWindow, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* win95:"))`, "true")
+	for _, button := range []string{"close", "minimise", "zoom"} {
+		if got := evalIn(t, ReportWindow, `getComputedStyle(document.querySelector(".titlebar .`+button+`")).display`); got == `"none"` {
+			t.Errorf("win95 hides its %s button", button)
+		}
+	}
+	evalIn(t, ReportWindow, `document.querySelector(".titlebar .close").click(), true`)
+	eventually(t, "the report window to close", func() bool { return !shim.WindowVisible(ReportWindow) })
+
+	// Its minimise button works without a title bar too, and the card brings it back.
+	clickCard(t, "Framed report")
+	eventually(t, "the report window to open", func() bool { return shim.WindowVisible(ReportWindow) })
+	evalIn(t, ReportWindow, `document.querySelector(".titlebar .minimise").click(), true`)
+	eventually(t, "the report window to minimise", func() bool { return !shim.WindowVisible(ReportWindow) })
+	clickCard(t, "Framed report")
+	eventually(t, "the report window to come back", func() bool { return shim.WindowVisible(ReportWindow) })
 }

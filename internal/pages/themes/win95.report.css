@@ -1,0 +1,32 @@
+/* win95: the report as a Windows 95 dialog: grey, with white sunken panels. */
+:root { --page: #c0c0c0; --c-green: #008000; --c-yellow: #ffff00; --c-red: #ff0000; --c-blue: #0000ff; --c-gray: #808080;
+        --raised: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+        --sunken: inset -1px -1px #fff, inset 1px 1px #0a0a0a, inset -2px -2px #dfdfdf, inset 2px 2px #808080; }
+body { color: #000; font: 12px/1.4 Tahoma, Verdana, sans-serif; }
+/* The navy title bar of an active window: title on the left, and its own minimise,
+   maximise and close buttons on the right in place of the Mac's. */
+.titlebar { top: 4px; left: 4px; right: 4px; height: 22px; line-height: 22px; padding: 0 60px 0 4px;
+            text-align: left; color: #fff; font-weight: bold; background: linear-gradient(90deg, #000080, #1084d0); }
+/* The window has no macOS frame, so the page draws Windows' raised border round it. */
+html::after { content: ""; position: fixed; z-index: 2; inset: 0; pointer-events: none; box-shadow: var(--raised); }
+.titlebar button { display: block; position: absolute; top: 4px; width: 16px; height: 14px; background: #c0c0c0; box-shadow: var(--raised);
+                   color: #000; font: bold 11px/13px Tahoma, sans-serif; text-align: center; }
+.titlebar button:active { box-shadow: var(--sunken); padding: 1px 0 0 1px; }
+.titlebar .minimise { right: 36px; }
+.titlebar .zoom { right: 20px; }
+.titlebar .close { right: 2px; }
+.titlebar .minimise::before { content: ""; position: absolute; left: 4px; bottom: 3px; width: 6px; height: 2px; background: #000; }
+.titlebar .zoom::before { content: ""; position: absolute; left: 3px; top: 2px; width: 9px; height: 9px; border: 1px solid #000; border-top-width: 2px; box-sizing: border-box; }
+.titlebar .close::before { content: "✕"; }
+/* An etched line under each heading, like a group box. */
+h2 { padding-bottom: 3px; font-size: 12px; border-bottom: 1px solid #808080; box-shadow: 0 1px #fff; }
+dl, .table, pre { padding: 6px 8px; background: #fff; box-shadow: var(--sunken); }
+dt { color: #444; }
+.table { padding: 2px; }
+th { padding: 2px 8px; background: #c0c0c0; box-shadow: var(--raised); font-weight: normal; }
+td { padding: 2px 8px; }
+pre { font: 12px/1.35 "Courier New", Courier, monospace; }
+.note { display: flex; gap: 8px; padding: 8px; background: #c0c0c0; box-shadow: var(--sunken); }
+.note::before { content: ""; flex: none; width: 14px; height: 14px; margin-top: 1px; box-shadow: inset -1px -1px #000, inset 1px 1px rgba(255,255,255,.7);
+                background: linear-gradient(135deg, color-mix(in srgb, var(--note) 85%, #fff), color-mix(in srgb, var(--note) 55%, #000)); }
+a { color: #0000ff; }

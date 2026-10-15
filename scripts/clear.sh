@@ -26,7 +26,7 @@ case "${1:-}" in
       "$LEDGE" event "{\"source\": \"$source\", \"items\": []}" >/dev/null
     done
     pages="${TMPDIR:-/tmp}"; pages="${pages%/}/ledge-examples"
-    rm -rf "$pages/bar" "$pages/report" "$pages/feed"
+    rm -rf "$pages/bar" "$pages/feed"
     echo "Cleared the examples" >&2
     ;;
   --all)

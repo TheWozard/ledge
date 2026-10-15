@@ -1,0 +1,18 @@
+/* synthwave: the report in neon on a night sky. */
+:root { --page: #120228; --c-green: #3cff9e; --c-yellow: #f9c80e; --c-red: #ff2e63; --c-blue: #2de2e6; --c-gray: #a491d3; }
+html { background: linear-gradient(#2a0845, #120228 320px) #120228; }
+body { color: #e9d8ff; font: 13px/1.5 ui-monospace, Menlo, monospace; }
+.titlebar, h2, th { font-family: Futura, "Avenir Next", sans-serif; font-weight: bold; text-transform: uppercase; letter-spacing: .06em; }
+/* A neon tube along the bottom of the title bar. */
+.titlebar { background: #2a0845; color: #fff; font-size: 12px; text-shadow: 0 0 8px rgba(255,110,199,.9);
+            border-bottom: 2px solid #ff2e88; box-shadow: 0 2px 14px rgba(255,46,136,.6); }
+h2 { font-size: 13px; color: #ff6ec7; text-shadow: 0 0 6px rgba(255,46,136,.6); }
+dt { color: #2de2e6; }
+table { border: 1px solid #2de2e6; box-shadow: 0 0 8px rgba(45,226,230,.5); }
+th { padding: 5px 10px; color: #2de2e6; font-size: 11px; border-bottom: 1px solid #2de2e6; }
+td { padding: 5px 10px; border-top: 1px solid rgba(157,78,221,.35); }
+pre { padding: 10px 12px; border: 1px solid #9d4edd; border-radius: 6px; background: rgba(0,0,0,.35); box-shadow: 0 0 8px rgba(157,78,221,.6);
+      font-size: 12px; color: #c8b6ff; }
+.note { padding: 9px 12px; border: 1px solid var(--note); border-radius: 6px; background: rgba(15,2,35,.85);
+        box-shadow: 0 0 8px var(--note), inset 0 0 12px color-mix(in srgb, var(--note) 25%, transparent); }
+a { color: #2de2e6; text-shadow: 0 0 6px rgba(45,226,230,.7); }

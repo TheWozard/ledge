@@ -55,10 +55,16 @@ func TestNormalizeRefuses(t *testing.T) {
 		`{"kind": 3, "title": "x"}`:       "kind 3 isn't one of event, status",
 		`{"tittle": "x"}`:                 "event schema: event: missing property 'title'",
 		`{"title": "x", "expires": "no"}`: `expires "no" isn't an ISO 8601 time`,
-		`{"title": "x", "url": "https://a", "report": {}}`: "`url` and `report` can't both be set",
-		`{"title": "x", "report": "notes.html"}`:           "report: 'notes.html' does not match pattern",
-		`{"title": "x", "report": "/tmp/notes.txt"}`:       "report: '/tmp/notes.txt' does not match pattern",
-		`{"title": "x", "report": {"summary": "s"}}`:       "report: got object, want string",
+		`{"title": "x", "url": "https://a", "report": []}`:                                        "`url` and `report` can't both be set",
+		`{"title": "x", "report": "notes.html"}`:                                                  "report: got string, want array",
+		`{"title": "x", "report": []}`:                                                            "report: minItems: got 0, want 1",
+		`{"title": "x", "report": [{"text": "t"}]}`:                                               "report/0: missing property 'type'",
+		`{"title": "x", "report": [{"type": "chart"}]}`:                                           "report/0/type: value must be one of 'heading', 'text'",
+		`{"title": "x", "report": [{"type": "heading"}]}`:                                         "report/0: missing property 'text'",
+		`{"title": "x", "report": [{"type": "text", "text": "t", "color": "red"}]}`:               "report/0: additional properties 'color' not allowed",
+		`{"title": "x", "report": [{"type": "link", "text": "t", "url": "javascript:alert(1)"}]}`: "report/0/url: 'javascript:alert(1)' does not match pattern",
+		`{"title": "x", "report": [{"type": "table", "columns": ["a"], "rows": [[{}]]}]}`:         "report/0/rows/0/0: got object, want number or string",
+		`{"title": "x", "report": [{"type": "fields", "items": [{"label": "a"}]}]}`:               "report/0/items/0: missing property 'value'",
 	} {
 		_, err := Normalize(decode(t, body), "", received)
 		if _, ok := err.(*Error); !ok || !strings.Contains(err.Error(), want) {

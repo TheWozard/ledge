@@ -10,7 +10,7 @@
 
      event  = {id, title, source, received, tags?: [string], description?, url?,
                priority?: high|medium|low, expires?,
-               report?: a path to an HTML file (clicking the card shows it in the report window)}
+               report?: [blocks] (clicking the card shows them in the report window)}
      status = {id, kind: "status", title, source, received, url?, detail?, command?,
                color?, schedule?: [{at, color}], expires?}
      A status (kind "status") is a pill in `color`, switching to each schedule step's

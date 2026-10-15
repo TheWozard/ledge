@@ -1,0 +1,22 @@
+/* default: the report in the system's light or dark mode. */
+:root {
+  --page: #fbfbfa; --text: #1d1d1f; --muted: #6b6b70; --line: rgba(0, 0, 0, .1); --accent: #2f5fd0; --code: #f0efec;
+  --c-green: #2f8f4e; --c-yellow: #c08a12; --c-red: #c4352b; --c-blue: #2f5fd0; --c-gray: #8a8a90;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #1c1c1f; --text: #ececef; --muted: #9a9aa2; --line: rgba(255, 255, 255, .1); --accent: #7ea2ff; --code: #26262b;
+    --c-green: #5cc27a; --c-yellow: #e8b55a; --c-red: #ff7b6e; --c-blue: #7ea2ff; --c-gray: #9a9aa2;
+  }
+}
+body { color: var(--text); font: 14px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; }
+/* Like a native title bar: the title small and centred over a hairline. */
+.titlebar { background: var(--page); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 13px; font-weight: 600; }
+h2 { font-size: 15px; font-weight: 600; padding-bottom: 4px; border-bottom: 1px solid var(--line); }
+dt { color: var(--muted); }
+th { color: var(--muted); font-size: 12px; font-weight: 600; }
+th, td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--line); }
+pre { padding: 10px 12px; border-radius: 8px; background: var(--code); font: 12px/1.5 ui-monospace, Menlo, monospace; }
+.note { padding: 8px 12px; border-radius: 6px; border-left: 3px solid var(--note);
+        background: color-mix(in srgb, var(--note) 12%, var(--page)); }
+a { color: var(--accent); }

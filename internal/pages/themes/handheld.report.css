@@ -1,0 +1,23 @@
+/* handheld: the report on a four-shade green LCD, with dialog-box borders. */
+@font-face { font-family: "Silkscreen"; font-weight: 400; src: url(fonts/silkscreen.woff2) format("woff2"); }
+@font-face { font-family: "Silkscreen"; font-weight: 700; src: url(fonts/silkscreen-bold.woff2) format("woff2"); }
+:root { --g0: #0f380f; --g1: #306230; --g2: #8bac0f; --g3: #9bbc0f; --page: var(--g3);
+        --c-green: var(--g0); --c-yellow: var(--g0); --c-red: var(--g0); --c-blue: var(--g0); --c-gray: var(--g0);
+        --box: 0 0 0 3px var(--g0), inset 0 0 0 2px var(--g3), inset 0 0 0 3px var(--g1); }
+body { color: var(--g0); font: 13px/1.45 ui-monospace, Menlo, monospace; }
+.titlebar, h2, th, dt { font-family: "Silkscreen", ui-monospace, monospace; font-weight: 700; text-transform: uppercase; }
+/* The handheld's dark bezel, with the title lit on it. */
+.titlebar { background: #545468; color: var(--g3); font-size: 12px; }
+h2 { font-size: 12px; }
+h2::before { content: "> "; }
+dt { font-size: 11px; color: var(--g1); }
+table { border: 2px solid var(--g0); }
+th { padding: 3px 8px; background: var(--g0); color: var(--g3); font-size: 10px; }
+td { padding: 3px 8px; border-top: 1px solid var(--g1); }
+pre { margin-left: 3px !important; margin-right: 3px !important; padding: 10px 12px; background: var(--g2); box-shadow: var(--box); font-size: 12px; }
+.note { margin-left: 3px !important; margin-right: 3px !important; padding: 10px 12px; background: var(--g2); box-shadow: var(--box); }
+/* Without colours, a note's colour is a mark: ! for red, ? for yellow, * for the rest. */
+.note::before { content: "* "; font-weight: bold; }
+.note[data-color=red]::before { content: "! "; }
+.note[data-color=yellow]::before { content: "? "; }
+a { color: var(--g0); font-weight: bold; }

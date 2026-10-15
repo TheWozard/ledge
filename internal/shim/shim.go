@@ -38,7 +38,6 @@ var (
 	onMessage        func(window int, message []byte)
 	onScreensChanged func()
 	onNavigate       func(window int, url string, clicked bool) bool
-	onTitleChanged   func(window int, title string)
 )
 
 // OnMessage sets what's called with each JSON message a page posts.
@@ -64,13 +63,6 @@ func OnNavigate(decide func(window int, url string, clicked bool) bool) {
 	onNavigate = decide
 }
 
-// OnTitleChanged sets what's called when a window's page changes its title.
-func OnTitleChanged(handle func(window int, title string)) {
-	handlersMu.Lock()
-	defer handlersMu.Unlock()
-	onTitleChanged = handle
-}
-
 // Init sets up the app. Call it once, before creating windows.
 func Init() { C.ledgeInit() }
 
@@ -89,8 +81,10 @@ func PlaceBar(id, screen int, top bool, height float64) Rect {
 	return Rect{float64(r.x), float64(r.y), float64(r.width), float64(r.height)}
 }
 
-// CreateWindow creates window id as an ordinary titled window, if it doesn't exist
-// yet. Its page can't post messages to Go.
+// CreateWindow creates window id as a titled window, if it doesn't exist yet. Its
+// page fills the window under a see-through title bar, so the page draws its own
+// title; only the close, minimise and zoom buttons show. It can't post messages to Go,
+// only move or close its own window (see SetFrameless).
 func CreateWindow(id int, title string, width, height float64) {
 	text := C.CString(title)
 	defer C.free(unsafe.Pointer(text))
@@ -100,19 +94,35 @@ func CreateWindow(id int, title string, width, height float64) {
 // ShowWindow brings the window to the front and gives it focus.
 func ShowWindow(id int) { C.ledgeShowWindow(C.int(id)) }
 
+// SetFrameless takes a window's macOS frame away, or gives it back. A frameless window
+// has square corners and no title bar or buttons: its page draws them, and works them
+// and drags the window by posting "close", "minimise", "zoom" or "drag" to
+// window.webkit.messageHandlers.frame.
+func SetFrameless(id int, frameless bool) {
+	C.ledgeSetFrameless(C.int(id), C.int(map[bool]int{true: 1}[frameless]))
+}
+
+// WindowVisible reports whether the window is on screen.
+func WindowVisible(id int) bool { return C.ledgeWindowVisible(C.int(id)) != 0 }
+
+// SetLevel sets which windows the window stays above: "top" for everything, the Dock
+// included; "floating" for other apps' windows but not the Dock; anything else for
+// none, as an ordinary window.
+func SetLevel(id int, level string) {
+	C.ledgeSetLevel(C.int(id), C.int(map[string]int{"floating": 1, "top": 2}[level]))
+}
+
+// SetAppearance makes the window's frame and controls (its close, minimise and zoom
+// buttons, scroll bars) "light", "dark", or anything else to follow the system.
+func SetAppearance(id int, appearance string) {
+	C.ledgeSetAppearance(C.int(id), C.int(map[string]int{"light": 1, "dark": 2}[appearance]))
+}
+
 // SetTitle sets the window's title.
 func SetTitle(id int, title string) {
 	text := C.CString(title)
 	defer C.free(unsafe.Pointer(text))
 	C.ledgeSetTitle(C.int(id), text)
-}
-
-// LoadFile replaces the window's page with a file, which can read files under dir.
-func LoadFile(id int, path, dir string) {
-	file, access := C.CString(path), C.CString(dir)
-	defer C.free(unsafe.Pointer(file))
-	defer C.free(unsafe.Pointer(access))
-	C.ledgeLoadFile(C.int(id), file, access)
 }
 
 // LoadHTML replaces the window's page.
@@ -183,16 +193,6 @@ func goLedgeNavigate(window C.int, url *C.char, clicked C.int) C.int {
 		return cBool(target == "about:blank")
 	}
 	return cBool(decide(int(window), target, clicked != 0))
-}
-
-//export goLedgeTitleChanged
-func goLedgeTitleChanged(window C.int, title *C.char) {
-	handlersMu.Lock()
-	handle := onTitleChanged
-	handlersMu.Unlock()
-	if handle != nil {
-		handle(int(window), C.GoString(title))
-	}
 }
 
 //export goLedgeEvalResult
