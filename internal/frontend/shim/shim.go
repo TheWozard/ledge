@@ -39,6 +39,7 @@ var (
 	onMessage        func(window int, message []byte)
 	onScreensChanged func()
 	onNavigate       func(window int, url string, clicked bool) bool
+	onWindowClosed   func(window int)
 )
 
 // OnMessage sets what's called with each JSON message a page posts.
@@ -64,6 +65,14 @@ func OnNavigate(decide func(window int, url string, clicked bool) bool) {
 	onNavigate = decide
 }
 
+// OnWindowClosed sets what's called when a titled window closes. It's then gone: the
+// shim forgets it, and CreateWindow makes a new one.
+func OnWindowClosed(handle func(window int)) {
+	handlersMu.Lock()
+	defer handlersMu.Unlock()
+	onWindowClosed = handle
+}
+
 // Init sets up the app. Call it once, before creating windows.
 func Init() { C.ledgeInit() }
 
@@ -82,7 +91,8 @@ func PlaceBar(id, screen int, top bool, height float64) Rect {
 	return Rect{float64(r.x), float64(r.y), float64(r.width), float64(r.height)}
 }
 
-// CreateWindow creates window id as a titled window, if it doesn't exist yet. Its
+// CreateWindow creates window id as a titled window, if it doesn't exist yet, down
+// and to the right of the last one. Closing it destroys it (see OnWindowClosed). Its
 // page fills the window under a see-through title bar, so the page draws its own
 // title; only the close, minimise and zoom buttons show. It can't post messages to Go,
 // only move or close its own window (see SetFrameless).
@@ -105,6 +115,12 @@ func SetFrameless(id int, frameless bool) {
 
 // WindowVisible reports whether the window is on screen.
 func WindowVisible(id int) bool { return C.ledgeWindowVisible(C.int(id)) != 0 }
+
+// WindowFrame is the window's frame, or the zero Rect if there's no such window.
+func WindowFrame(id int) Rect {
+	r := C.ledgeWindowFrame(C.int(id))
+	return Rect{float64(r.x), float64(r.y), float64(r.width), float64(r.height)}
+}
 
 // SetLevel sets which windows the window stays above: "top" for everything, the Dock
 // included; "floating" for other apps' windows but not the Dock; anything else for
@@ -190,6 +206,16 @@ func goLedgeScreensChanged() {
 	handlersMu.Unlock()
 	if handle != nil {
 		handle()
+	}
+}
+
+//export goLedgeWindowClosed
+func goLedgeWindowClosed(window C.int) {
+	handlersMu.Lock()
+	handle := onWindowClosed
+	handlersMu.Unlock()
+	if handle != nil {
+		handle(int(window))
 	}
 }
 

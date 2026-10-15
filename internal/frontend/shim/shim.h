@@ -21,10 +21,12 @@ void ledgeCreateBar(int window);
 // 0 if there's no such screen) along the top or bottom edge, and returns its frame.
 LedgeRect ledgePlaceBar(int window, int screen, int top, double height);
 
-// ledgeCreateWindow creates `window` as a titled window, if it doesn't exist yet. Its
-// page fills the window under a see-through title bar that shows only the close,
-// minimise and zoom buttons, so the page draws its own title. The page can't post
-// anything to Go; its "frame" handler only moves, closes, minimises or zooms its window.
+// ledgeCreateWindow creates `window` as a titled window, if it doesn't exist yet,
+// down and to the right of the last one. Its page fills the window under a
+// see-through title bar that shows only the close, minimise and zoom buttons, so the
+// page draws its own title. The page can't post anything to Go; its "frame" handler
+// only moves, closes, minimises or zooms its window. Closing it destroys it, and is
+// reported to goLedgeWindowClosed; `window` can then be created again.
 void ledgeCreateWindow(int window, const char *title, double width, double height);
 // ledgeShowWindow brings a window to the front and activates the app, so it takes focus.
 void ledgeShowWindow(int window);
@@ -35,6 +37,8 @@ void ledgeSetTitle(int window, const char *title);
 void ledgeSetFrameless(int window, int frameless);
 // ledgeWindowVisible reports whether a window is on screen.
 int ledgeWindowVisible(int window);
+// ledgeWindowFrame is a window's frame, or all zeros if there's no such window.
+LedgeRect ledgeWindowFrame(int window);
 // ledgeSetLevel puts a window above everything, the Dock included (2), above other
 // apps' windows but under the Dock (1), or at the normal level (0).
 void ledgeSetLevel(int window, int level);

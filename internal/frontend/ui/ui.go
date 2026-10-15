@@ -1,7 +1,7 @@
 // Package ui is the bar and its report window: native windows (through the shim)
 // showing pages built from components, in a theme. An app opens a Bar with Options
 // and Handlers, gives it what to show with Render and ShowReport, and is called back
-// with the ids the pages act on.
+// with the ids the pages act on. Each report has its own window.
 //
 // AppKit needs the main goroutine, so an app calls Init, then Open, then Run on the
 // main goroutine, and does its own work on others. Stop makes Run return.
@@ -11,11 +11,9 @@ import (
 	"github.com/TheWozard/ledge-frontend/shim"
 )
 
-// The windows' ids in the shim.
-const (
-	BarWindow    = 1
-	ReportWindow = 2
-)
+// BarWindow is the bar's id in the shim. Report windows take the ids after it, one
+// per report, never reused.
+const BarWindow = 1
 
 // Options is where the bar goes and how it looks.
 type Options struct {

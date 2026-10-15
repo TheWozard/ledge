@@ -13,10 +13,12 @@ import (
 	"github.com/TheWozard/ledge-frontend/theme"
 )
 
-// ShowReport shows title and blocks in the report window, in the bar's theme, and
-// brings it forward. There's one report window, reused for each report. A block is
-// any component; components has the usual ones.
-func (b *Bar) ShowReport(title string, blocks []templ.Component) error {
+// ShowReport shows title and blocks in id's report window, in the bar's theme, and
+// brings it forward. Each id has its own window: showing an id again replaces what
+// its window shows, and one that's been closed opens anew. id is the app's, such as
+// the card or pill the report is for. A block is any component; components has the
+// usual ones.
+func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	b.mu.Lock()
 	name := b.options.Theme
 	b.mu.Unlock()
@@ -28,24 +30,49 @@ func (b *Bar) ShowReport(title string, blocks []templ.Component) error {
 	if err := components.ReportPage(css, title, blocks).Render(context.Background(), &page); err != nil {
 		return err
 	}
+	window := b.reportWindow(id)
 	frame := theme.Frames[name]
-	shim.CreateWindow(ReportWindow, title, 900, 700)
-	shim.SetTitle(ReportWindow, title)
-	shim.SetAppearance(ReportWindow, frame.Appearance)
-	shim.SetFrameless(ReportWindow, frame.Frameless)
-	shim.LoadHTML(ReportWindow, page.String())
-	shim.ShowWindow(ReportWindow)
+	shim.CreateWindow(window, title, 900, 700)
+	shim.SetTitle(window, title)
+	shim.SetAppearance(window, frame.Appearance)
+	shim.SetFrameless(window, frame.Frameless)
+	shim.LoadHTML(window, page.String())
+	shim.ShowWindow(window)
 	return nil
 }
 
-// navigate says whether a window may go to target. Both windows only ever show the
-// page they were given. A link clicked in a report goes to Handlers.OpenURL instead,
-// if it's http(s); anything else is blocked.
+// reportWindow is id's report window, given a new one if it hasn't got one open.
+func (b *Bar) reportWindow(id string) int {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	window, ok := b.reports[id]
+	if !ok {
+		b.lastWindow++
+		window = b.lastWindow
+		b.reports[id] = window
+	}
+	return window
+}
+
+// closed forgets a report window that's been closed, so its id opens a new one.
+func (b *Bar) closed(window int) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for id, w := range b.reports {
+		if w == window {
+			delete(b.reports, id)
+		}
+	}
+}
+
+// navigate says whether a window may go to target. Every window only ever shows the
+// page it was given. A link clicked in a report goes to Handlers.OpenURL instead, if
+// it's http(s); anything else is blocked.
 func (b *Bar) navigate(window int, target string, clicked bool) bool {
 	if target == "about:blank" {
 		return true
 	}
-	if window != ReportWindow || !clicked || b.handlers.OpenURL == nil {
+	if window == BarWindow || !clicked || b.handlers.OpenURL == nil {
 		return false
 	}
 	if u, err := url.Parse(target); err == nil {

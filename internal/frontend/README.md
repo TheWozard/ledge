@@ -22,7 +22,7 @@ func main() {
 		ui.Options{Edge: "bottom", Height: 110, Level: "floating", Theme: "win95"},
 		ui.Handlers{
 			Dismiss: func(id string) { /* forget it, then bar.Render again */ },
-			Open:    func(id string) { /* bar.ShowReport, or open its url */ },
+			Open:    func(id string) { /* bar.ShowReport(id, ...), or open its url */ },
 			Run:     func(id string) { /* run the pill's command */ },
 			OpenURL: func(url string) { /* a link clicked in a report */ },
 		})
@@ -33,7 +33,7 @@ func main() {
 		bar.Render(
 			[]components.Pill{{ID: "aws", Title: "AWS", Color: "green", Command: "aws sso login"}},
 			[]components.Card{{ID: "ci", Title: "CI failed", Priority: "high", Opens: true, Source: "ci", Received: time.Now()}})
-		bar.ShowReport("CI failed", []templ.Component{
+		bar.ShowReport("ci", "CI failed", []templ.Component{
 			components.Note("Two jobs failed.", "red"),
 			components.Table([]string{"Job", "State"}, [][]string{{"build", "failed"}}),
 		})
@@ -46,7 +46,7 @@ func main() {
 
 | Package | What it is |
 |---|---|
-| `ui` | the bar and report windows: `Open` places the bar and loads its page, `Render` shows pills and cards, `ShowReport` shows a report; the pages' clicks come back to `Handlers` as ids |
+| `ui` | the bar and report windows: `Open` places the bar and loads its page, `Render` shows pills and cards, `ShowReport` shows a report in its id's own window; the pages' clicks come back to `Handlers` as ids |
 | `components` | the templ components: the pages (`BarPage`, `ReportPage`), the bar's contents (`BarContent`, from `Pill`s and `Card`s), and the report blocks |
 | `theme` | the themes' stylesheets and fonts, built in, and how each theme's report window frame looks |
 | `shim` | the native layer (cgo + Objective-C): windows and WKWebView, and nothing else |
@@ -58,7 +58,10 @@ keeping the row's and the pills' scroll positions. It renders again on its own w
 relative time ("5m") goes stale or a pill's scheduled colour change is due, and marks
 cards that weren't there before for the theme's entrance animation.
 
-A report is a title and any `templ.Component`s, drawn top to bottom. The built-in
+A report is a title and any `templ.Component`s, drawn top to bottom, shown for an id
+such as the card it's about. Each id has its own window: showing the same id again
+replaces what's in it, and closing it destroys it, so the next `ShowReport` for that id
+opens a new one. New windows open down and to the right of the last. The built-in
 blocks:
 
 | Block | Shows |
@@ -93,7 +96,7 @@ and `<name>.report.css` on top of the report window's. The comments at the top o
 layout styles in [bar.templ](components/bar.templ) and
 [report.templ](components/report.templ) say what a theme can hook into: the colour
 variables it sets, a pill's `data-color`, a new card's `data-new`, the report window's
-`.titlebar` and its buttons. `theme.Frames` says whether a theme's report window is
+`.titlebar` and its buttons, and the `main` that scrolls under it. `theme.Frames` says whether a theme's report window is
 light or dark, and whether the theme draws the whole window (square corners, its own
 buttons and border).
 

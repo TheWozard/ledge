@@ -9,6 +9,13 @@ body { color: #000; font: 12px/1.4 Tahoma, Verdana, sans-serif; }
             text-align: left; color: #fff; font-weight: bold; background: linear-gradient(90deg, #000080, #1084d0); }
 /* The window has no macOS frame, so the page draws Windows' raised border round it. */
 html::after { content: ""; position: fixed; z-index: 2; inset: 0; pointer-events: none; box-shadow: var(--raised); }
+/* The report scrolls inside the border, with Windows' scroll bars: a grey thumb on
+   a dithered track. */
+main { inset: 28px 4px 4px; }
+::-webkit-scrollbar { width: 16px; height: 16px; }
+::-webkit-scrollbar-track { background: repeating-conic-gradient(#c0c0c0 0 25%, #fff 0 50%) 0 0 / 2px 2px; }
+::-webkit-scrollbar-thumb { background: #c0c0c0; box-shadow: var(--raised); }
+::-webkit-scrollbar-corner { background: #c0c0c0; }
 .titlebar button { display: block; position: absolute; top: 4px; width: 16px; height: 14px; background: #c0c0c0; box-shadow: var(--raised);
                    color: #000; font: bold 11px/13px Tahoma, sans-serif; text-align: center; }
 .titlebar button:active { box-shadow: var(--sunken); padding: 1px 0 0 1px; }

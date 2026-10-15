@@ -2,7 +2,7 @@ package components
 
 // ReportPage is the report window's page, styled by themeCSS (theme.CSS for
 // theme.Report): title in the title bar the page draws, and blocks under it, top to
-// bottom. A block is any component; the ones here are Heading, Paragraph, Fields,
+// bottom, scrolling under the title bar. A block is any component; the ones here are Heading, Paragraph, Fields,
 // Table, List, Code, Note and Link.
 //
 // The page can't talk to the app. All it can ask of its window, through its "frame"
@@ -29,13 +29,19 @@ templ ReportPage(themeCSS string, title string, blocks []templ.Component) {
 
 	   A theme can draw the whole window instead: with Frameless in theme.Frames, the
 	   window has no macOS frame (square corners, no buttons), and the theme shows the
-	   title bar's .close, .minimise and .zoom buttons, hidden here, and any border. */
+	   title bar's .close, .minimise and .zoom buttons, hidden here, and any border.
+
+	   The page itself never scrolls: macOS's rubber-band bounce would pull the title
+	   bar and a drawn border away from the window's edges. <main> scrolls instead, in
+	   the space under the title bar; a theme that draws a border sets its inset to keep
+	   inside it, and can style its scroll bar with main::-webkit-scrollbar. */
 	:root { --titlebar: 28px; }
 	* { box-sizing: border-box; }
-	/* No rubber-band bounce at either end: it would pull the page, title bar and a
-	   theme's drawn border away from the window's edges. */
-	html { background: var(--page); overscroll-behavior: none; }
-	body { margin: 0; padding: calc(var(--titlebar) + 18px) 24px 28px; overflow-wrap: anywhere; }
+	html { background: var(--page); }
+	html, body { height: 100%; overflow: hidden; }
+	body { margin: 0; overflow-wrap: anywhere; }
+	main { position: absolute; inset: var(--titlebar) 0 0; overflow-x: hidden; overflow-y: auto; padding: 18px 24px 28px; }
+	main:focus { outline: none; }
 	.titlebar { position: fixed; z-index: 1; top: 0; left: 0; right: 0; height: var(--titlebar); padding: 0 78px;
 	            line-height: var(--titlebar); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 	            -webkit-user-select: none; cursor: default; }
@@ -59,7 +65,7 @@ templ ReportPage(themeCSS string, title string, blocks []templ.Component) {
 		</head>
 		<body>
 			<header class="titlebar"><span>{ title }</span><button class="minimise" title="Minimise" aria-label="Minimise"></button><button class="zoom" title="Zoom" aria-label="Zoom"></button><button class="close" title="Close" aria-label="Close"></button></header>
-			<main>
+			<main tabindex="-1">
 				for _, block := range blocks {
 					@block
 				}
@@ -73,6 +79,9 @@ templ ReportPage(themeCSS string, title string, blocks []templ.Component) {
 	for (const action of ["close", "minimise", "zoom"]) {
 	  titlebar.querySelector("." + action).addEventListener("click", () => frame(action));
 	}
+	// The arrow keys, space and page up and down scroll <main> from the start, not
+	// only once it's been clicked.
+	document.querySelector("main").focus({ preventScroll: true });
 			</script>
 		</body>
 	</html>

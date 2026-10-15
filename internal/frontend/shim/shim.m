@@ -121,9 +121,15 @@ static void onMain(dispatch_block_t block) {
 // The page each window was last given, to load again if its web content process dies.
 static NSMutableDictionary<NSNumber *, NSString *> *pages;
 
-// Passes page messages and navigations to Go. A page with the message
-// handler posts {action, id...} with window.webkit.messageHandlers.ledge.postMessage(...).
-@interface LedgeDelegate : NSObject <WKScriptMessageHandler, WKNavigationDelegate>
+@class LedgeDelegate;
+static NSMutableDictionary<NSNumber *, NSWindow *> *windows;
+static NSMutableDictionary<NSNumber *, WKWebView *> *webViews;
+static NSMutableDictionary<NSNumber *, LedgeDelegate *> *delegates;
+
+// Passes page messages, navigations and a titled window closing to Go. A page with
+// the message handler posts {action, id...} with
+// window.webkit.messageHandlers.ledge.postMessage(...).
+@interface LedgeDelegate : NSObject <WKScriptMessageHandler, WKNavigationDelegate, NSWindowDelegate>
 @property int windowID;
 @end
 @implementation LedgeDelegate
@@ -156,11 +162,19 @@ static NSMutableDictionary<NSNumber *, NSString *> *pages;
         [webView loadHTMLString:page baseURL:nil];
     }
 }
+// A titled window closing is gone for good: it's let go once it has closed, and Go is
+// told, so the id isn't shown again.
+- (void)windowWillClose:(NSNotification *)note {
+    int window = self.windowID;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [windows removeObjectForKey:@(window)];
+        [webViews removeObjectForKey:@(window)];
+        [delegates removeObjectForKey:@(window)];
+        [pages removeObjectForKey:@(window)];
+    });
+    goLedgeWindowClosed(window);
+}
 @end
-
-static NSMutableDictionary<NSNumber *, NSWindow *> *windows;
-static NSMutableDictionary<NSNumber *, WKWebView *> *webViews;
-static NSMutableDictionary<NSNumber *, LedgeDelegate *> *delegates;
 
 // keyMenu is a menu that's never shown (an accessory app has no menu bar) but gives
 // the usual key equivalents: Cmd-C and Cmd-A in a page, Cmd-W to close a window.
@@ -247,6 +261,9 @@ void ledgeCreateBar(int window) {
 
 // The report window's style: titled, with the page under a see-through title bar. A
 // frameless one drops the title bar, and with it the rounded corners and buttons.
+// Where the next titled window goes: each opens down and to the right of the last.
+static NSPoint cascade;
+
 static const NSWindowStyleMask titledMask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
     | NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskFullSizeContentView;
 
@@ -272,7 +289,9 @@ void ledgeCreateWindow(int window, const char *title, double width, double heigh
         win.title = text;
         win.contentMinSize = NSMakeSize(480, 320);
         win.contentView = newWebView(window, frame, NO);
+        win.delegate = delegates[@(window)];
         [win center];
+        cascade = [win cascadeTopLeftFromPoint:cascade];
         windows[@(window)] = win;
     });
 }
@@ -312,6 +331,17 @@ int ledgeWindowVisible(int window) {
         visible = windows[@(window)].isVisible;
     });
     return visible;
+}
+
+LedgeRect ledgeWindowFrame(int window) {
+    __block NSRect frame = NSZeroRect;
+    onMainSync(^{
+        NSWindow *win = windows[@(window)];
+        if (win != nil) {
+            frame = win.frame;
+        }
+    });
+    return (LedgeRect){frame.origin.x, frame.origin.y, frame.size.width, frame.size.height};
 }
 
 void ledgeSetLevel(int window, int level) {

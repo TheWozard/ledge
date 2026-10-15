@@ -387,17 +387,19 @@ func setTheme(name string) {
 	testBar.options.Theme = name
 }
 
-func showReport(t *testing.T, title string, blocks []templ.Component) {
+// showReport shows a report for id and returns its window.
+func showReport(t *testing.T, id, title string, blocks []templ.Component) int {
 	t.Helper()
-	if err := testBar.ShowReport(title, blocks); err != nil {
+	if err := testBar.ShowReport(id, title, blocks); err != nil {
 		t.Fatal(err)
 	}
+	return testBar.reportWindow(id)
 }
 
 func TestReportWindow(t *testing.T) {
 	gui(t)
-	showReport(t, "A report", reportBlocks)
-	waitIn(t, ReportWindow, `document.querySelector(".titlebar span")?.textContent`, `"A report"`)
+	w := showReport(t, "report", "A report", reportBlocks)
+	waitIn(t, w, `document.querySelector(".titlebar span")?.textContent`, `"A report"`)
 	for js, want := range map[string]string{
 		`[...document.querySelectorAll("main > *")].map(e => e.tagName).join(" ")`:               `"H2 P DL DIV OL PRE DIV P"`,
 		`document.querySelector("p").textContent`:                                                `"<b>not bold</b>\nsecond line"`,
@@ -407,24 +409,29 @@ func TestReportWindow(t *testing.T) {
 		`document.querySelector(".note").dataset.color`:                                          `"yellow"`,
 		`getComputedStyle(document.documentElement).backgroundColor.startsWith("rgb(")`:          "true",
 		`(s => s.position + " " + s.top)(getComputedStyle(document.querySelector(".titlebar")))`: `"fixed 0px"`,
-		// Scrolling past an end doesn't bounce the page away from the window's edges.
-		`getComputedStyle(document.documentElement).overscrollBehaviorY`: `"none"`,
+		// The page doesn't scroll, so it can't bounce away from the window's edges:
+		// <main> scrolls, under the title bar, and has the keys.
+		`(s => s.overflow)(getComputedStyle(document.documentElement))`: `"hidden"`,
+		`getComputedStyle(document.querySelector("main")).overflowY`:    `"auto"`,
+		`document.activeElement.tagName`:                                `"MAIN"`,
 		// The page can't post to the app.
 		`!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.ledge)`: "true",
 	} {
-		if got := evalIn(t, ReportWindow, js); got != want {
+		if got := evalIn(t, w, js); got != want {
 			t.Errorf("%s = %s, want %s", js, got, want)
 		}
 	}
 	// The link goes to OpenURL, and the report stays put.
-	evalIn(t, ReportWindow, `document.querySelector("a").click(), true`)
+	evalIn(t, w, `document.querySelector("a").click(), true`)
 	eventually(t, "OpenURL", func() bool { return calls.has("url https://example.com/from-report") })
-	if got := evalIn(t, ReportWindow, `location.href`); got != `"about:blank"` {
+	if got := evalIn(t, w, `location.href`); got != `"about:blank"` {
 		t.Errorf("the link moved the report to %s", got)
 	}
-	// Showing another report replaces it.
-	showReport(t, "Another", []templ.Component{components.Paragraph("Second version")})
-	waitIn(t, ReportWindow, `document.querySelector("p")?.textContent`, `"Second version"`)
+	// Showing its id again replaces it, in the same window.
+	if again := showReport(t, "report", "Another", []templ.Component{components.Paragraph("Second version")}); again != w {
+		t.Errorf("showing the same id again opened window %d, not %d", again, w)
+	}
+	waitIn(t, w, `document.querySelector("p")?.textContent`, `"Second version"`)
 }
 
 // Every theme draws a report on an opaque background.
@@ -433,11 +440,39 @@ func TestReportThemes(t *testing.T) {
 	defer setTheme(theme.Default)
 	for _, name := range theme.Names {
 		setTheme(name)
-		showReport(t, "Themed report", reportBlocks)
+		w := showReport(t, "report", "Themed report", reportBlocks)
 		// Each report stylesheet starts with a comment naming its theme.
-		waitIn(t, ReportWindow, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* `+name+`:"))`, "true")
-		if got := evalIn(t, ReportWindow, `getComputedStyle(document.documentElement).backgroundColor`); !strings.HasPrefix(got, `"rgb(`) {
+		waitIn(t, w, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* `+name+`:"))`, "true")
+		if got := evalIn(t, w, `getComputedStyle(document.documentElement).backgroundColor`); !strings.HasPrefix(got, `"rgb(`) {
 			t.Errorf("%s: report background = %s, want an opaque colour", name, got)
+		}
+	}
+}
+
+// A long report scrolls in <main>, under the title bar, in every theme: the page and
+// its title bar stay put, and the last block clears the bottom of the window.
+func TestReportScrolls(t *testing.T) {
+	gui(t)
+	defer setTheme(theme.Default)
+	var long []templ.Component
+	for i := range 40 {
+		long = append(long, components.Paragraph(fmt.Sprintf("Paragraph %d", i)))
+	}
+	for _, name := range theme.Names {
+		setTheme(name)
+		w := showReport(t, "report", "Long report", long)
+		waitIn(t, w, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* `+name+`:"))`, "true")
+		got := evalIn(t, w, `(() => {
+			const main = document.querySelector("main"), bar = document.querySelector(".titlebar");
+			const top = bar.getBoundingClientRect().top;
+			main.scrollTop = main.scrollHeight;
+			const last = main.lastElementChild.getBoundingClientRect().bottom, end = main.getBoundingClientRect().bottom;
+			return [main.scrollTop > 0, document.scrollingElement.scrollTop === 0,
+			        bar.getBoundingClientRect().top === top, end - last >= 20,
+			        main.getBoundingClientRect().top >= bar.getBoundingClientRect().bottom].join();
+		})()`)
+		if got != `"true,true,true,true,true"` {
+			t.Errorf("%s: main scrolls, page still, title bar still, last block clear, main under the title bar = %s", name, got)
 		}
 	}
 }
@@ -451,40 +486,74 @@ func TestReportFrame(t *testing.T) {
 		t.Error("the bar page has the frame handler")
 	}
 	blocks := []templ.Component{components.Paragraph("Framed")}
-	showReport(t, "Framed report", blocks)
-	waitIn(t, ReportWindow, `document.querySelector(".titlebar span")?.textContent`, `"Framed report"`)
-	if got := evalIn(t, ReportWindow, `!!window.webkit.messageHandlers.frame`); got != "true" {
+	w := showReport(t, "report", "Framed report", blocks)
+	waitIn(t, w, `document.querySelector(".titlebar span")?.textContent`, `"Framed report"`)
+	if got := evalIn(t, w, `!!window.webkit.messageHandlers.frame`); got != "true" {
 		t.Fatal("the report page has no frame handler")
 	}
 	// Anything but the four actions is dropped, and a drag needs the mouse held down.
-	evalIn(t, ReportWindow, `["open", {action: "close"}, 1, "drag"].forEach(m => window.webkit.messageHandlers.frame.postMessage(m)), true`)
+	evalIn(t, w, `["open", {action: "close"}, 1, "drag"].forEach(m => window.webkit.messageHandlers.frame.postMessage(m)), true`)
 	time.Sleep(200 * time.Millisecond)
-	if !shim.WindowVisible(ReportWindow) {
+	if !shim.WindowVisible(w) {
 		t.Fatal("a message other than close closed the report window")
 	}
-	if got := evalIn(t, ReportWindow, `getComputedStyle(document.querySelector(".titlebar .close")).display`); got != `"none"` {
+	if got := evalIn(t, w, `getComputedStyle(document.querySelector(".titlebar .close")).display`); got != `"none"` {
 		t.Errorf("the default theme shows its own close button (display %s)", got)
 	}
 
 	// Win 95 draws the whole window, buttons included; its close button closes it.
 	setTheme("win95")
-	showReport(t, "Framed report", blocks)
-	waitIn(t, ReportWindow, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* win95:"))`, "true")
+	w = showReport(t, "report", "Framed report", blocks)
+	waitIn(t, w, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* win95:"))`, "true")
 	for _, button := range []string{"close", "minimise", "zoom"} {
-		if got := evalIn(t, ReportWindow, `getComputedStyle(document.querySelector(".titlebar .`+button+`")).display`); got == `"none"` {
+		if got := evalIn(t, w, `getComputedStyle(document.querySelector(".titlebar .`+button+`")).display`); got == `"none"` {
 			t.Errorf("win95 hides its %s button", button)
 		}
 	}
-	evalIn(t, ReportWindow, `document.querySelector(".titlebar .close").click(), true`)
-	eventually(t, "the report window to close", func() bool { return !shim.WindowVisible(ReportWindow) })
+	evalIn(t, w, `document.querySelector(".titlebar .close").click(), true`)
+	eventually(t, "the report window to close", func() bool { return !shim.WindowVisible(w) })
 
-	// Its minimise button works without a title bar too, and showing it brings it back.
-	showReport(t, "Framed report", blocks)
-	eventually(t, "the report window to open", func() bool { return shim.WindowVisible(ReportWindow) })
-	evalIn(t, ReportWindow, `document.querySelector(".titlebar .minimise").click(), true`)
-	eventually(t, "the report window to minimise", func() bool { return !shim.WindowVisible(ReportWindow) })
-	showReport(t, "Framed report", blocks)
-	eventually(t, "the report window to come back", func() bool { return shim.WindowVisible(ReportWindow) })
+	// Closed, it's gone: showing its id again opens a new window. Its minimise button
+	// works without a title bar too, and showing it brings it back.
+	closed := w
+	eventually(t, "the closed window to be forgotten", func() bool { return testBar.reportWindow("report") != closed })
+	w = showReport(t, "report", "Framed report", blocks)
+	if w == closed {
+		t.Errorf("showing a closed report's id again reused window %d", w)
+	}
+	eventually(t, "the report window to open", func() bool { return shim.WindowVisible(w) })
+	waitIn(t, w, `document.querySelector(".titlebar .minimise") !== null`, "true")
+	evalIn(t, w, `document.querySelector(".titlebar .minimise").click(), true`)
+	eventually(t, "the report window to minimise", func() bool { return !shim.WindowVisible(w) })
+	w = showReport(t, "report", "Framed report", blocks)
+	eventually(t, "the report window to come back", func() bool { return shim.WindowVisible(w) })
+}
+
+// Each id has its own report window, opened down and to the right of the last;
+// closing one leaves the others.
+func TestReportWindowPerID(t *testing.T) {
+	gui(t)
+	a := showReport(t, "card-a", "Report A", []templ.Component{components.Paragraph("A")})
+	b := showReport(t, "card-b", "Report B", []templ.Component{components.Paragraph("B")})
+	if a == b || a == BarWindow || b == BarWindow {
+		t.Fatalf("card-a and card-b have windows %d and %d", a, b)
+	}
+	waitIn(t, a, `document.querySelector("p")?.textContent`, `"A"`)
+	waitIn(t, b, `document.querySelector("p")?.textContent`, `"B"`)
+	if fa, fb := shim.WindowFrame(a), shim.WindowFrame(b); !(fb.X > fa.X && fb.Y < fa.Y) {
+		t.Errorf("card-a's window is at %+v and card-b's at %+v, want b down and to the right", fa, fb)
+	}
+
+	evalIn(t, a, `window.webkit.messageHandlers.frame.postMessage("close"), true`)
+	eventually(t, "card-a's window to close", func() bool { return !shim.WindowVisible(a) })
+	if !shim.WindowVisible(b) {
+		t.Error("closing card-a's window closed card-b's")
+	}
+	if _, err := shim.EvalResult(a, `1`); err == nil {
+		t.Error("card-a's closed window still has its page")
+	}
+	evalIn(t, b, `window.webkit.messageHandlers.frame.postMessage("close"), true`)
+	eventually(t, "card-b's window to close", func() bool { return !shim.WindowVisible(b) })
 }
 
 func TestNavigate(t *testing.T) {
@@ -497,11 +566,11 @@ func TestNavigate(t *testing.T) {
 	}{
 		{BarWindow, "about:blank", false, true},
 		{BarWindow, "https://example.com", true, false},
-		{ReportWindow, "about:blank", false, true},
-		{ReportWindow, "file:///etc/hosts", true, false},
-		{ReportWindow, "https://example.com", false, false},
-		{ReportWindow, "https://example.com", true, false}, // to OpenURL instead
-		{ReportWindow, "javascript:alert(1)", true, false},
+		{BarWindow + 1, "about:blank", false, true},
+		{BarWindow + 1, "file:///etc/hosts", true, false},
+		{BarWindow + 1, "https://example.com", false, false},
+		{BarWindow + 1, "https://example.com", true, false}, // to OpenURL instead
+		{BarWindow + 1, "javascript:alert(1)", true, false},
 	} {
 		if got := bar.navigate(c.window, c.url, c.clicked); got != c.want {
 			t.Errorf("navigate(%d, %s, %v) = %v, want %v", c.window, c.url, c.clicked, got, c.want)

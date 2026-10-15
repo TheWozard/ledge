@@ -15,6 +15,13 @@ body { color: #000; font: 12px/1.45 Geneva, "Lucida Grande", sans-serif; }
 .titlebar .close { left: 9px; }
 /* The window has no macOS frame, so the page draws its black outline. */
 html::after { content: ""; position: fixed; z-index: 2; inset: 0; pointer-events: none; border: 1px solid #000; }
+/* The report scrolls inside the outline, with Platinum's scroll bars: a lavender
+   thumb in a grey, black-edged track. */
+main { inset: var(--titlebar) 1px 1px; }
+::-webkit-scrollbar { width: 16px; height: 16px; }
+::-webkit-scrollbar-track { background: #dcdcdc; box-shadow: inset 1px 1px #000, inset 2px 2px #aaa; }
+::-webkit-scrollbar-thumb { background: linear-gradient(90deg, #ccccff, #9999dd); border: 1px solid #000; box-shadow: inset 1px 1px #fff; }
+::-webkit-scrollbar-corner { background: #dcdcdc; }
 .titlebar .zoom { right: 27px; }
 .titlebar .minimise { right: 9px; }
 /* The zoom box has a smaller box in it; the collapse box a bar across. */

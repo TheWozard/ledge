@@ -18,7 +18,7 @@ import (
 	"github.com/TheWozard/ledge-frontend/theme"
 )
 
-// Bar is the bar window and the report window.
+// Bar is the bar window and the report windows.
 type Bar struct {
 	options  Options
 	handlers Handlers
@@ -29,6 +29,9 @@ type Bar struct {
 	shown  map[string]bool // the ids of the cards on the bar, to tell which are new
 	ready  bool            // the page has loaded and can take updates
 	redraw *time.Timer     // for the next relative time or scheduled colour to change
+
+	reports    map[string]int // each open report's window, by the id it was shown with
+	lastWindow int            // the last window id given out
 }
 
 // opened is whether Open has made the bar: there's one, and the shim's handlers are its.
@@ -49,12 +52,13 @@ func Open(options Options, handlers Handlers) (*Bar, error) {
 		return nil, err
 	}
 	opened.Store(true)
-	b := &Bar{options: options, handlers: handlers, shown: map[string]bool{}}
+	b := &Bar{options: options, handlers: handlers, shown: map[string]bool{}, reports: map[string]int{}, lastWindow: BarWindow}
 	shim.CreateBar(BarWindow)
 	shim.SetLevel(BarWindow, options.Level)
 	b.Place()
 	shim.OnScreensChanged(func() { b.Place() })
 	shim.OnNavigate(b.navigate)
+	shim.OnWindowClosed(b.closed)
 	shim.OnMessage(func(window int, message []byte) {
 		if window == BarWindow {
 			go b.handle(message)
