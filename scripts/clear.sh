@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Remove example events from the bar.
 #
-#   clear.sh         remove everything bar.sh, report.sh and feed.sh sent, and nothing else
+#   clear.sh         remove everything bar.sh, report.sh and feed.sh sent and the pages
+#                    they wrote, and nothing else
 #   clear.sh --all   remove every event and status on the bar, whoever sent it
 #
 # Sends with $LEDGE (default: ledge on PATH, else built from this repo) to
@@ -24,6 +25,8 @@ case "${1:-}" in
     for source in example-bar example-report example-feed; do
       "$LEDGE" event "{\"source\": \"$source\", \"items\": []}" >/dev/null
     done
+    pages="${TMPDIR:-/tmp}"; pages="${pages%/}/ledge-examples"
+    rm -rf "$pages/bar" "$pages/report" "$pages/feed"
     echo "Cleared the examples" >&2
     ;;
   --all)

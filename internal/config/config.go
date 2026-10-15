@@ -30,10 +30,11 @@ type Config struct {
 	Screen int    `json:"screen"`
 	Edge   string `json:"edge"`
 	Height int    `json:"height"`
+	Theme  string `json:"theme"`
 }
 
 // Defaults is the config without a file, and what a file's missing keys fall back to.
-var Defaults = Config{Screen: 0, Edge: "bottom", Height: 110}
+var Defaults = Config{Screen: 0, Edge: "bottom", Height: 110, Theme: "default"}
 
 // Load reads the config at path, or returns Defaults if path is "".
 func Load(path string) (Config, error) {

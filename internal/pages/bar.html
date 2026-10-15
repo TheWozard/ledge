@@ -14,7 +14,7 @@
      status = {id, kind: "status", title, source, received, url?, detail?, command?,
                color?, schedule?: [{at, color}], expires?}
      A status (kind "status") is a pill in `color`, switching to each schedule step's
-     colour once its `at` time passes. Colours are a name from --c-* below or #rrggbb.
+     colour once its `at` time passes. Colours are a name from the theme's --c-* or #rrggbb.
 
      Event text is untrusted: it goes in through textContent/setAttribute, never
      innerHTML. Nothing is a real link, since the window can't navigate: a status with
@@ -23,81 +23,57 @@
 <head>
 <meta charset="utf-8">
 <style>
-  :root {
-    --bar: #ecebe8; --card: #ffffff; --text: #1d1d1f; --muted: #6b6b70; --line: rgba(0, 0, 0, .08);
-    --accent: #2f5fd0; --high: #c4352b; --medium: #b7791f; --low: #5f7f5f;
-    --c-green: #2f8f4e; --c-yellow: #c08a12; --c-red: #c4352b; --c-blue: #2f5fd0; --c-gray: #8a8a90;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bar: #151517; --card: #26262b; --text: #ececef; --muted: #9a9aa2; --line: rgba(255, 255, 255, .09);
-      --accent: #7ea2ff; --high: #ff7b6e; --medium: #e8b55a; --low: #9cc29c;
-      --c-green: #5cc27a; --c-yellow: #e8b55a; --c-red: #ff7b6e; --c-blue: #7ea2ff; --c-gray: #9a9aa2;
-    }
-  }
+  /* Layout only. How the bar looks comes from its theme (themes/ beside this file),
+     which ledge adds as a second <style> at the end of <head>, so a theme's rules
+     win over these. A theme sets --bar to an opaque colour for the page behind the
+     bar, and --c-green, --c-yellow, --c-red, --c-blue and --c-gray for pills.
+
+     A pill carries its current colour in data-color, and a card new since the last
+     render has data-new and --i, its place among the new ones, for an entrance
+     animation. */
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bar); overflow: hidden; }
-  body { color: var(--text); font: 12px/1.4 -apple-system, BlinkMacSystemFont, sans-serif;
-         -webkit-user-select: none; cursor: default; }
+  body { -webkit-user-select: none; cursor: default; }
 
   /* The bar fills the window: status pills on the left, then the scrolling row of cards. */
-  #app { display: flex; height: 100%; gap: 8px; padding: 8px; background: var(--bar);
-         border-top: 1px solid var(--line); }
-  body.top #app { border-top: 0; border-bottom: 1px solid var(--line); }
+  #app { position: relative; display: flex; height: 100%; gap: 8px; padding: 8px; }
 
   /* Status pills stack in one column that scrolls vertically when they don't fit. */
   .pills { flex: none; display: flex; flex-direction: column; gap: 4px; max-width: 50%;
            overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
   .pills::-webkit-scrollbar { display: none; }
   .pill { position: relative; flex: none; display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px;
-          border-radius: 999px; border: 1px solid var(--pill);
-          background: color-mix(in srgb, var(--pill) 22%, var(--card)); white-space: nowrap; }
-  .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pill); flex: none; }
-  .pill .label { font-weight: 600; color: var(--text); }
+          white-space: nowrap; }
+  .pill .dot { flex: none; }
   .pill.opens .label { cursor: pointer; }
-  .pill.opens .label:hover { text-decoration: underline; }
-  /* A pill with a command is a button: clicking it runs the command, and it flashes. */
+  /* A pill with a command is a button: clicking it runs the command. */
   .pill.runs { cursor: pointer; }
-  .pill.runs:hover { background: color-mix(in srgb, var(--pill) 36%, var(--card)); }
-  .pill.ran { animation: ran .6s; }
-  @keyframes ran { from { background: var(--pill); } }
 
   ul { flex: 1; min-width: 0; list-style: none; margin: 0; padding: 0; display: flex; gap: 8px;
        overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
   ul::-webkit-scrollbar { display: none; }
-  li { position: relative; flex: none; width: 280px; height: 100%; display: flex; flex-direction: column;
-       padding: 7px 10px; border-radius: 8px; background: var(--card);
-       border: 1px solid var(--line); border-left: 3px solid transparent; overflow: hidden; }
-  /* A card with a report or a url opens it when clicked. Hover outlines three sides so
-     the left edge keeps its priority colour. */
+  li { position: relative; flex: none; width: 280px; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+  /* A card with a report or a url opens it when clicked. */
   li.opens { cursor: pointer; }
-  li.opens:hover { border-top-color: var(--accent); border-right-color: var(--accent); border-bottom-color: var(--accent); }
-  li.high { border-left-color: var(--high); }
-  li.medium { border-left-color: var(--medium); }
-  li.low { border-left-color: var(--low); }
-  /* The title clamps so a long one can't push the meta line out of the card. */
   /* Title, description, then the meta line pinned to the bottom: source and age on the
      left, tags on the right. Title and description clamp; the description gives way
      first if the card runs out of height. If the tags don't fit, they're the ones cut. */
   .tags { display: flex; justify-content: flex-end; gap: 4px; overflow: hidden; min-width: 0; margin-left: auto; }
   /* Only the title shares the top line with ×, so only it keeps clear of it. */
   .title { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; -webkit-line-clamp: 2; flex: none;
-           margin-right: 16px;
-           font-weight: 600; font-size: 13px; line-height: 1.3; color: var(--text); }
+           margin-right: 16px; }
   .description { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; -webkit-line-clamp: 2;
-                 min-height: 0; flex: 0 1 auto; color: var(--muted); margin-top: 1px; }
+                 min-height: 0; flex: 0 1 auto; }
   .meta .when { flex: none; }
   .meta { display: flex; flex-wrap: nowrap; align-items: center; gap: 4px; margin-top: auto; padding-top: 3px;
-          color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; }
-  .tag { display: inline-block; flex: none; font-size: 10px; padding: 0 6px; border-radius: 999px;
-         border: 1px solid var(--line); line-height: 16px; color: var(--muted); }
+          white-space: nowrap; overflow: hidden; }
+  .tag { display: inline-block; flex: none; }
 
-  .dismiss { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border: 0; border-radius: 4px;
-             background: none; color: var(--muted); font-size: 14px; line-height: 18px; padding: 0;
-             cursor: pointer; }
-  .dismiss:hover { background: var(--line); color: var(--text); }
+  .dismiss { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border: 0; padding: 0;
+             background: none; color: inherit; font: inherit; cursor: pointer; }
 
-  .empty { flex: 1; display: flex; align-items: center; color: var(--muted); font-size: 12px; }
+  .empty { flex: 1; display: flex; align-items: center; }
+  @keyframes blink { 50% { opacity: 0; } }
 </style>
 </head>
 <body>
@@ -129,12 +105,14 @@
     return `${Math.round(minutes / 60 / 24)}d`;
   }
 
-  function renderEvent(event) {
+  // isNew is its place among the cards new since the last render, or -1.
+  function renderEvent(event, isNew) {
     const dismiss = el("button", { class: "dismiss", title: "Dismiss" }, "×");
     dismiss.addEventListener("click", () => send("dismiss", event.id));
     const opens = event.report ? "report" : event.url ? "link" : null;
     const card = el("li", { class: [event.priority, opens ? "opens" : null].filter(Boolean).join(" ") || null,
-                            title: event.url || null },
+                            title: event.url || null,
+                            "data-new": isNew >= 0 ? "" : null, style: isNew >= 0 ? `--i: ${isNew}` : null },
       dismiss,
       el("span", { class: "title" }, event.title),
       event.description ? el("div", { class: "description" }, event.description) : null,
@@ -170,8 +148,9 @@
     const tip = [status.detail, status.command ? `Click to run: ${status.command}` : null,
                  ...upcoming.map(step => `${step.color} at ${time(step.at)}`)].filter(Boolean).join("\n");
     const opens = !status.command && /^https?:\/\//i.test(status.url || "");
+    const color = colorNow(status);
     const pill = el("div", { class: ["pill", status.command ? "runs" : null, opens ? "opens" : null].filter(Boolean).join(" "),
-                             style: `--pill: ${cssColor(colorNow(status))}`, title: tip || null },
+                             style: `--pill: ${cssColor(color)}`, "data-color": color || null, title: tip || null },
       el("span", { class: "dot" }),
       el("span", { class: "label" }, status.title));
     if (opens) {
@@ -200,15 +179,19 @@
 
   // Keep the row's and the pills' scroll positions across re-renders, so a new event
   // arriving doesn't jump you back to the start while you're reading further along.
+  let shown = new Set();   // the ids of the cards on the bar, to tell which are new
   function render(all) {
     latest = all;
     const statuses = all.filter(e => e.kind === "status").sort((a, b) => a.title.localeCompare(b.title));
     const events = all.filter(e => e.kind !== "status");
+    const added = events.filter(e => !shown.has(e.id)).map(e => e.id);
+    shown = new Set(events.map(e => e.id));
     const scrolled = app.querySelector("ul")?.scrollLeft || 0;
     const scrolledPills = app.querySelector(".pills")?.scrollTop || 0;
     app.replaceChildren(...[
       statuses.length ? el("div", { class: "pills" }, statuses.map(renderStatus)) : null,
-      events.length ? el("ul", {}, events.map(renderEvent)) : el("div", { class: "empty" }, "No events.")].filter(Boolean));
+      events.length ? el("ul", {}, events.map(e => renderEvent(e, added.indexOf(e.id))))
+                    : el("div", { class: "empty" }, "No events.")].filter(Boolean));
     const row = app.querySelector("ul");
     if (row) row.scrollLeft = scrolled;
     const pills = app.querySelector(".pills");
@@ -216,11 +199,21 @@
     scheduleNextChange(statuses);
   }
 
+  // Whether node, or something it's in, scrolls vertically and has more to show, as
+  // a theme can make a card's description do.
+  function scrollsVertically(node) {
+    for (; node && node !== app; node = node.parentElement) {
+      if (node.scrollHeight > node.clientHeight && /auto|scroll/.test(getComputedStyle(node).overflowY)) return true;
+    }
+    return false;
+  }
+
   // A mouse wheel only scrolls vertically; turn that into sideways scrolling of the row.
-  // Over the pills it's left alone, since they scroll vertically.
+  // Over the pills, or anything else that scrolls vertically, it's left alone.
   app.addEventListener("wheel", event => {
     const row = app.querySelector("ul");
-    if (!row || event.target.closest(".pills") || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+    if (!row || event.target.closest(".pills") || scrollsVertically(event.target)
+        || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
     row.scrollLeft += event.deltaY;
     event.preventDefault();
   }, { passive: false });

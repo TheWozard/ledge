@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"ledge/internal/config"
+	"ledge/internal/pages"
 	"ledge/internal/schema"
 	"ledge/internal/shim"
 	"ledge/internal/store"
@@ -22,8 +24,38 @@ import (
 var (
 	testBar   *Bar
 	testStore *store.Store
+	testDir   string
 	logs      syncBuffer
+	opened    recorder // what `open` would have opened
 )
+
+// recorder keeps the urls `open` was run with. Tests never open the browser.
+type recorder struct {
+	mu   sync.Mutex
+	urls []string
+}
+
+func (r *recorder) has(url string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, u := range r.urls {
+		if u == url {
+			return true
+		}
+	}
+	return false
+}
+
+// testStart runs a status's bash command for real, but only records `open`.
+func testStart(cmd *exec.Cmd) error {
+	if filepath.Base(cmd.Path) == "open" {
+		opened.mu.Lock()
+		opened.urls = append(opened.urls, cmd.Args[1])
+		opened.mu.Unlock()
+		return nil
+	}
+	return startDetached(cmd)
+}
 
 func TestMain(m *testing.M) {
 	if os.Getenv("LEDGE_GUI_TEST") == "" {
@@ -35,6 +67,7 @@ func TestMain(m *testing.M) {
 		log.Fatal(err)
 	}
 	defer os.RemoveAll(dir)
+	testDir = dir
 	if testStore, err = store.Open(filepath.Join(dir, "events.json")); err != nil {
 		log.Fatal(err)
 	}
@@ -42,7 +75,8 @@ func TestMain(m *testing.M) {
 
 	// The main loop has the main goroutine, so the tests run beside it.
 	shim.Init()
-	testBar = Open(testStore, config.Defaults)
+	testBar = Open(testStore, config.Defaults, dir)
+	testBar.start = testStart
 	code := make(chan int, 1)
 	go func() {
 		code <- m.Run()
@@ -54,19 +88,29 @@ func TestMain(m *testing.M) {
 
 func eval(t *testing.T, js string) string {
 	t.Helper()
-	value, err := shim.EvalResult(Window, js)
+	return evalIn(t, Window, js)
+}
+
+func evalIn(t *testing.T, window int, js string) string {
+	t.Helper()
+	value, err := shim.EvalResult(window, js)
 	if err != nil {
 		t.Fatalf("%s: %v", js, err)
 	}
 	return string(value)
 }
 
-// waitFor evaluates js until it gives want.
+// waitFor evaluates js in the bar until it gives want.
 func waitFor(t *testing.T, js, want string) {
+	t.Helper()
+	waitIn(t, Window, js, want)
+}
+
+func waitIn(t *testing.T, window int, js, want string) {
 	t.Helper()
 	var got string
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
-		if value, err := shim.EvalResult(Window, js); err == nil {
+		if value, err := shim.EvalResult(window, js); err == nil {
 			if got = string(value); got == want {
 				return
 			}
@@ -75,15 +119,41 @@ func waitFor(t *testing.T, js, want string) {
 	t.Fatalf("%s = %s, want %s", js, got, want)
 }
 
+// eventually waits for check to be true.
+func eventually(t *testing.T, what string, check func() bool) {
+	t.Helper()
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(50 * time.Millisecond) {
+		if check() {
+			return
+		}
+	}
+	t.Fatalf("timed out waiting for %s", what)
+}
+
+// click clicks the element matching selector in the bar, once the bar shows it.
+func click(t *testing.T, selector string) {
+	t.Helper()
+	testBar.Render()
+	waitFor(t, `document.querySelector(`+jsString(selector)+`) !== null`, "true")
+	eval(t, `document.querySelector(`+jsString(selector)+`).click(), true`)
+}
+
+func jsString(s string) string {
+	return fmt.Sprintf("%q", s)
+}
+
+// add adds an event for the length of the test.
 func add(t *testing.T, body string) {
 	t.Helper()
 	value, err := schema.Decode([]byte(body))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := testStore.Add(value, time.Now()); err != nil {
+	id, err := testStore.Add(value, time.Now())
+	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { testStore.Remove(id) })
 }
 
 func TestWindow(t *testing.T) {
@@ -212,5 +282,56 @@ func TestPillsScrollVertically(t *testing.T) {
 	time.Sleep(200 * time.Millisecond)
 	if got := eval(t, `document.querySelector(".pills").scrollTop`); got != "40" {
 		t.Errorf("after a render the pills are scrolled to %s, want 40", got)
+	}
+}
+
+// Each theme loads, shows the cards, and paints the whole bar. Loading a page sends
+// "ready", so the bar renders itself. The default theme goes back afterwards.
+func TestThemes(t *testing.T) {
+	defer func() {
+		shim.LoadHTML(Window, page(config.Defaults))
+		waitFor(t, `document.querySelector("li") !== null`, "true")
+	}()
+	add(t, `{"id": "themed", "title": "Themed", "priority": "high", "tags": ["a"]}`)
+	add(t, `{"kind": "status", "id": "themed-pill", "title": "Pill", "color": "red"}`)
+	for name := range pages.Themes {
+		cfg := config.Defaults
+		cfg.Theme = name
+		shim.LoadHTML(Window, page(cfg))
+		waitFor(t, `document.querySelector(".pill[data-color=red]") !== null && document.querySelector("li") !== null`, "true")
+		if got := eval(t, `getComputedStyle(document.body).backgroundColor`); !strings.HasPrefix(got, `"rgb(`) {
+			t.Errorf("%s: body background = %s, want an opaque colour", name, got)
+		}
+	}
+}
+
+// In win95 a long description scrolls, with a scroll bar that takes up room, and the
+// mouse wheel over it scrolls the description rather than the row.
+func TestWin95DescriptionScrolls(t *testing.T) {
+	defer func() {
+		shim.LoadHTML(Window, page(config.Defaults))
+		waitFor(t, `document.querySelector("li") !== null`, "true")
+	}()
+	add(t, `{"id": "long", "title": "Long", "description": "`+strings.Repeat("A long description. ", 40)+`"}`)
+	for i := range 8 {
+		add(t, fmt.Sprintf(`{"id": "wide-%d", "title": "Card %d"}`, i, i))
+	}
+	cfg := config.Defaults
+	cfg.Theme = "win95"
+	shim.LoadHTML(Window, page(cfg))
+	waitFor(t, `document.querySelector("li .description") !== null`, "true")
+
+	const description = `document.querySelector("li .description")`
+	if got := eval(t, `(d => d.scrollHeight > d.clientHeight && d.clientWidth < d.offsetWidth - 6)(`+description+`)`); got != "true" {
+		t.Fatal("the description doesn't scroll with a scroll bar")
+	}
+	got := eval(t, `(d => {
+		const row = document.querySelector("ul"), before = row.scrollLeft;
+		const wheel = new WheelEvent("wheel", {deltaY: 40, bubbles: true, cancelable: true});
+		d.dispatchEvent(wheel);
+		return !wheel.defaultPrevented && row.scrollLeft === before;
+	})(`+description+`)`)
+	if got != "true" {
+		t.Error("the wheel over a scrolling description moved the row")
 	}
 }

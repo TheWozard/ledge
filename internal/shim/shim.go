@@ -37,6 +37,8 @@ var (
 	handlersMu       sync.Mutex
 	onMessage        func(window int, message []byte)
 	onScreensChanged func()
+	onNavigate       func(window int, url string, clicked bool) bool
+	onTitleChanged   func(window int, title string)
 )
 
 // OnMessage sets what's called with each JSON message a page posts.
@@ -51,6 +53,22 @@ func OnScreensChanged(handle func()) {
 	handlersMu.Lock()
 	defer handlersMu.Unlock()
 	onScreensChanged = handle
+}
+
+// OnNavigate sets what decides whether a window may go to url; clicked is true for
+// a link the user clicked. Without one, only about:blank (a page loaded with LoadHTML)
+// is allowed.
+func OnNavigate(decide func(window int, url string, clicked bool) bool) {
+	handlersMu.Lock()
+	defer handlersMu.Unlock()
+	onNavigate = decide
+}
+
+// OnTitleChanged sets what's called when a window's page changes its title.
+func OnTitleChanged(handle func(window int, title string)) {
+	handlersMu.Lock()
+	defer handlersMu.Unlock()
+	onTitleChanged = handle
 }
 
 // Init sets up the app. Call it once, before creating windows.
@@ -69,6 +87,32 @@ func CreateBar(id int) { C.ledgeCreateBar(C.int(id)) }
 func PlaceBar(id, screen int, top bool, height float64) Rect {
 	r := C.ledgePlaceBar(C.int(id), C.int(screen), cBool(top), C.double(height))
 	return Rect{float64(r.x), float64(r.y), float64(r.width), float64(r.height)}
+}
+
+// CreateWindow creates window id as an ordinary titled window, if it doesn't exist
+// yet. Its page can't post messages to Go.
+func CreateWindow(id int, title string, width, height float64) {
+	text := C.CString(title)
+	defer C.free(unsafe.Pointer(text))
+	C.ledgeCreateWindow(C.int(id), text, C.double(width), C.double(height))
+}
+
+// ShowWindow brings the window to the front and gives it focus.
+func ShowWindow(id int) { C.ledgeShowWindow(C.int(id)) }
+
+// SetTitle sets the window's title.
+func SetTitle(id int, title string) {
+	text := C.CString(title)
+	defer C.free(unsafe.Pointer(text))
+	C.ledgeSetTitle(C.int(id), text)
+}
+
+// LoadFile replaces the window's page with a file, which can read files under dir.
+func LoadFile(id int, path, dir string) {
+	file, access := C.CString(path), C.CString(dir)
+	defer C.free(unsafe.Pointer(file))
+	defer C.free(unsafe.Pointer(access))
+	C.ledgeLoadFile(C.int(id), file, access)
 }
 
 // LoadHTML replaces the window's page.
@@ -126,6 +170,28 @@ func goLedgeScreensChanged() {
 	handlersMu.Unlock()
 	if handle != nil {
 		handle()
+	}
+}
+
+//export goLedgeNavigate
+func goLedgeNavigate(window C.int, url *C.char, clicked C.int) C.int {
+	handlersMu.Lock()
+	decide := onNavigate
+	handlersMu.Unlock()
+	target := C.GoString(url)
+	if decide == nil {
+		return cBool(target == "about:blank")
+	}
+	return cBool(decide(int(window), target, clicked != 0))
+}
+
+//export goLedgeTitleChanged
+func goLedgeTitleChanged(window C.int, title *C.char) {
+	handlersMu.Lock()
+	handle := onTitleChanged
+	handlersMu.Unlock()
+	if handle != nil {
+		handle(int(window), C.GoString(title))
 	}
 }
 

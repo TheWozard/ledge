@@ -73,7 +73,7 @@ var runCmd = &cobra.Command{
 		// AppKit's main loop takes the main goroutine; the API runs beside it, and
 		// stopping either stops both.
 		shim.Init()
-		server.Changed = bar.Open(events, cfg).Render
+		server.Changed = bar.Open(events, cfg, dir).Render
 		done := make(chan error, 1)
 		go func() {
 			done <- serve(ctx, listener, server)

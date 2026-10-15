@@ -8,7 +8,9 @@
     "screen": {"type": "integer", "minimum": 0,
                "description": "An index into the screens; 0 is the one with the menu bar. Default 0."},
     "edge": {"enum": ["bottom", "top"], "description": "The edge the bar runs along. Default bottom."},
-    "height": {"type": "integer", "minimum": 1, "description": "The bar's height in points. Default 110."}
+    "height": {"type": "integer", "minimum": 1, "description": "The bar's height in points. Default 110."},
+    "theme": {"enum": ["default", "platinum", "win95", "handheld", "synthwave", "hifi"],
+              "description": "How the bar looks. Default default, which follows the system's light or dark mode; the others always look the same. See internal/pages/themes."}
   },
   "additionalProperties": false
 }

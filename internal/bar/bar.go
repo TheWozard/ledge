@@ -6,7 +6,9 @@ import (
 	"embed"
 	"encoding/json"
 	"log"
+	"os/exec"
 	"strings"
+	"sync"
 
 	"ledge/internal/config"
 	"ledge/internal/pages"
@@ -29,26 +31,42 @@ var schemas = func() *schema.Set {
 	return set
 }()
 
-// Bar is the bar window and the store it shows.
+// Bar is the bar window, the report window, and the store they show.
 type Bar struct {
-	store  *store.Store
-	config config.Config
+	store    *store.Store
+	config   config.Config
+	stateDir string // where commands.log goes
+
+	// start runs a command in the background: `open` for a url, or a status's
+	// command. Tests replace it.
+	start func(*exec.Cmd) error
+
+	mu          sync.Mutex
+	reportDir   string // the report window may load files in here
+	reportTitle string // its title when the page has none
 }
 
 // Open creates the bar, places it and loads its page. Call it after shim.Init and
-// before shim.Run.
-func Open(events *store.Store, cfg config.Config) *Bar {
-	b := &Bar{store: events, config: cfg}
+// before shim.Run. Status commands' output goes to commands.log in stateDir.
+func Open(events *store.Store, cfg config.Config, stateDir string) *Bar {
+	b := &Bar{store: events, config: cfg, stateDir: stateDir, start: startDetached}
 	shim.CreateBar(Window)
 	b.place()
 	shim.OnScreensChanged(func() { b.place() })
+	shim.OnNavigate(b.navigate)
+	shim.OnTitleChanged(b.titleChanged)
 	shim.OnMessage(func(window int, message []byte) {
 		if window == Window {
 			go b.handle(message)
 		}
 	})
-	shim.LoadHTML(Window, strings.Replace(pages.Bar, "<body>", `<body class="`+cfg.Edge+`">`, 1))
+	shim.LoadHTML(Window, page(cfg))
 	return b
+}
+
+// page is the bar's page in cfg's theme, for its edge.
+func page(cfg config.Config) string {
+	return strings.Replace(pages.Bar(cfg.Theme), "<body>", `<body class="`+cfg.Edge+`">`, 1)
 }
 
 // Render shows the store's current events. Safe from any goroutine.
@@ -86,7 +104,9 @@ func (b *Bar) handle(data []byte) {
 			log.Printf("ledge: dismissing %s: %v", id, err)
 		}
 		b.Render()
-	default:
-		log.Printf("ledge: bar action %q on %s isn't handled yet", message["action"], id)
+	case "open":
+		b.open(id)
+	case "run":
+		b.run(id)
 	}
 }

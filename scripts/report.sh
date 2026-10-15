@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
-# An example card with a report: an HTML file this script writes, with a stylesheet
-# and an image beside it. Clicking the card shows the file in the report window (from
-# milestone 3).
+# Example cards with reports: HTML files this script writes, for trying each part of
+# the report window.
 #
-#   report.sh         write the report and send the card
-#   report.sh clear   remove the card
+#   - a report with a stylesheet and an image beside it, a link to a second page in
+#     the same directory (which should open in the window), a link outside the
+#     directory (which should be blocked), and an https link (your browser)
+#   - a card whose report file doesn't exist (the window should say which file)
+#
+#   report.sh         write the reports and send the cards
+#   report.sh clear   remove the cards and the files
 #
 # Sends with $LEDGE (default: ledge on PATH, else built from this repo) to
 # $LEDGE_PORT (default 47391).
@@ -22,13 +26,15 @@ fi
 SOURCE="example-report"
 send() { "$LEDGE" event "$1" >/dev/null; }
 
+dir="${TMPDIR:-/tmp}"; dir="${dir%/}/ledge-examples/report"
+
 if [[ "${1:-}" == "clear" ]]; then
   send "{\"source\": \"$SOURCE\", \"items\": []}"
+  rm -rf "$dir"
   echo "Cleared $SOURCE" >&2
   exit
 fi
 
-dir="${TMPDIR:-/tmp}"; dir="${dir%/}/ledge-examples/report"
 mkdir -p "$dir"
 cat > "$dir/style.css" <<'CSS'
 body { font: 14px/1.5 -apple-system, sans-serif; margin: 24px; color: #1d1d1f; }
@@ -64,7 +70,29 @@ cat > "$dir/index.html" <<'HTML'
   <tr><td>test</td><td>passed</td></tr>
 </table>
 <pre>internal/store/store.go:42: undefined: Refuse</pre>
-<p><a href="https://example.com/build/logs">Build logs</a> open in your browser.</p>
+<ul>
+  <li><a href="details.html">Details</a> is beside this file, so it opens here.</li>
+  <li><a href="file:///etc/hosts">/etc/hosts</a> is outside this directory, so it should be blocked.</li>
+  <li><a href="https://example.com/build/logs">Build logs</a> open in your browser.</li>
+</ul>
+<p><small>Written at TIME.</small></p>
+</body>
+</html>
+HTML
+sed -i '' "s/TIME/$(date +%T)/" "$dir/index.html"
+cat > "$dir/details.html" <<'HTML'
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CI: build details</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<h1>build</h1>
+<pre>go build ./...
+internal/store/store.go:42: undefined: Refuse</pre>
+<p><a href="index.html">Back to the summary</a></p>
 </body>
 </html>
 HTML
@@ -72,4 +100,7 @@ HTML
 send '{"id": "report-ci", "source": "example-report", "priority": "high", "title": "CI: 2 failures on main",
        "description": "build and lint failed; 14 jobs passed", "tags": ["ci"],
        "report": "'"$dir/index.html"'"}'
-echo "Wrote $dir/index.html and sent a card with it as the report" >&2
+send '{"id": "report-missing", "source": "example-report", "title": "A report that does not exist",
+       "description": "Clicking should say which file is missing.",
+       "report": "'"$dir/missing.html"'"}'
+echo "Wrote reports in $dir and sent 2 cards" >&2

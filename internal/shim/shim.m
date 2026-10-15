@@ -42,8 +42,8 @@ static void onMain(dispatch_block_t block) {
 - (BOOL)acceptsFirstMouse:(NSEvent *)event { return YES; }
 @end
 
-// Passes page messages to Go and keeps the page from navigating anywhere. A page
-// posts {action, id...} with window.webkit.messageHandlers.ledge.postMessage(...).
+// Passes page messages, navigations and title changes to Go. A page with the message
+// handler posts {action, id...} with window.webkit.messageHandlers.ledge.postMessage(...).
 @interface LedgeDelegate : NSObject <WKScriptMessageHandler, WKNavigationDelegate>
 @property int windowID;
 @end
@@ -58,17 +58,44 @@ static void onMain(dispatch_block_t block) {
     NSString *json = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
     goLedgeMessage(self.windowID, (char *)json.UTF8String);
 }
-// Only the page itself loads; a link can't take the window anywhere.
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)action
     decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
-    BOOL page = [action.request.URL.absoluteString isEqualToString:@"about:blank"];
-    decisionHandler(page ? WKNavigationActionPolicyAllow : WKNavigationActionPolicyCancel);
+    NSString *url = action.request.URL.absoluteString ?: @"";
+    int clicked = action.navigationType == WKNavigationTypeLinkActivated;
+    if (!goLedgeNavigate(self.windowID, (char *)url.UTF8String, clicked)) {
+        decisionHandler(WKNavigationActionPolicyCancel);
+        return;
+    }
+    if (action.targetFrame == nil) {
+        // A link to a new window (target=_blank): there are no others, so load it here.
+        decisionHandler(WKNavigationActionPolicyCancel);
+        [webView loadRequest:action.request];
+        return;
+    }
+    decisionHandler(WKNavigationActionPolicyAllow);
+}
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object
+                        change:(NSDictionary *)change context:(void *)context {
+    NSString *title = ((WKWebView *)object).title ?: @"";
+    goLedgeTitleChanged(self.windowID, (char *)title.UTF8String);
 }
 @end
 
 static NSMutableDictionary<NSNumber *, NSWindow *> *windows;
 static NSMutableDictionary<NSNumber *, WKWebView *> *webViews;
 static NSMutableDictionary<NSNumber *, LedgeDelegate *> *delegates;
+
+// keyMenu is a menu that's never shown (an accessory app has no menu bar) but gives
+// the usual key equivalents: Cmd-C and Cmd-A in a page, Cmd-W to close a window.
+static NSMenu *keyMenu(void) {
+    NSMenu *edit = [[NSMenu alloc] initWithTitle:@"Edit"];
+    [edit addItemWithTitle:@"Copy" action:@selector(copy:) keyEquivalent:@"c"];
+    [edit addItemWithTitle:@"Select All" action:@selector(selectAll:) keyEquivalent:@"a"];
+    [edit addItemWithTitle:@"Close Window" action:@selector(performClose:) keyEquivalent:@"w"];
+    NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
+    [menu addItemWithTitle:@"Edit" action:nil keyEquivalent:@""].submenu = edit;
+    return menu;
+}
 
 void ledgeInit(void) {
     onMainSync(^{
@@ -77,6 +104,7 @@ void ledgeInit(void) {
         delegates = [NSMutableDictionary dictionary];
         [NSApplication sharedApplication];
         [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
+        NSApp.mainMenu = keyMenu();
         [[NSNotificationCenter defaultCenter] addObserverForName:NSApplicationDidChangeScreenParametersNotification
                                                           object:nil
                                                            queue:[NSOperationQueue mainQueue]
@@ -99,13 +127,16 @@ void ledgeStop(void) {
     });
 }
 
-static WKWebView *newWebView(int window, NSRect frame) {
+static WKWebView *newWebView(int window, NSRect frame, BOOL messages) {
     LedgeDelegate *delegate = [LedgeDelegate new];
     delegate.windowID = window;
     WKWebViewConfiguration *config = [WKWebViewConfiguration new];
-    [config.userContentController addScriptMessageHandler:delegate name:@"ledge"];
+    if (messages) {
+        [config.userContentController addScriptMessageHandler:delegate name:@"ledge"];
+    }
     WKWebView *webView = [[LedgeWebView alloc] initWithFrame:frame configuration:config];
     webView.navigationDelegate = delegate;
+    [webView addObserver:delegate forKeyPath:@"title" options:0 context:NULL];
     webView.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     delegates[@(window)] = delegate;
     webViews[@(window)] = webView;
@@ -126,8 +157,57 @@ void ledgeCreateBar(int window) {
         win.level = NSStatusWindowLevel;
         win.hidesOnDeactivate = NO;
         win.hasShadow = NO;
-        win.contentView = newWebView(window, frame);
+        win.contentView = newWebView(window, frame, YES);
         windows[@(window)] = win;
+    });
+}
+
+void ledgeCreateWindow(int window, const char *title, double width, double height) {
+    NSString *text = [NSString stringWithUTF8String:title];
+    onMainSync(^{
+        if (windows[@(window)] != nil) {
+            return;
+        }
+        NSRect frame = NSMakeRect(0, 0, width, height);
+        NSWindow *win = [[NSWindow alloc] initWithContentRect:frame
+                                                    styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
+                                                            | NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable
+                                                      backing:NSBackingStoreBuffered
+                                                        defer:NO];
+        win.releasedWhenClosed = NO;
+        win.title = text;
+        win.contentMinSize = NSMakeSize(480, 320);
+        win.contentView = newWebView(window, frame, NO);
+        [win center];
+        windows[@(window)] = win;
+    });
+}
+
+void ledgeShowWindow(int window) {
+    onMain(^{
+        [windows[@(window)] makeKeyAndOrderFront:nil];
+        // An accessory app isn't brought forward by showing a window; without this the
+        // window can open behind whatever you were using.
+        if (@available(macOS 14.0, *)) {
+            [NSApp activate];
+        } else {
+            [NSApp activateIgnoringOtherApps:YES];
+        }
+    });
+}
+
+void ledgeSetTitle(int window, const char *title) {
+    NSString *text = [NSString stringWithUTF8String:title];
+    onMain(^{
+        windows[@(window)].title = text;
+    });
+}
+
+void ledgeLoadFile(int window, const char *path, const char *dir) {
+    NSURL *file = [NSURL fileURLWithPath:[NSString stringWithUTF8String:path]];
+    NSURL *access = [NSURL fileURLWithPath:[NSString stringWithUTF8String:dir] isDirectory:YES];
+    onMain(^{
+        [webViews[@(window)] loadFileURL:file allowingReadAccessToURL:access];
     });
 }
 
