@@ -55,8 +55,10 @@ func TestNormalizeRefuses(t *testing.T) {
 		`{"kind": 3, "title": "x"}`:       "kind 3 isn't one of event, status",
 		`{"tittle": "x"}`:                 "event schema: event: missing property 'title'",
 		`{"title": "x", "expires": "no"}`: `expires "no" isn't an ISO 8601 time`,
-		`{"title": "x", "url": "https://a", "report": {}}`:                                                         "`url` and `report` can't both be set",
-		`{"title": "x", "report": {"items": [{"title": "a", "table": {"columns": [], "rows": [[{"text": 5}]]}}]}}`: "report/items/0/table/rows/0/0/text: got number, want string",
+		`{"title": "x", "url": "https://a", "report": {}}`: "`url` and `report` can't both be set",
+		`{"title": "x", "report": "notes.html"}`:           "report: 'notes.html' does not match pattern",
+		`{"title": "x", "report": "/tmp/notes.txt"}`:       "report: '/tmp/notes.txt' does not match pattern",
+		`{"title": "x", "report": {"summary": "s"}}`:       "report: got object, want string",
 	} {
 		_, err := Normalize(decode(t, body), "", received)
 		if _, ok := err.(*Error); !ok || !strings.Contains(err.Error(), want) {

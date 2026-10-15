@@ -21,8 +21,8 @@ import (
 //go:embed *.schema.json
 var schemaFiles embed.FS
 
-// Schemas is what can be sent: event, status and report (which the event schema
-// $refs), plus section and dismiss for the other request bodies.
+// Schemas is what can be sent: event and status, plus section and dismiss for the
+// other request bodies.
 var Schemas = mustLoad()
 
 func mustLoad() *schema.Set {

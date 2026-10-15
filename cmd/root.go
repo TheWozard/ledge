@@ -14,7 +14,7 @@ var rootCmd = &cobra.Command{
 	Long: `ledge shows events and status pills in an always-on-top bar along one edge of the
 screen. Scripts, hooks and CI push them to a JSON API on 127.0.0.1, which checks
 everything it's sent against JSON Schemas.`,
-	Version:       version.Version,
+	Version:       version.Tag(),
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }

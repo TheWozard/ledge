@@ -1,0 +1,44 @@
+version: 2
+
+project_name: ledge
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: ledge
+    main: ./ledge
+    binary: ledge
+    # The window shim is Objective-C built through cgo against AppKit and WebKit, so
+    # ledge builds only for macOS, on a macOS runner. Go passes -arch to clang, so one
+    # runner builds both architectures.
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X ledge/internal/version.Version={{ .Version }}
+      - -X ledge/internal/version.Commit={{ .ShortCommit }}
+      - -X ledge/internal/version.Date={{ .Date }}
+
+archives:
+  - id: ledge
+    formats: [tar.gz]
+    name_template: "ledge_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"

@@ -11,7 +11,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the ledge version",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("ledge %s (%s, built %s)\n", version.Version, version.Commit, version.Date)
+		fmt.Printf("ledge %s (%s, built %s)\n", version.Tag(), version.Commit, version.Date)
 	},
 }
 

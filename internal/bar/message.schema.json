@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ledge:bar-message",
+  "title": "ledge bar message",
+  "description": "What the bar page can ask of ledge. Only an action and an id: ledge looks up the url or command it stored for that id, so the page can't name one.",
+  "type": "object",
+  "properties": {
+    "action": {"enum": ["ready", "dismiss", "open", "run"],
+               "description": "ready: the page has loaded, send it the events. dismiss: delete the event. open: show the event's report or open its url. run: run the status's command."},
+    "id": {"type": "string", "minLength": 1}
+  },
+  "required": ["action"],
+  "if": {"properties": {"action": {"const": "ready"}}},
+  "then": {"not": {"required": ["id"]}},
+  "else": {"required": ["id"]},
+  "additionalProperties": false
+}

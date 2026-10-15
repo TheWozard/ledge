@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -15,7 +14,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"ledge/internal/api"
+	"ledge/internal/bar"
 	"ledge/internal/config"
+	"ledge/internal/shim"
 	"ledge/internal/state"
 	"ledge/internal/store"
 )
@@ -37,15 +38,12 @@ var runCmd = &cobra.Command{
 --headless runs only the API, with no windows.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if !runHeadless {
-			return errors.New("run: the bar isn't built yet; use --headless to run only the API")
-		}
-		if _, err := config.Load(runConfig); err != nil {
+		cfg, err := config.Load(runConfig)
+		if err != nil {
 			return err
 		}
 		port := runPort
 		if port == 0 {
-			var err error
 			if port, err = state.Port(); err != nil {
 				return err
 			}
@@ -65,15 +63,30 @@ var runCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		return serve(listener, &api.Server{Store: events})
+		server := &api.Server{Store: events}
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if runHeadless {
+			return serve(ctx, listener, server)
+		}
+
+		// AppKit's main loop takes the main goroutine; the API runs beside it, and
+		// stopping either stops both.
+		shim.Init()
+		server.Changed = bar.Open(events, cfg).Render
+		done := make(chan error, 1)
+		go func() {
+			done <- serve(ctx, listener, server)
+			shim.Stop()
+		}()
+		shim.Run()
+		stop()
+		return <-done
 	},
 }
 
-// serve runs the API until SIGINT or SIGTERM, dropping expired events as it goes.
-func serve(listener net.Listener, server *api.Server) error {
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
+// serve runs the API until ctx is done, dropping expired events as it goes.
+func serve(ctx context.Context, listener net.Listener, server *api.Server) error {
 	httpServer := &http.Server{Handler: server, ReadHeaderTimeout: 5 * time.Second}
 	failed := make(chan error, 1)
 	go func() { failed <- httpServer.Serve(listener) }()

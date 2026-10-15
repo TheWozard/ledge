@@ -132,24 +132,15 @@ func (s *Set) Validate(name string, value any) error {
 }
 
 // best is the error to report: of the innermost errors, the one nearest the top of
-// the value, since that's where the most is wrong. Under an anyOf or oneOf it's the
-// one deepest in the value instead, from the alternative that matched furthest
-// before failing. Ties go to the first.
+// the value, since that's where the most is wrong. Ties go to the first.
 func best(err *jsonschema.ValidationError) *jsonschema.ValidationError {
 	if len(err.Causes) == 0 {
 		return err
 	}
-	deepest := false
-	switch err.ErrorKind.(type) {
-	case *kind.AnyOf, *kind.OneOf:
-		deepest = true
-	}
 	var found *jsonschema.ValidationError
 	for _, cause := range err.Causes {
 		leaf := best(cause)
-		if found == nil ||
-			(!deepest && len(leaf.InstanceLocation) < len(found.InstanceLocation)) ||
-			(deepest && len(leaf.InstanceLocation) > len(found.InstanceLocation)) {
+		if found == nil || len(leaf.InstanceLocation) < len(found.InstanceLocation) {
 			found = leaf
 		}
 	}
