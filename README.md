@@ -23,7 +23,7 @@ Then keep it up to date with:
 
 ```sh
 ledge update --check               # say whether there's a newer release
-ledge update                       # install it; a running ledge keeps the old one until restarted
+ledge update                       # install it; a running ledge keeps the old one until `ledge restart`
 ledge version
 ```
 
@@ -48,22 +48,25 @@ The API listens on port 47391; set `$LEDGE_PORT` to change it. Events are kept i
 
 ### In the background
 
-While working on ledge, [scripts/ledgectl.sh](scripts/ledgectl.sh) builds it from this
-repo and runs it in the background:
-
 ```sh
-scripts/ledgectl.sh start          # build and start; arguments go to `ledge run`
-scripts/ledgectl.sh stop
-scripts/ledgectl.sh restart        # stop, rebuild and start, picking up changes
+ledge start                        # same flags as `ledge run`: --config, --port, --headless
+ledge stop
+ledge restart                      # rereads the config; reuses start's flags unless given new ones
 ```
 
-The [justfile](justfile) wraps the scripts, so `just start`, `just stop` and `just
-restart` do the same, as do `just bar`, `just report`, `just feed` and `just clear`
-for the examples. Run `just` to list them.
+`start` waits until the API answers, and shows the log if ledge exits first. Its pid
+file and log (`ledge.log`) go in the state dir. `stop` only acts on the ledge `start`
+began, never on one run in a terminal or a process that has reused its pid, and
+`start` refuses if something else already answers on the port. `restart` checks the
+config before stopping anything, so a broken config leaves the running ledge running.
 
-The binary, a pid file and the log (`ledge.log`) go in the state dir. `stop` only
-acts on the ledge `start` began, never on a process that has reused its pid, and
-`start` refuses if something else already answers on the port.
+While working on ledge, the [justfile](justfile) builds it from this repo first:
+`just start`, `just stop` and `just restart` build into the state dir and then run
+`ledge start`, `stop` or `restart`, passing on any flags. `just bar`, `just report`,
+`just feed` and `just clear` run the examples. Run `just` to list them.
+
+The build in the state dir and an installed `ledge` are different binaries, so each
+only stops or restarts the ledge it started itself.
 
 ## Examples
 
@@ -109,6 +112,7 @@ header, so a web page can't post events. A refused request gets a 400 with
 | `internal/store/` | the event, status, section and dismiss schemas, normalizing events, and the event file |
 | `internal/api/` | the HTTP server and the client `ledge event` uses |
 | `internal/config/` | the `--config` file and its schema |
+| `internal/background/` | `ledge start`, `stop` and `restart`: the background process, its pid file, log and saved flags |
 | `internal/update/` | `ledge update`: finding the latest release, checking its checksum, replacing the binary |
 | `internal/shim/` | the native layer (cgo + Objective-C): windows and WKWebView; no app logic |
 | `internal/bar/` | the Go side of the bar: placement, rendering, and the page's actions (checked against `message.schema.json`) |

@@ -54,7 +54,7 @@ it's stopped and run again.
 		if err := update.Replace(path, binary); err != nil {
 			return fmt.Errorf("installing %s: %w", release.Tag, err)
 		}
-		fmt.Printf("Updated to %s. A ledge that's running keeps %s until it's stopped and run again.\n",
+		fmt.Printf("Updated to %s. A ledge that's running keeps %s until it's restarted (ledge restart).\n",
 			release.Tag, version.Tag())
 		return nil
 	},

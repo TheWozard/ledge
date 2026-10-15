@@ -1,20 +1,29 @@
-# Shortcuts for the scripts in scripts/; see each script for details.
+# Shortcuts for working on ledge: build it from this repo and run it in the
+# background, and the example scripts in scripts/.
+
+# Where the build goes: ledge's state dir, as `ledge start` uses it.
+bin := env("XDG_STATE_HOME", home_directory() / ".local" / "state") / "ledge" / "ledge"
 
 # List the recipes.
 default:
     @just --list
 
-# Build ledge and start it in the background; arguments go to `ledge run`.
-start *args:
-    scripts/ledgectl.sh start {{args}}
+# Build ledge and start it in the background; arguments go to `ledge start`.
+start *args: build
+    "{{bin}}" start {{args}}
 
-# Stop the ledge started with `just start`.
-stop:
-    scripts/ledgectl.sh stop
+# Stop the ledge started in the background.
+stop: build
+    "{{bin}}" stop
 
-# Stop, rebuild and start again; arguments go to `ledge run`.
-restart *args:
-    scripts/ledgectl.sh restart {{args}}
+# Rebuild, then `ledge restart`: reuses the last start's flags unless given new ones.
+restart *args: build
+    "{{bin}}" restart {{args}}
+
+# Build ledge into the state dir.
+build:
+    @mkdir -p "$(dirname "{{bin}}")"
+    @go build -o "{{bin}}" ./ledge
 
 # Example cards and pills, plus extra ones to scroll: `just bar 15 12`.
 bar *args:
