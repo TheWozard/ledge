@@ -1,0 +1,26 @@
+/* hifi: the report on the receiver's faceplate: engraved headings, and the details
+   on glowing display glass. */
+@font-face { font-family: "Share Tech Mono"; src: url(fonts/share-tech-mono.woff2) format("woff2"); }
+:root { --page: #c9c9c5; --vfd: #5ff6ff; --c-green: #3dff7a; --c-yellow: #ffb52e; --c-red: #ff3b2f; --c-blue: #39c6ff; --c-gray: #8a8a8a;
+        --glass: radial-gradient(ellipse at 50% 30%, #0e2226, #061012 75%);
+        --glass-shadow: inset 0 0 0 1px #000, inset 0 0 14px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.85); }
+html { background: repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 1px, rgba(0,0,0,.035) 1px 2px, transparent 2px 4px),
+                   linear-gradient(#ececea, #bdbdb9) #c9c9c5; background-attachment: fixed; }
+body { color: #2b2b2b; font: 13px/1.5 "Helvetica Neue", Helvetica, Arial, sans-serif; }
+.titlebar, h2 { text-transform: uppercase; letter-spacing: .18em; color: #2b2b2b; text-shadow: 0 1px 0 rgba(255,255,255,.75); }
+/* A darker brushed strip with an engraved title, a lip under it. */
+.titlebar { font: bold 10px "Helvetica Neue", Helvetica, sans-serif; letter-spacing: .25em; line-height: var(--titlebar);
+            background: repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 1px, rgba(0,0,0,.04) 1px 2px, transparent 2px 4px),
+                        linear-gradient(#d6d6d2, #a9a9a5);
+            box-shadow: inset 0 -1px 0 #777, 0 1px 0 rgba(255,255,255,.8); }
+h2 { font-size: 11px; }
+/* The glass panels. */
+dl, .table, pre, .note { padding: 10px 14px; border-radius: 4px; background: var(--glass); box-shadow: var(--glass-shadow);
+                          font-family: "Share Tech Mono", ui-monospace, monospace; color: var(--vfd);
+                          text-shadow: 0 0 6px color-mix(in srgb, var(--vfd) 70%, transparent), 0 0 1px var(--vfd); }
+dt, th { color: color-mix(in srgb, var(--vfd) 60%, #000); text-transform: uppercase; font-weight: normal; }
+th, td { padding: 2px 16px 2px 0; }
+pre { font-size: 12px; }
+.note { --vfd: var(--note); }
+.note[data-color=gray] { --vfd: #5ff6ff; }
+a { color: #1a1a1a; font-weight: bold; }

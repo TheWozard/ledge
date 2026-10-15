@@ -1,0 +1,33 @@
+/* synthwave: neon tubes and glowing type. Priority sets each card's neon colour. */
+:root { --bar: #1a0436; --c-green: #3cff9e; --c-yellow: #f9c80e; --c-red: #ff2e63; --c-blue: #2de2e6; --c-gray: #a491d3; }
+body { color: #e9d8ff; font: 11px/1.4 ui-monospace, Menlo, monospace; }
+#app { background: linear-gradient(#2a0845, #120228); border-top: 2px solid #ff2e88; box-shadow: inset 0 6px 20px -8px rgba(255,46,136,.6);
+       padding: 9px 10px; gap: 12px; }
+body.top #app { border-top: 0; border-bottom: 2px solid #ff2e88; box-shadow: inset 0 -6px 20px -8px rgba(255,46,136,.6); }
+
+.pills { gap: 6px; padding: 2px 4px; }
+.pill { height: 22px; padding: 0 12px; gap: 8px; border-radius: 999px; background: rgba(0,0,0,.25); border: 1.5px solid var(--pill);
+        box-shadow: 0 0 6px var(--pill), inset 0 0 6px color-mix(in srgb, var(--pill) 60%, transparent);
+        color: #fff; text-shadow: 0 0 6px var(--pill); font: bold 10px Futura, "Avenir Next", sans-serif; letter-spacing: .12em; text-transform: uppercase; }
+.pill .dot { width: 6px; height: 6px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px 2px var(--pill); }
+.pill.runs:hover, .pill.opens:hover { box-shadow: 0 0 14px var(--pill), inset 0 0 10px var(--pill); }
+.pill.ran { animation: glow .6s; }
+@keyframes glow { from { background: var(--pill); box-shadow: 0 0 30px var(--pill); } }
+
+ul { gap: 12px; padding: 2px 6px; }
+li { --neon: #9d4edd; width: 280px; padding: 7px 11px; border-radius: 6px; border: 1px solid var(--neon);
+     background: linear-gradient(160deg, rgba(45,226,230,.08), rgba(255,46,136,.08)), rgba(15,2,35,.85);
+     box-shadow: 0 0 8px var(--neon), inset 0 0 12px color-mix(in srgb, var(--neon) 25%, transparent); }
+li.high { --neon: #ff2e63; }
+li.medium { --neon: #f9c80e; }
+li.low { --neon: #2de2e6; }
+li.opens:hover { box-shadow: 0 0 18px var(--neon), 0 0 2px #fff, inset 0 0 18px color-mix(in srgb, var(--neon) 35%, transparent); }
+li[data-new] { animation: swoosh .5s cubic-bezier(.2,.9,.3,1.2) both; animation-delay: calc(var(--i) * 60ms); }
+@keyframes swoosh { from { transform: translateX(-40px) skewX(-14deg); opacity: 0; filter: blur(4px); } }
+.title { -webkit-line-clamp: 1; font: bold 11px/1.4 Futura, "Avenir Next", sans-serif; text-transform: uppercase; letter-spacing: .06em; color: #fff;
+         text-shadow: 0 0 6px rgba(255,110,199,.7); }
+.description { margin-top: 2px; color: #c8b6ff; }
+.meta { color: #ff6ec7; font-size: 11px; }
+.tag { padding: 0 5px; border: 1px solid #2de2e6; border-radius: 3px; color: #2de2e6; line-height: 15px; font-size: 10px; box-shadow: 0 0 4px #2de2e6; }
+.dismiss { color: #ff6ec7; font-size: 15px; }
+.dismiss:hover { color: #fff; text-shadow: 0 0 8px #ff2e88; }

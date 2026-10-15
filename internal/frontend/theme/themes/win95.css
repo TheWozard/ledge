@@ -1,0 +1,37 @@
+/* win95: a bevelled grey taskbar. Priority sets the title bar: maroon, navy, teal,
+   or inactive grey. */
+:root { --bar: #c0c0c0; --c-green: #008000; --c-yellow: #ffff00; --c-red: #ff0000; --c-blue: #0000ff; --c-gray: #808080;
+        --raised: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;
+        --sunken: inset -1px -1px #fff, inset 1px 1px #0a0a0a, inset -2px -2px #dfdfdf, inset 2px 2px #808080;
+        --field: inset -1px -1px #fff, inset 1px 1px #808080; }
+body { color: #000; font: 11px/1.3 Tahoma, Verdana, sans-serif; }
+#app { background: #c0c0c0; box-shadow: inset 0 1px #dfdfdf, inset 0 2px #fff; padding: 6px 4px 4px; gap: 5px; }
+body.top #app { box-shadow: inset 0 -1px #0a0a0a, inset 0 -2px #808080; }
+
+.pills { gap: 3px; }
+/* A pill is a grey button with a chip in its colour, bevelled like a tiny button. */
+.pill { height: 22px; min-width: 110px; padding: 0 9px 0 5px; box-shadow: var(--raised); }
+.pill .dot { width: 14px; height: 14px; box-shadow: inset -1px -1px #000, inset 1px 1px rgba(255,255,255,.7);
+             background: linear-gradient(135deg, color-mix(in srgb, var(--pill) 85%, #fff), color-mix(in srgb, var(--pill) 55%, #000)); }
+.pill.opens .label:hover { text-decoration: underline; color: #000080; }
+.pill.ran { animation: press .25s steps(1); }
+@keyframes press { 0% { box-shadow: var(--sunken); padding-top: 2px; padding-left: 7px; } }
+
+li { width: 270px; padding: 3px; background: #c0c0c0; box-shadow: var(--raised); }
+.title { -webkit-line-clamp: 1; margin: 0; padding: 0 24px 0 4px; height: 18px; line-height: 18px; font-weight: bold;
+         color: #fff; background: linear-gradient(90deg, #4a4a4a, #8a8a8a); }
+li.high .title { background: linear-gradient(90deg, #800000, #e04848); }
+li.medium .title { background: linear-gradient(90deg, #000080, #1084d0); }
+li.low .title { background: linear-gradient(90deg, #006060, #20a8a8); }
+/* The description is a text box: all of it, scrolling, with a Windows scroll bar. */
+.description { display: block; -webkit-line-clamp: none; flex: 1 1 auto; overflow-y: auto; margin-top: 3px; padding: 3px 5px;
+               background: #fff; box-shadow: var(--sunken); }
+.description::-webkit-scrollbar { width: 12px; }
+.description::-webkit-scrollbar-track { background: repeating-conic-gradient(#c0c0c0 0 25%, #fff 0 50%) 0 0 / 2px 2px; }
+.description::-webkit-scrollbar-thumb { background: #c0c0c0; box-shadow: var(--raised); }
+li.opens:hover .description { outline: 1px dotted #000; outline-offset: -4px; }
+.meta { padding: 3px 0 0; }
+.meta .when, .tag { box-shadow: var(--field); padding: 0 5px; line-height: 15px; }
+.dismiss { top: 5px; right: 5px; width: 16px; height: 14px; background: #c0c0c0; box-shadow: var(--raised);
+           font: bold 12px/13px Tahoma, sans-serif; }
+.dismiss:active { box-shadow: var(--sunken); }

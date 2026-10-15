@@ -1,0 +1,217 @@
+package components
+
+import (
+	"fmt"
+	"time"
+)
+
+// BarPage is the bar's page, styled by themeCSS (theme.CSS for theme.Bar), for a bar
+// along edge: "top" or "bottom". Its #app is empty until it's given BarContent: it
+// posts {action: "ready"} once loaded, and from then takes update(html), with html
+// rendered from BarContent, to replace what it shows.
+//
+// The page posts to window.webkit.messageHandlers.ledge only {action, id}: "dismiss"
+// from a card's ×, "open" from a card that opens or a pill's link, and "run" from a
+// pill with a command. It never posts a url, path or command: the app looks up what
+// it holds for the id.
+templ BarPage(themeCSS string, edge string) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<style>
+	/* Layout only. How the bar looks comes from its theme, added after this, so a
+	   theme's rules win over these. A theme sets --bar to an opaque colour for the
+	   page behind the bar, and --c-green, --c-yellow, --c-red, --c-blue and --c-gray
+	   for pills.
+
+	   A pill carries its current colour in data-color, and a card new since the last
+	   render has data-new and --i, its place among the new ones, for an entrance
+	   animation. */
+	* { box-sizing: border-box; }
+	html, body { margin: 0; height: 100%; background: var(--bar); overflow: hidden; }
+	body { -webkit-user-select: none; cursor: default; }
+
+	/* The bar fills the window: status pills on the left, then the scrolling row of cards. */
+	#app { position: relative; display: flex; height: 100%; gap: 8px; padding: 8px; }
+
+	/* Status pills stack in one column that scrolls vertically when they don't fit. */
+	.pills { flex: none; display: flex; flex-direction: column; gap: 4px; max-width: 50%;
+	         overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
+	.pills::-webkit-scrollbar { display: none; }
+	.pill { position: relative; flex: none; display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px;
+	        white-space: nowrap; }
+	.pill .dot { flex: none; }
+	.pill.opens .label { cursor: pointer; }
+	/* A pill with a command is a button: clicking it runs the command. */
+	.pill.runs { cursor: pointer; }
+
+	ul { flex: 1; min-width: 0; list-style: none; margin: 0; padding: 0; display: flex; gap: 8px;
+	     overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+	ul::-webkit-scrollbar { display: none; }
+	li { position: relative; flex: none; width: 280px; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+	/* A card with a report or a url opens it when clicked. */
+	li.opens { cursor: pointer; }
+	/* Title, description, then the meta line pinned to the bottom: source and age on the
+	   left, tags on the right. Title and description clamp; the description gives way
+	   first if the card runs out of height. If the tags don't fit, they're the ones cut. */
+	.tags { display: flex; justify-content: flex-end; gap: 4px; overflow: hidden; min-width: 0; margin-left: auto; }
+	/* Only the title shares the top line with ×, so only it keeps clear of it. */
+	.title { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; -webkit-line-clamp: 2; flex: none;
+	         margin-right: 16px; }
+	.description { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; -webkit-line-clamp: 2;
+	               min-height: 0; flex: 0 1 auto; }
+	.meta .when { flex: none; }
+	.meta { display: flex; flex-wrap: nowrap; align-items: center; gap: 4px; margin-top: auto; padding-top: 3px;
+	        white-space: nowrap; overflow: hidden; }
+	.tag { display: inline-block; flex: none; }
+
+	.dismiss { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border: 0; padding: 0;
+	           background: none; color: inherit; font: inherit; cursor: pointer; }
+
+	.empty { flex: 1; display: flex; align-items: center; }
+	@keyframes blink { 50% { opacity: 0; } }
+			</style>
+			@templ.Raw("<style>\n" + themeCSS + "</style>")
+		</head>
+		<body class={ edge }>
+			<div id="app"></div>
+			<script>
+	const app = document.getElementById("app");
+
+	// Everything the page asks of the app: an action and the id it applies to.
+	function send(action, id) {
+	  window.webkit.messageHandlers.ledge.postMessage(id == null ? { action } : { action, id });
+	}
+
+	// update shows html, rendered by Go from BarContent, with its text escaped. It
+	// keeps the row's and the pills' scroll positions, so a new card arriving doesn't
+	// jump you back to the start while you're reading further along.
+	function update(html) {
+	  const scrolled = app.querySelector("ul")?.scrollLeft || 0;
+	  const scrolledPills = app.querySelector(".pills")?.scrollTop || 0;
+	  app.innerHTML = html;
+	  const row = app.querySelector("ul");
+	  if (row) row.scrollLeft = scrolled;
+	  const pills = app.querySelector(".pills");
+	  if (pills) pills.scrollTop = scrolledPills;
+	}
+
+	// A click on anything with data-action posts that action and its data-id. A pill
+	// that runs a command flashes, restarting if it's clicked again quickly.
+	app.addEventListener("click", event => {
+	  const target = event.target.closest("[data-action]");
+	  if (!target) return;
+	  if (target.classList.contains("runs")) {
+	    target.classList.remove("ran");
+	    void target.offsetWidth;
+	    target.classList.add("ran");
+	  }
+	  send(target.dataset.action, target.dataset.id);
+	});
+
+	// Whether node, or something it's in, scrolls vertically and has more to show, as
+	// a theme can make a card's description do.
+	function scrollsVertically(node) {
+	  for (; node && node !== app; node = node.parentElement) {
+	    if (node.scrollHeight > node.clientHeight && /auto|scroll/.test(getComputedStyle(node).overflowY)) return true;
+	  }
+	  return false;
+	}
+
+	// A mouse wheel only scrolls vertically; turn that into sideways scrolling of the row.
+	// Over the pills, or anything else that scrolls vertically, it's left alone.
+	app.addEventListener("wheel", event => {
+	  const row = app.querySelector("ul");
+	  if (!row || event.target.closest(".pills") || scrollsVertically(event.target)
+	      || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+	  row.scrollLeft += event.deltaY;
+	  event.preventDefault();
+	}, { passive: false });
+
+	send("ready");
+			</script>
+		</body>
+	</html>
+}
+
+// BarContent is what the bar shows at now: pills in one column, then cards in a row.
+// fresh gives each card new since the bar last showed, by ID, its place among the new
+// ones, for the theme's entrance animation.
+templ BarContent(pills []Pill, cards []Card, now time.Time, fresh map[string]int) {
+	if len(pills) > 0 {
+		<div class="pills">
+			for _, p := range pills {
+				@pill(p, now)
+			}
+		</div>
+	}
+	if len(cards) > 0 {
+		<ul>
+			for _, c := range cards {
+				@card(c, now, fresh)
+			}
+		</ul>
+	} else {
+		<div class="empty">No events.</div>
+	}
+}
+
+// pill is a dot and a label. A pill with a command is itself the button; otherwise a
+// pill with a link has its label as one.
+templ pill(p Pill, now time.Time) {
+	<div
+		class={ "pill", templ.KV("runs", p.Command != ""), templ.KV("opens", p.Link && p.Command == "") }
+		style={ templ.SafeCSS("--pill: " + cssColor(p.ColorAt(now))) }
+		data-color={ p.ColorAt(now) }
+		if hint := p.hint(now); hint != "" {
+			title={ hint }
+		}
+		if p.Command != "" {
+			data-action="run"
+			data-id={ p.ID }
+		}
+	>
+		<span class="dot"></span>
+		if p.Link && p.Command == "" {
+			<span class="label" data-action="open" data-id={ p.ID }>{ p.Title }</span>
+		} else {
+			<span class="label">{ p.Title }</span>
+		}
+	</div>
+}
+
+// card is a title, a description, and a line with its source, age and tags. Anywhere
+// but × opens it, if it opens anything.
+templ card(c Card, now time.Time, fresh map[string]int) {
+	<li
+		class={ templ.KV(c.Priority, c.Priority != ""), templ.KV("opens", c.Opens) }
+		if c.Hint != "" {
+			title={ c.Hint }
+		}
+		if c.Opens {
+			data-action="open"
+			data-id={ c.ID }
+		}
+		if i, ok := fresh[c.ID]; ok {
+			data-new
+			style={ templ.SafeCSS(fmt.Sprintf("--i: %d", i)) }
+		}
+	>
+		<button class="dismiss" title="Dismiss" data-action="dismiss" data-id={ c.ID }>×</button>
+		<span class="title">{ c.Title }</span>
+		if c.Description != "" {
+			<div class="description">{ c.Description }</div>
+		}
+		<div class="meta">
+			<span class="when">{ c.Source } · { ago(c.Received, now) }</span>
+			if len(c.Tags) > 0 {
+				<div class="tags">
+					for _, tag := range c.Tags {
+						<span class="tag">{ tag }</span>
+					}
+				</div>
+			}
+		</div>
+	</li>
+}

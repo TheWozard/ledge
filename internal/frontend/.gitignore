@@ -1,0 +1,6 @@
+# Go test artifacts
+*.test
+*.out
+
+# OS
+.DS_Store
