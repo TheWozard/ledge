@@ -1,0 +1,32 @@
+package components
+
+// Basic is the built-in kind of card: a title, and a description under it. Its kind
+// is "basic".
+type Basic struct {
+	ID          string
+	Title       string
+	Description string
+	Priority    int
+	Color       string
+	Width       int
+	Click       Click
+	Dismiss     Click
+	Actions     []Action
+}
+
+// Frame is the card's frame, from its fields of the same names.
+func (b Basic) Frame() Frame {
+	return Frame{ID: b.ID, Kind: "basic", Priority: b.Priority, Color: b.Color, Width: b.Width, Click: b.Click, Dismiss: b.Dismiss,
+		Actions: b.Actions}
+}
+
+// Body is the card's title and description.
+func (b Basic) Body() templ.Component { return basicBody(b) }
+
+// basicBody is a Basic card's body: its title and description.
+templ basicBody(b Basic) {
+	<span class="title">{ b.Title }</span>
+	if b.Description != "" {
+		<div class="description">{ b.Description }</div>
+	}
+}

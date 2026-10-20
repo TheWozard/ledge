@@ -42,7 +42,7 @@ Verify: `just test`, `just check-generated`.
 
 ## 3. `components/`
 
-- [ ] **Move the page CSS and JS out of templ** into embedded files, as Idiomorph
+- [x] **Move the page CSS and JS out of templ** into embedded files, as Idiomorph
   already is:
 
   ```
@@ -52,13 +52,14 @@ Verify: `just test`, `just check-generated`.
     assets.go        // go:embed page/* and vendor/idiomorph.min.js
   ```
 
-  `BarPage` and `ReportPage` inline them with `templ.Raw`. The theming-hooks
+  `BarPage` and `ReportPage` inline them with `style`/`script` helpers in `assets.go`. The theming-hooks
   comment moves to the top of `bar.css` / `report.css`.
-- [ ] **Split `components.go`:**
+- [x] **Split `components.go`:**
 
   | File | Contents |
   |---|---|
-  | `card.go` | `Card`, `Frame`, `Cards`, `SortByPriority`, `classes`, `style`, `ElementID` |
+  | `card.go` | `Card`, `Frame`, `Action`, `Cards`, `SortByPriority`, `classes`, `style`, `ElementID`, `entering` |
+  | `doc.go` | the package doc (was `components.go`) |
   | `click.go` | `Click`, `Clicks`, `clickID` / `dismissID` |
   | `color.go` | `named`, `hex`, `cssColor`, `colorName` |
   | `basic.templ` | `Basic`, its `Frame`/`Body`, `basicBody` |
@@ -67,10 +68,10 @@ Verify: `just test`, `just check-generated`.
   | `report.templ` | `ReportPage` |
   | `blocks.templ` | `Heading` … `Link`, `Field`, `cell` |
 
-- [ ] Add `Action.style(fresh)` to match `Frame.style`, and drop the duplicated
+- [x] Add `Action.style(fresh)` to match `Frame.style`, and drop the duplicated
   `style=` branches in the `action` template.
-- [ ] Split `components_test.go` to follow (`card_test.go`, `timer_test.go`,
-  `blocks_test.go`, `page_test.go`).
+- [x] Split `components_test.go` to follow (`card_test.go`, `timer_test.go`,
+  `blocks_test.go`, `page_test.go`, `helpers_test.go`); `TestReportPage` split into `TestReportPage` and `TestBlocks`.
 
 Verify: `just test`, `just check-generated`, `just gui`.
 

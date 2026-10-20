@@ -1,0 +1,95 @@
+package components
+
+// The blocks a report is made of, drawn top to bottom in ReportPage.
+
+// Heading is a section heading.
+templ Heading(text string) {
+	<h2>{ text }</h2>
+}
+
+// Paragraph is a paragraph; line breaks in text are kept.
+templ Paragraph(text string) {
+	<p>{ text }</p>
+}
+
+// Field is a labelled value, a row of Fields.
+type Field struct {
+	Label string
+	Value string
+}
+
+// Fields is labelled values, one per row.
+templ Fields(items []Field) {
+	<dl>
+		for _, item := range items {
+			<div class="field"><dt>{ item.Label }</dt><dd>{ item.Value }</dd></div>
+		}
+	</dl>
+}
+
+// Table is column headings and rows of cells. Rows are cut or padded to the columns,
+// so every row lines up.
+templ Table(columns []string, rows [][]string) {
+	<div class="table">
+		<table>
+			<thead>
+				<tr>
+					for _, column := range columns {
+						<th>{ column }</th>
+					}
+				</tr>
+			</thead>
+			<tbody>
+				for _, row := range rows {
+					<tr>
+						for i := range columns {
+							<td>{ cell(row, i) }</td>
+						}
+					</tr>
+				}
+			</tbody>
+		</table>
+	</div>
+}
+
+func cell(row []string, i int) string {
+	if i < len(row) {
+		return row[i]
+	}
+	return ""
+}
+
+// List is a bulleted list, or a numbered one if ordered.
+templ List(items []string, ordered bool) {
+	if ordered {
+		<ol>
+			for _, item := range items {
+				<li>{ item }</li>
+			}
+		</ol>
+	} else {
+		<ul>
+			for _, item := range items {
+				<li>{ item }</li>
+			}
+		</ul>
+	}
+}
+
+// Code is preformatted text, such as a log, in a fixed-width font. Long lines scroll
+// sideways.
+templ Code(text string) {
+	<pre><code>{ text }</code></pre>
+}
+
+// Note is a callout in a colour; "" is gray.
+templ Note(text string, color string) {
+	<div class="note" data-color={ colorName(color) } style={ templ.SafeCSS("--note: " + cssColor(color)) }>{ text }</div>
+}
+
+// Link is a link to url, which only works if the app lets the window go there (ledge
+// opens http(s) urls in the browser). A url that isn't safe, such as javascript:, is
+// replaced so it goes nowhere.
+templ Link(text string, url string) {
+	<p class="link"><a href={ templ.URL(url) } title={ url }>{ text }</a></p>
+}

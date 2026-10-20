@@ -1,0 +1,50 @@
+/* Layout only. How the report looks comes from its theme's report stylesheet,
+   added after this. A theme sets --page, an opaque colour behind everything, and
+   --c-green, --c-yellow, --c-red, --c-blue and --c-gray for notes. A note has its
+   colour in --note and data-color.
+
+   The page fills the window, title bar included: macOS draws only the close,
+   minimise and zoom buttons, at the top left. .titlebar is the page's own title
+   bar under them, --titlebar high and kept clear of them, with the title in a
+   <span>; a theme gives it a background and styles the title. Dragging it moves the
+   window, and double-clicking it zooms, as a real one would.
+
+   A theme can draw the whole window instead: with Frameless in its theme.Frame, the
+   window has no macOS frame (square corners, no buttons), and the theme shows the
+   title bar's .close, .minimise and .zoom buttons, hidden here, and any border.
+
+   The page itself never scrolls: macOS's rubber-band bounce would pull the title
+   bar and a drawn border away from the window's edges. <main> scrolls instead, in
+   the space under the title bar; a theme that draws a border sets its inset to keep
+   inside it, and can style its scroll bar with main::-webkit-scrollbar.
+
+   The blocks are in an <article> in <main>, at least as tall as it and padded, so a
+   background that scrolls with them, such as ruled lines, goes on the <article>.
+   One on <main> with background-attachment: local drifts against them as it
+   scrolls in WebKit. */
+:root { --titlebar: 28px; }
+* { box-sizing: border-box; }
+html { background: var(--page); }
+html, body { height: 100%; overflow: hidden; }
+body { margin: 0; overflow-wrap: anywhere; }
+main { position: absolute; inset: var(--titlebar) 0 0; overflow-x: hidden; overflow-y: auto; }
+main:focus { outline: none; }
+.titlebar { position: fixed; z-index: 1; top: 0; left: 0; right: 0; height: var(--titlebar); padding: 0 78px;
+            line-height: var(--titlebar); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            -webkit-user-select: none; cursor: default; }
+.titlebar button { display: none; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: default; }
+article { min-height: 100%; padding: 18px 24px 28px; }
+article > * { margin: 0; }
+article > * + * { margin-top: 12px; }
+article > h2:first-child { margin-top: 0 !important; }
+h2 { font-size: 1.15em; margin-top: 20px !important; }
+p { white-space: pre-wrap; }
+dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; }
+.field { display: contents; }
+dt, dd { margin: 0; }
+.table { overflow-x: auto; }
+table { border-collapse: collapse; min-width: 100%; }
+th, td { text-align: left; vertical-align: top; }
+ul, ol { padding-left: 1.5em; }
+pre { overflow-x: auto; white-space: pre; overflow-wrap: normal; }
+.note { white-space: pre-wrap; }

@@ -157,7 +157,7 @@ font (woff2, woff, ttf or otf) by a url relative to itself, such as
 
 The pages are loaded from strings and can't fetch files, so `Load` inlines each font as
 a `data:` url. The comments at the top of the layout styles in
-[bar.templ](components/bar.templ) and [report.templ](components/report.templ) say what a
+[page/bar.css](components/page/bar.css) and [page/report.css](components/page/report.css) say what a
 theme can hook into: the colour variables it sets, the bar's padding (`--pad-top`,
 `--pad-x` and `--pad-bottom`, which the row of cards scrolls through to the window's
 edges), the row's own sideways padding (`--row-pad-x`), a card's kind as a class (such

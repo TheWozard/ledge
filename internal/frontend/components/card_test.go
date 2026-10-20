@@ -6,40 +6,9 @@ import (
 	"io"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/a-h/templ"
 )
-
-func render(t *testing.T, c templ.Component) string {
-	t.Helper()
-	var out strings.Builder
-	if err := c.Render(context.Background(), &out); err != nil {
-		t.Fatal(err)
-	}
-	return out.String()
-}
-
-func contains(t *testing.T, html string, wants ...string) {
-	t.Helper()
-	for _, want := range wants {
-		if !strings.Contains(html, want) {
-			t.Errorf("missing %q in:\n%s", want, html)
-		}
-	}
-}
-
-func lacks(t *testing.T, html string, unwanted ...string) {
-	t.Helper()
-	for _, u := range unwanted {
-		if strings.Contains(html, u) {
-			t.Errorf("unexpected %q in:\n%s", u, html)
-		}
-	}
-}
-
-// nothing is a Click for a test that only renders.
-func nothing() {}
 
 func TestCard(t *testing.T) {
 	cards := []Basic{
@@ -127,37 +96,6 @@ func TestKinds(t *testing.T) {
 	}
 }
 
-// A timer is a card of its own kind: its title, and the time it has left, with its
-// start and end for the page to count it down. Its frame ends when it does.
-func TestTimer(t *testing.T) {
-	start := time.Now()
-	timer := Timer{ID: "tea", Title: "<b>Tea</b>", Start: start, End: start.Add(90*time.Second + 500*time.Millisecond),
-		Color: "#3b82f6", Click: nothing, Dismiss: nothing, Complete: nothing}
-	html := render(t, BarContent([]Card{timer}, nil))
-	contains(t, html,
-		`<li id="card-tea" class="timer clickable" data-click="card-tea" data-color="#3b82f6"`,
-		`<span class="title">&lt;b&gt;Tea&lt;/b&gt;</span>`,
-		fmt.Sprintf(`<div class="time-left" data-start="%d" data-end="%d">1:31</div>`, start.UnixMilli(), timer.End.UnixMilli()),
-		`data-click="dismiss-tea"`)
-	if f := timer.Frame(); !f.Ends.Equal(timer.End) || f.Complete == nil {
-		t.Errorf("the timer's frame ends %v, with Complete %v", f.Ends, f.Complete != nil)
-	}
-	if clicks := Clicks([]Card{timer}); len(clicks) != 2 {
-		t.Errorf("the timer has %d Clicks, want its own and its ×'s", len(clicks))
-	}
-}
-
-func TestTimeLeft(t *testing.T) {
-	for d, want := range map[time.Duration]string{
-		-time.Second: "0:00", 0: "0:00", time.Millisecond: "0:01", 59 * time.Second: "0:59",
-		61 * time.Second: "1:01", 10*time.Minute + 5*time.Second: "10:05", time.Hour + 2*time.Minute + 3*time.Second: "1:02:03",
-	} {
-		if got := timeLeft(d); got != want {
-			t.Errorf("timeLeft(%v) = %s, want %s", d, got, want)
-		}
-	}
-}
-
 // Cards sort highest priority first, those of the same priority keeping their order.
 func TestSortByPriority(t *testing.T) {
 	cards := Cards([]Basic{{ID: "a"}, {ID: "b", Priority: 2}, {ID: "c", Priority: -1}, {ID: "d", Priority: 2}, {ID: "e"}})
@@ -202,47 +140,9 @@ func TestAction(t *testing.T) {
 	}
 }
 
-func TestBarPage(t *testing.T) {
-	html := render(t, BarPage(":root { --bar: #fff; }", "top"))
-	contains(t, html, `<body class="top">`, "<style>\n:root { --bar: #fff; }</style>", `<div id="app"></div>`,
-		// The layout and the script come through as written.
-		"html, body { margin: 0;", `send("ready");`, `event.target.closest("[data-click]")`,
-		// Idiomorph is inlined whole, and update morphs with it.
-		"<script>var Idiomorph=", `Idiomorph.morph(app, html, {`)
-}
-
 // Cards, their actions and the row have stable ids, for update to morph each
 // into itself.
 func TestBarContentIDs(t *testing.T) {
 	html := render(t, BarContent([]Card{Basic{ID: "ci", Title: "CI", Actions: []Action{{ID: "aws", Title: "AWS"}}}}, nil))
 	contains(t, html, `<ul id="cards">`, `id="card-ci"`, `id="action-aws"`)
-}
-
-func TestReportPage(t *testing.T) {
-	blocks := []templ.Component{
-		Heading("Jobs"),
-		Paragraph("<b>not bold</b>\nsecond line"),
-		Fields([]Field{{Label: "Branch", Value: "main"}}),
-		Table([]string{"Job", "Result"}, [][]string{{"lint", "ok"}, {"test"}, {"build", "ok", "extra"}}),
-		List([]string{"one", "two"}, true),
-		Code("$ go test\nFAIL"),
-		Note("Flaky", "yellow"),
-		Note("Plain", ""),
-		Note("Purple", "purple"),
-		Link("The run", "https://example.com/run"),
-		Link("Bad", "javascript:alert(1)"),
-	}
-	html := render(t, ReportPage(":root { --page: #fff; }", "CI <failed>", blocks))
-	contains(t, html,
-		`<span>CI &lt;failed&gt;</span>`, `<button class="close"`,
-		"<h2>Jobs</h2>", "<p>&lt;b&gt;not bold&lt;/b&gt;\nsecond line</p>",
-		`<div class="field"><dt>Branch</dt><dd>main</dd></div>`,
-		"<th>Job</th><th>Result</th>",
-		"<tr><td>test</td><td></td></tr>", "<tr><td>build</td><td>ok</td></tr>",
-		"<ol><li>one</li><li>two</li></ol>", "<pre><code>$ go test\nFAIL</code></pre>",
-		`data-color="yellow" style="--note: var(--c-yellow);"`, `data-color="gray" style="--note: var(--c-gray);">Plain`,
-		`data-color="gray" style="--note: var(--c-gray);">Purple`,
-		`<a href="https://example.com/run" title="https://example.com/run">The run</a>`,
-		`frame("drag")`)
-	lacks(t, html, "<b>not bold", "extra", `href="javascript:`)
 }

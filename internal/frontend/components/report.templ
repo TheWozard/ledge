@@ -2,8 +2,9 @@ package components
 
 // ReportPage is the report window's page, styled by themeCSS (a theme.Theme's
 // Report): title in the title bar the page draws, and blocks under it, top to
-// bottom, scrolling under the title bar. A block is any component; the ones here are Heading, Paragraph, Fields,
-// Table, List, Code, Note and Link.
+// bottom, scrolling under the title bar. A block is any component; the ones in
+// blocks.templ are Heading, Paragraph, Fields, Table, List, Code, Note and Link. Its
+// layout is page/report.css, and its script page/report.js.
 //
 // The page can't talk to the app. All it can ask of its window, through its "frame"
 // handler (see the shim), is: a mouse-down on the title bar starts a drag (the second
@@ -15,59 +16,8 @@ templ ReportPage(themeCSS string, title string, blocks []templ.Component) {
 	<html lang="en">
 		<head>
 			<meta charset="utf-8"/>
-			<style>
-	/* Layout only. How the report looks comes from its theme's report stylesheet,
-	   added after this. A theme sets --page, an opaque colour behind everything, and
-	   --c-green, --c-yellow, --c-red, --c-blue and --c-gray for notes. A note has its
-	   colour in --note and data-color.
-
-	   The page fills the window, title bar included: macOS draws only the close,
-	   minimise and zoom buttons, at the top left. .titlebar is the page's own title
-	   bar under them, --titlebar high and kept clear of them, with the title in a
-	   <span>; a theme gives it a background and styles the title. Dragging it moves the
-	   window, and double-clicking it zooms, as a real one would.
-
-	   A theme can draw the whole window instead: with Frameless in its theme.Frame, the
-	   window has no macOS frame (square corners, no buttons), and the theme shows the
-	   title bar's .close, .minimise and .zoom buttons, hidden here, and any border.
-
-	   The page itself never scrolls: macOS's rubber-band bounce would pull the title
-	   bar and a drawn border away from the window's edges. <main> scrolls instead, in
-	   the space under the title bar; a theme that draws a border sets its inset to keep
-	   inside it, and can style its scroll bar with main::-webkit-scrollbar.
-
-	   The blocks are in an <article> in <main>, at least as tall as it and padded, so a
-	   background that scrolls with them, such as ruled lines, goes on the <article>.
-	   One on <main> with background-attachment: local drifts against them as it
-	   scrolls in WebKit. */
-	:root { --titlebar: 28px; }
-	* { box-sizing: border-box; }
-	html { background: var(--page); }
-	html, body { height: 100%; overflow: hidden; }
-	body { margin: 0; overflow-wrap: anywhere; }
-	main { position: absolute; inset: var(--titlebar) 0 0; overflow-x: hidden; overflow-y: auto; }
-	main:focus { outline: none; }
-	.titlebar { position: fixed; z-index: 1; top: 0; left: 0; right: 0; height: var(--titlebar); padding: 0 78px;
-	            line-height: var(--titlebar); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-	            -webkit-user-select: none; cursor: default; }
-	.titlebar button { display: none; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: default; }
-	article { min-height: 100%; padding: 18px 24px 28px; }
-	article > * { margin: 0; }
-	article > * + * { margin-top: 12px; }
-	article > h2:first-child { margin-top: 0 !important; }
-	h2 { font-size: 1.15em; margin-top: 20px !important; }
-	p { white-space: pre-wrap; }
-	dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; }
-	.field { display: contents; }
-	dt, dd { margin: 0; }
-	.table { overflow-x: auto; }
-	table { border-collapse: collapse; min-width: 100%; }
-	th, td { text-align: left; vertical-align: top; }
-	ul, ol { padding-left: 1.5em; }
-	pre { overflow-x: auto; white-space: pre; overflow-wrap: normal; }
-	.note { white-space: pre-wrap; }
-			</style>
-			@templ.Raw("<style>\n" + themeCSS + "</style>")
+			@style(reportCSS)
+			@style(themeCSS)
 		</head>
 		<body>
 			<header class="titlebar"><span>{ title }</span><button class="minimise" title="Minimise" aria-label="Minimise"></button><button class="zoom" title="Zoom" aria-label="Zoom"></button><button class="close" title="Close" aria-label="Close"></button></header>
@@ -78,111 +28,7 @@ templ ReportPage(themeCSS string, title string, blocks []templ.Component) {
 					}
 				</article>
 			</main>
-			<script>
-	const titlebar = document.querySelector(".titlebar");
-	const frame = action => window.webkit?.messageHandlers?.frame?.postMessage(action);
-	titlebar.addEventListener("mousedown", e => {
-	  if (e.button === 0 && !e.target.closest("button")) frame("drag");
-	});
-	for (const action of ["close", "minimise", "zoom"]) {
-	  titlebar.querySelector("." + action).addEventListener("click", () => frame(action));
-	}
-	// The arrow keys, space and page up and down scroll <main> from the start, not
-	// only once it's been clicked.
-	document.querySelector("main").focus({ preventScroll: true });
-			</script>
+			@script(reportJS)
 		</body>
 	</html>
-}
-
-// Heading is a section heading.
-templ Heading(text string) {
-	<h2>{ text }</h2>
-}
-
-// Paragraph is a paragraph; line breaks in text are kept.
-templ Paragraph(text string) {
-	<p>{ text }</p>
-}
-
-// Field is a labelled value, a row of Fields.
-type Field struct {
-	Label string
-	Value string
-}
-
-// Fields is labelled values, one per row.
-templ Fields(items []Field) {
-	<dl>
-		for _, item := range items {
-			<div class="field"><dt>{ item.Label }</dt><dd>{ item.Value }</dd></div>
-		}
-	</dl>
-}
-
-// Table is column headings and rows of cells. Rows are cut or padded to the columns,
-// so every row lines up.
-templ Table(columns []string, rows [][]string) {
-	<div class="table">
-		<table>
-			<thead>
-				<tr>
-					for _, column := range columns {
-						<th>{ column }</th>
-					}
-				</tr>
-			</thead>
-			<tbody>
-				for _, row := range rows {
-					<tr>
-						for i := range columns {
-							<td>{ cell(row, i) }</td>
-						}
-					</tr>
-				}
-			</tbody>
-		</table>
-	</div>
-}
-
-func cell(row []string, i int) string {
-	if i < len(row) {
-		return row[i]
-	}
-	return ""
-}
-
-// List is a bulleted list, or a numbered one if ordered.
-templ List(items []string, ordered bool) {
-	if ordered {
-		<ol>
-			for _, item := range items {
-				<li>{ item }</li>
-			}
-		</ol>
-	} else {
-		<ul>
-			for _, item := range items {
-				<li>{ item }</li>
-			}
-		</ul>
-	}
-}
-
-// Code is preformatted text, such as a log, in a fixed-width font. Long lines scroll
-// sideways.
-templ Code(text string) {
-	<pre><code>{ text }</code></pre>
-}
-
-// Note is a callout in a colour; "" is gray.
-templ Note(text string, color string) {
-	<div class="note" data-color={ colorName(color) } style={ templ.SafeCSS("--note: " + cssColor(color)) }>{ text }</div>
-}
-
-// Link is a link to url, which only works if the app lets the window go there (ledge
-// opens http(s) urls in the browser). A url that isn't safe, such as javascript:, is
-// replaced so it goes nowhere.
-templ Link(text string, url string) {
-	<p class="link"><a href={ templ.URL(url) } title={ url }>{ text }</a></p>
 }

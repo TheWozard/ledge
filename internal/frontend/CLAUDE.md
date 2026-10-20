@@ -15,7 +15,7 @@ Run the narrowest tests that cover the change. Most changes need only `just test
 |---|---|---|
 | anything (always, first) | `just test`: generates the templ files, then the tests that don't open windows | ~1s |
 | one theme's files: `theme/themes/<name>.json`, `css/<name>.css`, `css/<name>.report.css` | `just gui-themes <name>`: that it loads | ~1s a theme |
-| `components/*.templ`, `components/*.go`, `ui/*.go` | `just gui`: every window test, with the per-theme ones in the default theme only | ~13s |
+| `components/*.templ`, `components/*.go`, `components/page/*`, `ui/*.go` | `just gui`: every window test, with the per-theme ones in the default theme only | ~13s |
 | `shim/` | `go test ./shim`, then `just gui` | |
 
 - No test checks how anything looks (computed styles, layout, positions, animations).

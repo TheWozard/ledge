@@ -1,0 +1,51 @@
+package components
+
+import (
+	"fmt"
+	"math"
+	"time"
+)
+
+// Timer is a kind of card that counts down from Start to End: a title, and the time
+// left under it. Its kind is "timer". The page counts it down itself, and sets
+// --progress on the card, from 0 at Start to 1 at End, for a theme to show how far
+// along it is; once it's up, the card has data-done. Complete is called when End
+// passes.
+type Timer struct {
+	ID       string
+	Title    string
+	Start    time.Time
+	End      time.Time
+	Priority int
+	Color    string
+	Click    Click
+	Dismiss  Click
+	Complete Click
+}
+
+// Frame is the timer's frame, from its fields of the same names; it ends at End.
+func (t Timer) Frame() Frame {
+	return Frame{ID: t.ID, Kind: "timer", Priority: t.Priority, Color: t.Color, Click: t.Click, Dismiss: t.Dismiss,
+		Ends: t.End, Complete: t.Complete}
+}
+
+// Body is the timer's title and the time it has left, as of now; the page keeps that
+// up to date.
+func (t Timer) Body() templ.Component { return timerBody(t, timeLeft(time.Until(t.End))) }
+
+// timeLeft is d as the page shows a timer's time left, rounded up to the second:
+// "4:05", or "1:02:03" from an hour. Nothing is left once it's up.
+func timeLeft(d time.Duration) string {
+	seconds := int(math.Ceil(max(d, 0).Seconds()))
+	if seconds >= 3600 {
+		return fmt.Sprintf("%d:%02d:%02d", seconds/3600, seconds/60%60, seconds%60)
+	}
+	return fmt.Sprintf("%d:%02d", seconds/60, seconds%60)
+}
+
+// timerBody is a Timer's body: its title, and left, the time it has left as of when
+// it's rendered. The page counts it down from its start and end, in milliseconds.
+templ timerBody(t Timer, left string) {
+	<span class="title">{ t.Title }</span>
+	<div class="time-left" data-start={ fmt.Sprint(t.Start.UnixMilli()) } data-end={ fmt.Sprint(t.End.UnixMilli()) }>{ left }</div>
+}
