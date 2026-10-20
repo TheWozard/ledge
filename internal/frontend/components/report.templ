@@ -1,7 +1,7 @@
 package components
 
-// ReportPage is the report window's page, styled by themeCSS (theme.CSS for
-// theme.Report): title in the title bar the page draws, and blocks under it, top to
+// ReportPage is the report window's page, styled by themeCSS (a theme.Theme's
+// Report): title in the title bar the page draws, and blocks under it, top to
 // bottom, scrolling under the title bar. A block is any component; the ones here are Heading, Paragraph, Fields,
 // Table, List, Code, Note and Link.
 //
@@ -27,7 +27,7 @@ templ ReportPage(themeCSS string, title string, blocks []templ.Component) {
 	   <span>; a theme gives it a background and styles the title. Dragging it moves the
 	   window, and double-clicking it zooms, as a real one would.
 
-	   A theme can draw the whole window instead: with Frameless in theme.Frames, the
+	   A theme can draw the whole window instead: with Frameless in its theme.Frame, the
 	   window has no macOS frame (square corners, no buttons), and the theme shows the
 	   title bar's .close, .minimise and .zoom buttons, hidden here, and any border.
 
@@ -177,14 +177,7 @@ templ Code(text string) {
 
 // Note is a callout in a colour; "" is gray.
 templ Note(text string, color string) {
-	<div class="note" data-color={ noteColor(color) } style={ templ.SafeCSS("--note: " + cssColor(color)) }>{ text }</div>
-}
-
-func noteColor(color string) string {
-	if color == "" {
-		return "gray"
-	}
-	return color
+	<div class="note" data-color={ colorName(color) } style={ templ.SafeCSS("--note: " + cssColor(color)) }>{ text }</div>
 }
 
 // Link is a link to url, which only works if the app lets the window go there (ledge

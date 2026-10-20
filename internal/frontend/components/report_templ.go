@@ -8,8 +8,8 @@ package components
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-// ReportPage is the report window's page, styled by themeCSS (theme.CSS for
-// theme.Report): title in the title bar the page draws, and blocks under it, top to
+// ReportPage is the report window's page, styled by themeCSS (a theme.Theme's
+// Report): title in the title bar the page draws, and blocks under it, top to
 // bottom, scrolling under the title bar. A block is any component; the ones here are Heading, Paragraph, Fields,
 // Table, List, Code, Note and Link.
 //
@@ -39,7 +39,7 @@ func ReportPage(themeCSS string, title string, blocks []templ.Component) templ.C
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><style>\n\t/* Layout only. How the report looks comes from its theme's report stylesheet,\n\t   added after this. A theme sets --page, an opaque colour behind everything, and\n\t   --c-green, --c-yellow, --c-red, --c-blue and --c-gray for notes. A note has its\n\t   colour in --note and data-color.\n\n\t   The page fills the window, title bar included: macOS draws only the close,\n\t   minimise and zoom buttons, at the top left. .titlebar is the page's own title\n\t   bar under them, --titlebar high and kept clear of them, with the title in a\n\t   <span>; a theme gives it a background and styles the title. Dragging it moves the\n\t   window, and double-clicking it zooms, as a real one would.\n\n\t   A theme can draw the whole window instead: with Frameless in theme.Frames, the\n\t   window has no macOS frame (square corners, no buttons), and the theme shows the\n\t   title bar's .close, .minimise and .zoom buttons, hidden here, and any border.\n\n\t   The page itself never scrolls: macOS's rubber-band bounce would pull the title\n\t   bar and a drawn border away from the window's edges. <main> scrolls instead, in\n\t   the space under the title bar; a theme that draws a border sets its inset to keep\n\t   inside it, and can style its scroll bar with main::-webkit-scrollbar.\n\n\t   The blocks are in an <article> in <main>, at least as tall as it and padded, so a\n\t   background that scrolls with them, such as ruled lines, goes on the <article>.\n\t   One on <main> with background-attachment: local drifts against them as it\n\t   scrolls in WebKit. */\n\t:root { --titlebar: 28px; }\n\t* { box-sizing: border-box; }\n\thtml { background: var(--page); }\n\thtml, body { height: 100%; overflow: hidden; }\n\tbody { margin: 0; overflow-wrap: anywhere; }\n\tmain { position: absolute; inset: var(--titlebar) 0 0; overflow-x: hidden; overflow-y: auto; }\n\tmain:focus { outline: none; }\n\t.titlebar { position: fixed; z-index: 1; top: 0; left: 0; right: 0; height: var(--titlebar); padding: 0 78px;\n\t            line-height: var(--titlebar); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;\n\t            -webkit-user-select: none; cursor: default; }\n\t.titlebar button { display: none; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: default; }\n\tarticle { min-height: 100%; padding: 18px 24px 28px; }\n\tarticle > * { margin: 0; }\n\tarticle > * + * { margin-top: 12px; }\n\tarticle > h2:first-child { margin-top: 0 !important; }\n\th2 { font-size: 1.15em; margin-top: 20px !important; }\n\tp { white-space: pre-wrap; }\n\tdl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; }\n\t.field { display: contents; }\n\tdt, dd { margin: 0; }\n\t.table { overflow-x: auto; }\n\ttable { border-collapse: collapse; min-width: 100%; }\n\tth, td { text-align: left; vertical-align: top; }\n\tul, ol { padding-left: 1.5em; }\n\tpre { overflow-x: auto; white-space: pre; overflow-wrap: normal; }\n\t.note { white-space: pre-wrap; }\n\t\t\t</style>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><style>\n\t/* Layout only. How the report looks comes from its theme's report stylesheet,\n\t   added after this. A theme sets --page, an opaque colour behind everything, and\n\t   --c-green, --c-yellow, --c-red, --c-blue and --c-gray for notes. A note has its\n\t   colour in --note and data-color.\n\n\t   The page fills the window, title bar included: macOS draws only the close,\n\t   minimise and zoom buttons, at the top left. .titlebar is the page's own title\n\t   bar under them, --titlebar high and kept clear of them, with the title in a\n\t   <span>; a theme gives it a background and styles the title. Dragging it moves the\n\t   window, and double-clicking it zooms, as a real one would.\n\n\t   A theme can draw the whole window instead: with Frameless in its theme.Frame, the\n\t   window has no macOS frame (square corners, no buttons), and the theme shows the\n\t   title bar's .close, .minimise and .zoom buttons, hidden here, and any border.\n\n\t   The page itself never scrolls: macOS's rubber-band bounce would pull the title\n\t   bar and a drawn border away from the window's edges. <main> scrolls instead, in\n\t   the space under the title bar; a theme that draws a border sets its inset to keep\n\t   inside it, and can style its scroll bar with main::-webkit-scrollbar.\n\n\t   The blocks are in an <article> in <main>, at least as tall as it and padded, so a\n\t   background that scrolls with them, such as ruled lines, goes on the <article>.\n\t   One on <main> with background-attachment: local drifts against them as it\n\t   scrolls in WebKit. */\n\t:root { --titlebar: 28px; }\n\t* { box-sizing: border-box; }\n\thtml { background: var(--page); }\n\thtml, body { height: 100%; overflow: hidden; }\n\tbody { margin: 0; overflow-wrap: anywhere; }\n\tmain { position: absolute; inset: var(--titlebar) 0 0; overflow-x: hidden; overflow-y: auto; }\n\tmain:focus { outline: none; }\n\t.titlebar { position: fixed; z-index: 1; top: 0; left: 0; right: 0; height: var(--titlebar); padding: 0 78px;\n\t            line-height: var(--titlebar); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;\n\t            -webkit-user-select: none; cursor: default; }\n\t.titlebar button { display: none; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: default; }\n\tarticle { min-height: 100%; padding: 18px 24px 28px; }\n\tarticle > * { margin: 0; }\n\tarticle > * + * { margin-top: 12px; }\n\tarticle > h2:first-child { margin-top: 0 !important; }\n\th2 { font-size: 1.15em; margin-top: 20px !important; }\n\tp { white-space: pre-wrap; }\n\tdl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; }\n\t.field { display: contents; }\n\tdt, dd { margin: 0; }\n\t.table { overflow-x: auto; }\n\ttable { border-collapse: collapse; min-width: 100%; }\n\tth, td { text-align: left; vertical-align: top; }\n\tul, ol { padding-left: 1.5em; }\n\tpre { overflow-x: auto; white-space: pre; overflow-wrap: normal; }\n\t.note { white-space: pre-wrap; }\n\t\t\t</style>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -484,7 +484,7 @@ func Note(text string, color string) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var19 string
-		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(noteColor(color))
+		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(colorName(color))
 		if templ_7745c5c3_Err != nil {
 			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 180, Col: 48}
 		}
@@ -526,13 +526,6 @@ func Note(text string, color string) templ.Component {
 	})
 }
 
-func noteColor(color string) string {
-	if color == "" {
-		return "gray"
-	}
-	return color
-}
-
 // Link is a link to url, which only works if the app lets the window go there (ledge
 // opens http(s) urls in the browser). A url that isn't safe, such as javascript:, is
 // replaced so it goes nowhere.
@@ -564,7 +557,7 @@ func Link(text string, url string) templ.Component {
 		var templ_7745c5c3_Var23 templ.SafeURL
 		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(url))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 194, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 187, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 		if templ_7745c5c3_Err != nil {
@@ -577,7 +570,7 @@ func Link(text string, url string) templ.Component {
 		var templ_7745c5c3_Var24 string
 		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(url)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 194, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 187, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 		if templ_7745c5c3_Err != nil {
@@ -590,7 +583,7 @@ func Link(text string, url string) templ.Component {
 		var templ_7745c5c3_Var25 string
 		templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(text)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 194, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 187, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 		if templ_7745c5c3_Err != nil {

@@ -259,11 +259,11 @@ void ledgeCreateBar(int window) {
     });
 }
 
-// The report window's style: titled, with the page under a see-through title bar. A
-// frameless one drops the title bar, and with it the rounded corners and buttons.
 // Where the next titled window goes: each opens down and to the right of the last.
 static NSPoint cascade;
 
+// The report window's style: titled, with the page under a see-through title bar. A
+// frameless one drops the title bar, and with it the rounded corners and buttons.
 static const NSWindowStyleMask titledMask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
     | NSWindowStyleMaskResizable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskFullSizeContentView;
 

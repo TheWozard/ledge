@@ -143,17 +143,17 @@ can be shared between pages and themes (paths are relative to the manifest):
 
 ```json
 {
-  "name": "handheld",
-  "bar": ["css/silkscreen.css", "css/handheld.css"],
-  "report": ["css/silkscreen.css", "css/handheld.report.css"],
-  "frame": {"appearance": "light"}
+  "name": "neon",
+  "bar": ["css/neon-font.css", "css/neon.css"],
+  "report": ["css/neon-font.css", "css/neon.report.css"],
+  "frame": {"appearance": "dark"}
 }
 ```
 
 `frame` is optional: `appearance` is `"light"`, `"dark"` or unset (follow the system),
 and `frameless` is true for a theme that draws the whole window. A stylesheet names a
 font (woff2, woff, ttf or otf) by a url relative to itself, such as
-`url(../fonts/silkscreen.woff2)`, and it can be anywhere in the `fs.FS`.
+`url(../fonts/neon.woff2)`, and it can be anywhere in the `fs.FS`.
 
 The pages are loaded from strings and can't fetch files, so `Load` inlines each font as
 a `data:` url. The comments at the top of the layout styles in
@@ -161,8 +161,8 @@ a `data:` url. The comments at the top of the layout styles in
 theme can hook into: the colour variables it sets, the bar's padding (`--pad-top`,
 `--pad-x` and `--pad-bottom`, which the row of cards scrolls through to the window's
 edges), the row's own sideways padding (`--row-pad-x`), a card's kind as a class (such
-as `basic`) and its `data-color` and `--card-color`, its width as `--card-width` (which a
-card's own `Width` overrides), an action's `data-color`
+as `basic`) and its `data-color` and `--card-color`, its width as `--card-width` (300px, or
+100px for a timer, set on `li.timer`; a card's own `Width` overrides it), an action's `data-color`
 and `--action`, a new card's or action's `data-new` and a gone one's
 `data-leaving`
 (for enter and exit animations, the exit ending with the layout's `collapse` so the rest
@@ -172,9 +172,8 @@ with them).
 
 Adding a built-in theme: add its manifest, `<name>.json`, to
 [theme/themes/](theme/themes/), its stylesheets to [css/](theme/themes/css/), any fonts
-to [fonts/](theme/themes/fonts/); nothing lists the themes, so that's all. The bundled fonts'
-licences are in [OFL.txt](theme/themes/fonts/OFL.txt), and their `@font-face` rules in
-`css/<font>.css`. To try a theme of your own, `just preview path/to/neon.json`.
+to `theme/themes/fonts/`, with their licences beside them; nothing lists the themes, so
+that's all. To try a theme of your own, `just preview path/to/neon.json`.
 
 ## Developing
 
@@ -199,5 +198,4 @@ can't check hover, a real mouse drag, keyboard shortcuts or how the windows look
 
 ## License
 
-MIT; the bundled fonts are under the SIL Open Font License, and the vendored Idiomorph
-([components/vendor/](components/vendor/)) under 0BSD.
+MIT; the vendored Idiomorph ([components/vendor/](components/vendor/)) is under 0BSD.

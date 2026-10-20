@@ -33,6 +33,9 @@ var idiomorph string
 // same way, from its Frame: its place in the order, its colour, its ×, what clicking
 // it does, its actions along its bottom, and its arrival and leaving. What's inside
 // the frame is the card's Body, which is up to its kind. Basic is the built-in kind.
+//
+// The bar calls Frame and Body while it holds its lock, so neither may call back into
+// the bar (Render, ShowReport): that would deadlock.
 type Card interface {
 	Frame() Frame
 	// Body is what's in the card, above its actions. Like everything on the bar, it
@@ -110,7 +113,7 @@ type Timer struct {
 
 // Frame is the timer's frame, from its fields of the same names; it ends at End.
 func (t Timer) Frame() Frame {
-	return Frame{ID: t.ID, Kind: "timer", Priority: t.Priority, Color: t.Color, Width: 100, Click: t.Click, Dismiss: t.Dismiss,
+	return Frame{ID: t.ID, Kind: "timer", Priority: t.Priority, Color: t.Color, Click: t.Click, Dismiss: t.Dismiss,
 		Ends: t.End, Complete: t.Complete}
 }
 
@@ -222,13 +225,20 @@ var named = []string{"green", "yellow", "red", "blue", "gray"}
 
 var hex = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 
-// cssColor is a colour as CSS: a named one is the theme's variable for it.
-func cssColor(color string) string {
-	switch {
-	case slices.Contains(named, color):
-		return "var(--c-" + color + ")"
-	case hex.MatchString(color):
+// colorName is a colour as the page names it in data-color: a named one, #rrggbb, or
+// gray for anything else, "" included.
+func colorName(color string) string {
+	if slices.Contains(named, color) || hex.MatchString(color) {
 		return color
 	}
-	return "var(--c-gray)"
+	return "gray"
+}
+
+// cssColor is a colour as CSS: a named one is the theme's variable for it, and
+// anything that isn't a colour is gray's.
+func cssColor(color string) string {
+	if color = colorName(color); hex.MatchString(color) {
+		return color
+	}
+	return "var(--c-" + color + ")"
 }

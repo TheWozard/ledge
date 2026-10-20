@@ -10,7 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import "fmt"
 
-// BarPage is the bar's page, styled by themeCSS (theme.CSS for theme.Bar), for a bar
+// BarPage is the bar's page, styled by themeCSS (a theme.Theme's Bar), for a bar
 // along edge: "top" or "bottom". Its #app is empty until it's given BarContent: it
 // posts {action: "ready"} once loaded, and from then takes update(html), with html
 // rendered from BarContent, and morphs what it shows into it: only what's changed is
@@ -41,7 +41,7 @@ func BarPage(themeCSS string, edge string) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><style>\n\t/* Layout only. How the bar looks comes from its theme, added after this, so a\n\t   theme's rules win over these. A theme sets --bar to an opaque colour for the\n\t   page behind the bar, and --c-green, --c-yellow, --c-red, --c-blue and --c-gray\n\t   for actions.\n\n\t   A card's kind is a class on its <li>, such as basic, for a theme to style\n\t   each kind by. A timer card has --progress, from 0 to 1 as it counts down, and\n\t   data-done once it's up. A card with a colour carries it in data-color, and as CSS in --card-color; a\n\t   theme shows it however it likes, or not at all. An action carries its\n\t   current colour in data-color, and as CSS in --action.\n\n\t   Entering and leaving: a card new since the last render, or an action new\n\t   to a card that was already there, has data-new and --i, its place among the new\n\t   ones of its kind, for an entrance animation; the next render takes them off. A\n\t   new card's actions arrive with it, so aren't marked. An entrance should\n\t   fill backwards, not both: it ends at how the element looks anyway, and WebKit\n\t   can hold a stepped one a step short of its end. Each render morphs the page\n\t   rather than replacing it, so that only plays for what's really new. A card or\n\t   action that's gone stays, with data-leaving, until its animations end,\n\t   then goes. A theme's exit should end with \"collapse\", which closes up the space\n\t   it leaves so what follows slides into place; without one, it just collapses. */\n\t* { box-sizing: border-box; }\n\thtml, body { margin: 0; height: 100%; background: var(--bar); overflow: hidden; }\n\t/* The bar stays put against the window's edges: no rubber-band bounce. */\n\thtml { overscroll-behavior: none; }\n\tbody { -webkit-user-select: none; cursor: default; }\n\n\t/* The bar fills the window with the scrolling row of cards. A theme sets its padding\n\t   with --pad-top, --pad-x and --pad-bottom. */\n\t#app { --pad-top: 8px; --pad-x: 8px; --pad-bottom: 8px;\n\t       position: relative; display: flex; height: 100%; gap: 8px;\n\t       padding: var(--pad-top) var(--pad-x) var(--pad-bottom); }\n\n\t/* The row of cards runs through the bar's side padding to the window's edges, padded\n\t   the same inside, so the cards rest inside the padding but scroll out to the edge,\n\t   not cut off short of it. A theme pads the row further sideways with --row-pad-x,\n\t   not padding-inline, which this sets. */\n\tul { flex: 1; min-width: 0; list-style: none; margin: 0 calc(-1 * var(--pad-x)); padding: 0; display: flex; gap: 8px;\n\t     overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }\n\t#cards { padding-inline: calc(var(--pad-x) + var(--row-pad-x, 0px)); }\n\tul::-webkit-scrollbar { display: none; }\n\t/* A card is --card-width wide: a theme sets it, for every card or by kind, and a\n\t   card with a Width of its own has it inline, which wins. */\n\tli { position: relative; flex: none; width: var(--card-width, 280px); height: 100%; display: flex; flex-direction: column; overflow: hidden; }\n\t/* Anything with a Click has the class clickable, and is clicked on its own: a\n\t   clickable action isn't also a click on its card. */\n\t.clickable { cursor: pointer; }\n\t/* Title, description, then the actions pinned to the bottom. The title\n\t   clamps; the description fills the space between it and the actions (or\n\t   the bottom, without them), and scrolls if it doesn't fit. */\n\t/* Only the title shares the top line with ×, so only it keeps clear of it. */\n\t.title { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; -webkit-line-clamp: 2; flex: none;\n\t         margin-right: 16px; }\n\t.description { flex: 1 1 0; min-height: 0; overflow-x: hidden; overflow-y: auto; }\n\n\t/* A card's actions sit in one row at its bottom, inside the card's padding,\n\t   and scroll sideways if they don't fit. A theme spaces them from the description\n\t   above, such as with a gap on the card. A theme whose card has no padding of its\n\t   own, its lines padding themselves, pads the row the same. A clickable one is a\n\t   button of its own; clicking one that isn't is clicking the card. */\n\t.actions { flex: none; display: flex; gap: 4px; margin-top: auto;\n\t                 overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }\n\t.actions::-webkit-scrollbar { display: none; }\n\t.action { position: relative; flex: none; display: flex; align-items: center; height: 20px;\n\t                padding: 0 8px; white-space: nowrap; }\n\n\t.dismiss { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border: 0; padding: 0;\n\t           background: none; color: inherit; font: inherit; cursor: pointer; }\n\n\t.empty { flex: 1; display: flex; align-items: center; }\n\t/* The row, and a card's actions, are always there, so the last of them can\n\t   leave; empty, they're hidden, and \"No events.\" shows once the last card has gone. */\n\t.actions:empty, ul:empty { display: none; }\n\tul:not(:empty) ~ .empty { display: none; }\n\n\t/* --collapse-x is set on a leaving element to minus the room it takes in its row,\n\t   gap included. */\n\t[data-leaving] { pointer-events: none; animation: collapse .2s ease-in-out both; }\n\t@keyframes collapse { to { margin-right: var(--collapse-x, 0); } }\n\t@keyframes blink { 50% { opacity: 0; } }\n\t\t\t</style>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><style>\n\t/* Layout only. How the bar looks comes from its theme, added after this, so a\n\t   theme's rules win over these. A theme sets --bar to an opaque colour for the\n\t   page behind the bar, and --c-green, --c-yellow, --c-red, --c-blue and --c-gray\n\t   for actions.\n\n\t   A card's kind is a class on its <li>, such as basic, for a theme to style\n\t   each kind by. A timer card has --progress, from 0 to 1 as it counts down, and\n\t   data-done once it's up. A card with a colour carries it in data-color, and as CSS in --card-color; a\n\t   theme shows it however it likes, or not at all. An action carries its\n\t   current colour in data-color, and as CSS in --action.\n\n\t   Entering and leaving: a card new since the last render, or an action new\n\t   to a card that was already there, has data-new and --i, its place among the new\n\t   ones of its kind, for an entrance animation; the next render takes them off. A\n\t   new card's actions arrive with it, so aren't marked. An entrance should\n\t   fill backwards, not both: it ends at how the element looks anyway, and WebKit\n\t   can hold a stepped one a step short of its end. Each render morphs the page\n\t   rather than replacing it, so that only plays for what's really new. A card or\n\t   action that's gone stays, with data-leaving, until its animations end,\n\t   then goes. A theme's exit should end with \"collapse\", which closes up the space\n\t   it leaves so what follows slides into place; without one, it just collapses. */\n\t* { box-sizing: border-box; }\n\thtml, body { margin: 0; height: 100%; background: var(--bar); overflow: hidden; }\n\t/* The bar stays put against the window's edges: no rubber-band bounce. */\n\thtml { overscroll-behavior: none; }\n\tbody { -webkit-user-select: none; cursor: default; }\n\n\t/* The bar fills the window with the scrolling row of cards. A theme sets its padding\n\t   with --pad-top, --pad-x and --pad-bottom. */\n\t#app { --pad-top: 8px; --pad-x: 8px; --pad-bottom: 8px;\n\t       position: relative; display: flex; height: 100%; gap: 8px;\n\t       padding: var(--pad-top) var(--pad-x) var(--pad-bottom); }\n\n\t/* The row of cards runs through the bar's side padding to the window's edges, padded\n\t   the same inside, so the cards rest inside the padding but scroll out to the edge,\n\t   not cut off short of it. A theme pads the row further sideways with --row-pad-x,\n\t   not padding-inline, which this sets. */\n\tul { flex: 1; min-width: 0; list-style: none; margin: 0 calc(-1 * var(--pad-x)); padding: 0; display: flex; gap: 8px;\n\t     overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }\n\t#cards { padding-inline: calc(var(--pad-x) + var(--row-pad-x, 0px)); }\n\tul::-webkit-scrollbar { display: none; }\n\t/* A card is --card-width wide: 300px, or 100px for a timer. A theme sets it, for\n\t   every card or by kind (li.timer, as li alone doesn't reach a timer past this),\n\t   and a card with a Width of its own has it inline, which wins. */\n\tli { --card-width: 300px; position: relative; flex: none; width: var(--card-width); height: 100%; display: flex; flex-direction: column; overflow: hidden; }\n\tli.timer { --card-width: 100px; }\n\t/* Anything with a Click has the class clickable, and is clicked on its own: a\n\t   clickable action isn't also a click on its card. */\n\t.clickable { cursor: pointer; }\n\t/* Title, description, then the actions pinned to the bottom. The title\n\t   clamps; the description fills the space between it and the actions (or\n\t   the bottom, without them), and scrolls if it doesn't fit. */\n\t/* Only the title shares the top line with ×, so only it keeps clear of it. */\n\t.title { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; -webkit-line-clamp: 2; flex: none;\n\t         margin-right: 16px; }\n\t.description { flex: 1 1 0; min-height: 0; overflow-x: hidden; overflow-y: auto; }\n\n\t/* A card's actions sit in one row at its bottom, inside the card's padding,\n\t   and scroll sideways if they don't fit. A theme spaces them from the description\n\t   above, such as with a gap on the card. A theme whose card has no padding of its\n\t   own, its lines padding themselves, pads the row the same. A clickable one is a\n\t   button of its own; clicking one that isn't is clicking the card. */\n\t.actions { flex: none; display: flex; gap: 4px; margin-top: auto;\n\t                 overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }\n\t.actions::-webkit-scrollbar { display: none; }\n\t.action { position: relative; flex: none; display: flex; align-items: center; height: 20px;\n\t                padding: 0 8px; white-space: nowrap; }\n\n\t.dismiss { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border: 0; padding: 0;\n\t           background: none; color: inherit; font: inherit; cursor: pointer; }\n\n\t.empty { flex: 1; display: flex; align-items: center; }\n\t/* The row, and a card's actions, are always there, so the last of them can\n\t   leave; empty, they're hidden, and \"No events.\" shows once the last card has gone. */\n\t.actions:empty, ul:empty { display: none; }\n\tul:not(:empty) ~ .empty { display: none; }\n\n\t/* --collapse-x is set on a leaving element to minus the room it takes in its row,\n\t   gap included. */\n\t[data-leaving] { pointer-events: none; animation: collapse .2s ease-in-out both; }\n\t@keyframes collapse { to { margin-right: var(--collapse-x, 0); } }\n\t@keyframes blink { 50% { opacity: 0; } }\n\t\t\t</style>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -176,7 +176,7 @@ func card(f Frame, body templ.Component, fresh map[string]int) templ.Component {
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(f.ElementID())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 244, Col: 20}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 246, Col: 20}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -207,7 +207,7 @@ func card(f Frame, body templ.Component, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(f.clickID())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 247, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 249, Col: 27}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -226,7 +226,7 @@ func card(f Frame, body templ.Component, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(color)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 250, Col: 21}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 252, Col: 21}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -251,7 +251,7 @@ func card(f Frame, body templ.Component, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(templ.SafeCSS(style))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 256, Col: 31}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 258, Col: 31}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
@@ -274,7 +274,7 @@ func card(f Frame, body templ.Component, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(f.dismissID())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 260, Col: 79}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 262, Col: 79}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -336,7 +336,7 @@ func basicBody(b Basic) templ.Component {
 		var templ_7745c5c3_Var14 string
 		templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(b.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 273, Col: 30}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 275, Col: 30}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 		if templ_7745c5c3_Err != nil {
@@ -354,7 +354,7 @@ func basicBody(b Basic) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(b.Description)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 275, Col: 42}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 277, Col: 42}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {
@@ -399,7 +399,7 @@ func timerBody(t Timer, left string) templ.Component {
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(t.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 282, Col: 30}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 284, Col: 30}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
@@ -412,7 +412,7 @@ func timerBody(t Timer, left string) templ.Component {
 		var templ_7745c5c3_Var18 string
 		templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(t.Start.UnixMilli()))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 283, Col: 68}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 285, Col: 68}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 		if templ_7745c5c3_Err != nil {
@@ -425,7 +425,7 @@ func timerBody(t Timer, left string) templ.Component {
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(t.End.UnixMilli()))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 283, Col: 111}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 285, Col: 111}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
@@ -438,7 +438,7 @@ func timerBody(t Timer, left string) templ.Component {
 		var templ_7745c5c3_Var20 string
 		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(left)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 283, Col: 120}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 285, Col: 120}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 		if templ_7745c5c3_Err != nil {
@@ -486,7 +486,7 @@ func action(q Action, fresh map[string]int) templ.Component {
 		var templ_7745c5c3_Var23 string
 		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinStringErrs(q.ElementID())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 290, Col: 20}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 292, Col: 20}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 		if templ_7745c5c3_Err != nil {
@@ -517,7 +517,7 @@ func action(q Action, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var25 string
 			templ_7745c5c3_Var25, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(templ.SafeCSS("--action: " + cssColor(q.Color) + "; " + entering(i)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 294, Col: 79}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 296, Col: 79}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 			if templ_7745c5c3_Err != nil {
@@ -535,7 +535,7 @@ func action(q Action, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var26 string
 			templ_7745c5c3_Var26, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(templ.SafeCSS("--action: " + cssColor(q.Color)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 296, Col: 58}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 298, Col: 58}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 			if templ_7745c5c3_Err != nil {
@@ -551,9 +551,9 @@ func action(q Action, fresh map[string]int) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var27 string
-		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(q.Color)
+		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(colorName(q.Color))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 298, Col: 22}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 300, Col: 33}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 		if templ_7745c5c3_Err != nil {
@@ -571,7 +571,7 @@ func action(q Action, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var28 string
 			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(q.clickID())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 300, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 302, Col: 27}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 			if templ_7745c5c3_Err != nil {
@@ -589,7 +589,7 @@ func action(q Action, fresh map[string]int) templ.Component {
 		var templ_7745c5c3_Var29 string
 		templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(q.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 303, Col: 31}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 305, Col: 31}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 		if templ_7745c5c3_Err != nil {

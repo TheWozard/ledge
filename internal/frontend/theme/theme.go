@@ -62,10 +62,10 @@ type Frame struct {
 // such as a font's @font-face rules can be shared between pages and themes:
 //
 //	{
-//	  "name": "handheld",
-//	  "bar": ["css/silkscreen.css", "css/handheld.css"],
-//	  "report": ["css/silkscreen.css", "css/handheld.report.css"],
-//	  "frame": {"appearance": "light"}
+//	  "name": "neon",
+//	  "bar": ["css/neon-font.css", "css/neon.css"],
+//	  "report": ["css/neon-font.css", "css/neon.report.css"],
+//	  "frame": {"appearance": "dark"}
 //	}
 //
 // One theme in a Set can say it's the Default, the one to use when none is chosen.
@@ -79,7 +79,7 @@ type Manifest struct {
 
 // Load reads the theme whose manifest is file in fsys: each page's stylesheets, joined
 // in order, with every font they name by a relative url, such as
-// url(../fonts/silkscreen.woff2), read from fsys and inlined.
+// url(../fonts/neon.woff2), read from fsys and inlined.
 func Load(fsys fs.FS, file string) (Theme, error) {
 	data, err := fs.ReadFile(fsys, file)
 	if err != nil {

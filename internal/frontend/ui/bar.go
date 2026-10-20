@@ -44,20 +44,14 @@ var opened atomic.Bool
 // Open creates the bar, places it and loads its page. Call it once, after Init and
 // before Run, on the main goroutine.
 func Open(options Options, handlers Handlers) (*Bar, error) {
-	if opened.Load() {
+	if !opened.CompareAndSwap(false, true) {
 		return nil, errors.New("ui: the bar is already open")
 	}
-	if options.Theme == (theme.Theme{}) {
-		var err error
-		if options.Theme, err = theme.Builtin(theme.Builtins.Default()); err != nil {
-			return nil, err
-		}
-	}
-	var page bytes.Buffer
-	if err := components.BarPage(options.Theme.Bar, options.Edge).Render(context.Background(), &page); err != nil {
+	page, err := barPage(&options)
+	if err != nil {
+		opened.Store(false)
 		return nil, err
 	}
-	opened.Store(true)
 	b := &Bar{options: options, handlers: handlers, shown: map[string]bool{}, reports: map[string]int{}, lastWindow: BarWindow}
 	shim.CreateBar(BarWindow)
 	shim.SetLevel(BarWindow, options.Level)
@@ -70,8 +64,24 @@ func Open(options Options, handlers Handlers) (*Bar, error) {
 			go b.handle(message)
 		}
 	})
-	shim.LoadHTML(BarWindow, page.String())
+	shim.LoadHTML(BarWindow, page)
 	return b, nil
+}
+
+// barPage is the bar's page for options, giving them the default theme if they have
+// none.
+func barPage(options *Options) (string, error) {
+	if options.Theme == (theme.Theme{}) {
+		var err error
+		if options.Theme, err = theme.Builtin(theme.Builtins.Default()); err != nil {
+			return "", err
+		}
+	}
+	var page bytes.Buffer
+	if err := components.BarPage(options.Theme.Bar, options.Edge).Render(context.Background(), &page); err != nil {
+		return "", err
+	}
+	return page.String(), nil
 }
 
 // Render shows cards, of any kinds, and their actions: highest priority first, and

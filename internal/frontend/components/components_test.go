@@ -191,7 +191,7 @@ func TestAction(t *testing.T) {
 		`data-click="action-ci"><span class="label">CI</span>`,
 		`<div id="action-bad" class="action" style`,
 		// A colour that isn't one shows as gray, and can't add CSS.
-		`style="--action: var(--c-gray);" data-color="red; background: url(x)"`)
+		`style="--action: var(--c-gray);" data-color="gray"`)
 	lacks(t, html, " else", "title=")
 	if strings.Count(html, "data-new") != 1 {
 		t.Errorf("only the new action should be marked new:\n%s", html)
@@ -228,6 +228,7 @@ func TestReportPage(t *testing.T) {
 		Code("$ go test\nFAIL"),
 		Note("Flaky", "yellow"),
 		Note("Plain", ""),
+		Note("Purple", "purple"),
 		Link("The run", "https://example.com/run"),
 		Link("Bad", "javascript:alert(1)"),
 	}
@@ -239,7 +240,8 @@ func TestReportPage(t *testing.T) {
 		"<th>Job</th><th>Result</th>",
 		"<tr><td>test</td><td></td></tr>", "<tr><td>build</td><td>ok</td></tr>",
 		"<ol><li>one</li><li>two</li></ol>", "<pre><code>$ go test\nFAIL</code></pre>",
-		`data-color="yellow" style="--note: var(--c-yellow);"`, `data-color="gray" style="--note: var(--c-gray);"`,
+		`data-color="yellow" style="--note: var(--c-yellow);"`, `data-color="gray" style="--note: var(--c-gray);">Plain`,
+		`data-color="gray" style="--note: var(--c-gray);">Purple`,
 		`<a href="https://example.com/run" title="https://example.com/run">The run</a>`,
 		`frame("drag")`)
 	lacks(t, html, "<b>not bold", "extra", `href="javascript:`)

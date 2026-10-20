@@ -2,7 +2,7 @@ package components
 
 import "fmt"
 
-// BarPage is the bar's page, styled by themeCSS (theme.CSS for theme.Bar), for a bar
+// BarPage is the bar's page, styled by themeCSS (a theme.Theme's Bar), for a bar
 // along edge: "top" or "bottom". Its #app is empty until it's given BarContent: it
 // posts {action: "ready"} once loaded, and from then takes update(html), with html
 // rendered from BarContent, and morphs what it shows into it: only what's changed is
@@ -59,9 +59,11 @@ templ BarPage(themeCSS string, edge string) {
 	     overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 	#cards { padding-inline: calc(var(--pad-x) + var(--row-pad-x, 0px)); }
 	ul::-webkit-scrollbar { display: none; }
-	/* A card is --card-width wide: a theme sets it, for every card or by kind, and a
-	   card with a Width of its own has it inline, which wins. */
-	li { position: relative; flex: none; width: var(--card-width, 280px); height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+	/* A card is --card-width wide: 300px, or 100px for a timer. A theme sets it, for
+	   every card or by kind (li.timer, as li alone doesn't reach a timer past this),
+	   and a card with a Width of its own has it inline, which wins. */
+	li { --card-width: 300px; position: relative; flex: none; width: var(--card-width); height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+	li.timer { --card-width: 100px; }
 	/* Anything with a Click has the class clickable, and is clicked on its own: a
 	   clickable action isn't also a click on its card. */
 	.clickable { cursor: pointer; }
@@ -295,7 +297,7 @@ templ action(q Action, fresh map[string]int) {
 		} else {
 			style={ templ.SafeCSS("--action: " + cssColor(q.Color)) }
 		}
-		data-color={ q.Color }
+		data-color={ colorName(q.Color) }
 		if q.Click != nil {
 			data-click={ q.clickID() }
 		}
