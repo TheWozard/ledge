@@ -15,8 +15,8 @@ import (
 // ShowReport shows title and blocks in id's report window, in the bar's theme, and
 // brings it forward. Each id has its own window: showing an id again replaces what
 // its window shows, and one that's been closed opens anew. id is the app's, such as
-// the card or pill the report is for. A block is any component; components has the
-// usual ones.
+// the card or action the report is for. A block is any component; components
+// has the usual ones.
 func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	b.mu.Lock()
 	t := b.options.Theme

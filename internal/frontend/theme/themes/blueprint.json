@@ -1,6 +1,0 @@
-{
-  "name": "blueprint",
-  "bar": ["css/blueprint.css"],
-  "report": ["css/blueprint.report.css"],
-  "frame": {"appearance": "dark"}
-}

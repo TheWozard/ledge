@@ -1,6 +1,0 @@
-{
-  "name": "hifi",
-  "bar": ["css/share-tech-mono.css", "css/hifi.css"],
-  "report": ["css/share-tech-mono.css", "css/hifi.report.css"],
-  "frame": {"appearance": "light"}
-}

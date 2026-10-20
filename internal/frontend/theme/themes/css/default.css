@@ -1,50 +1,218 @@
-/* default: light or dark to match the system, rounded cards with a priority stripe. */
+/* default: light or dark to match the system, square-ish cards tinted with their
+   colour, and a colour stripe on the ones that can be clicked. */
 :root {
-  --bar: #ecebe8; --card: #ffffff; --text: #1d1d1f; --muted: #6b6b70; --line: rgba(0, 0, 0, .08);
-  --accent: #2f5fd0; --high: #c4352b; --medium: #b7791f; --low: #5f7f5f;
-  --c-green: #2f8f4e; --c-yellow: #c08a12; --c-red: #c4352b; --c-blue: #2f5fd0; --c-gray: #8a8a90;
+  --bar: #ecebe8;
+  --card: #ffffff;
+  --text: #1d1d1f;
+  --muted: #6b6b70;
+  --line: rgba(0, 0, 0, .08);
+  --accent: #2f5fd0;
+  --tint: 9%;
+  --action-tint: 22%;
+  --action-hover: 36%;
+  --timer-fill: 30%;
+  --stripe: 3px;
+  --radius: 4px;
+  --c-green: #2f8f4e;
+  --c-yellow: #c08a12;
+  --c-red: #c4352b;
+  --c-blue: var(--accent);
+  --c-gray: #8a8a90;
 }
+
 @media (prefers-color-scheme: dark) {
   :root {
-    --bar: #151517; --card: #26262b; --text: #ececef; --muted: #9a9aa2; --line: rgba(255, 255, 255, .09);
-    --accent: #7ea2ff; --high: #ff7b6e; --medium: #e8b55a; --low: #9cc29c;
-    --c-green: #5cc27a; --c-yellow: #e8b55a; --c-red: #ff7b6e; --c-blue: #7ea2ff; --c-gray: #9a9aa2;
+    --bar: #151517;
+    --card: #26262b;
+    --text: #ececef;
+    --muted: #9a9aa2;
+    --line: rgba(255, 255, 255, .09);
+    --accent: #7ea2ff;
+    --c-green: #5cc27a;
+    --c-yellow: #e8b55a;
+    --c-red: #ff7b6e;
+    --c-gray: #9a9aa2;
   }
 }
-body { color: var(--text); font: 12px/1.4 -apple-system, BlinkMacSystemFont, sans-serif; }
-#app { background: var(--bar); border-top: 1px solid var(--line); }
-body.top #app { border-top: 0; border-bottom: 1px solid var(--line); }
 
-.pill { border-radius: 999px; border: 1px solid var(--pill);
-        background: color-mix(in srgb, var(--pill) 22%, var(--card)); }
-.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pill); }
-.pill .label { font-weight: 600; color: var(--text); }
-.pill.opens .label:hover { text-decoration: underline; }
-.pill.runs:hover { background: color-mix(in srgb, var(--pill) 36%, var(--card)); }
-.pill.ran { animation: ran .6s; }
-@keyframes ran { from { background: var(--pill); } }
+body {
+  color: var(--text);
+  font: 12px/1.4 -apple-system, BlinkMacSystemFont, sans-serif;
+}
 
-/* Hover outlines three sides so the left edge keeps its priority colour. */
-li { padding: 7px 10px; border-radius: 8px; background: var(--card);
-     border: 1px solid var(--line); border-left: 3px solid transparent; }
-li.opens:hover { border-top-color: var(--accent); border-right-color: var(--accent); border-bottom-color: var(--accent); }
-li.high { border-left-color: var(--high); }
-li.medium { border-left-color: var(--medium); }
-li.low { border-left-color: var(--low); }
-.title { font-weight: 600; font-size: 13px; line-height: 1.3; color: var(--text); }
-.description { color: var(--muted); margin-top: 1px; }
-.meta { color: var(--muted); font-size: 11px; }
-.tag { font-size: 10px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--line); line-height: 16px; color: var(--muted); }
+#app {
+  background: var(--bar);
+  border-top: 1px solid var(--line);
+}
 
-.dismiss { border-radius: 4px; color: var(--muted); font-size: 14px; line-height: 18px; }
-.dismiss:hover { background: var(--line); color: var(--text); }
+body.top #app {
+  border-top: 0;
+  border-bottom: 1px solid var(--line);
+}
 
-.empty { color: var(--muted); font-size: 12px; }
+.action {
+  border-radius: var(--radius);
+  border: 1px solid var(--action);
+  background: color-mix(in srgb, var(--action) var(--action-tint), var(--card));
+}
 
-/* Entering and leaving: cards and pills fade up into place, staggered, and fade back
-   down to leave while the row or column closes up behind them. */
-li[data-new] { animation: rise .3s ease-out backwards; animation-delay: calc(var(--i) * 40ms); }
-.pill[data-new] { animation: rise .25s ease-out backwards; animation-delay: calc(var(--i) * 30ms); }
-li[data-leaving], .pill[data-leaving] { animation: sink .18s ease-in both, collapse .2s .15s ease-in-out both; }
-@keyframes rise { from { opacity: 0; transform: translateY(6px); } }
-@keyframes sink { to { opacity: 0; transform: translateY(6px); } }
+.action .label {
+  font-weight: 600;
+}
+
+.action.clickable:hover {
+  background: color-mix(in srgb, var(--action) var(--action-hover), var(--card));
+}
+
+li {
+  --card-width: 300px;
+  border-radius: var(--radius);
+  background: var(--card);
+  border: 1px solid var(--line);
+  gap: 4px;
+}
+
+li[data-color] {
+  background: color-mix(in srgb, var(--card-color) var(--tint), var(--card));
+}
+
+/* A timer fills with its colour (or the accent, without one) from the left as it
+   counts down, and is full once it's up. --progress is registered so the fill
+   moves smoothly between the page's ticks. */
+@property --progress {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+li.timer {
+  --card-width: 180px;
+  --fill: var(--card-color, var(--accent));
+  background: linear-gradient(to right,
+      color-mix(in srgb, var(--fill) var(--timer-fill), var(--card)) calc(var(--progress) * 100%),
+      color-mix(in srgb, var(--fill) var(--tint), var(--card)) 0);
+  transition: --progress .25s linear;
+}
+
+.time-left {
+  padding: 0 8px;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A card that can be clicked has a stripe of its colour down its left edge (a
+   plain line without one), which keeps its colour while the rest of the border
+   takes the accent on hover. */
+li.clickable {
+  border-left: var(--stripe) solid var(--card-color, var(--line));
+}
+
+li.clickable:hover {
+  border-color: var(--accent);
+}
+
+/* One line, kept clear of ×: it's 18px wide, 8px in from the right. */
+.title {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 18px;
+  -webkit-line-clamp: 1;
+  margin-right: 28px;
+  padding: 4px 0 0 8px;
+}
+
+.actions {
+  margin-top: auto;
+  gap: 5px;
+  padding-left: 8px;
+  padding-bottom: 4px;
+}
+
+.description {
+  color: var(--muted);
+  padding: 0 8px;
+}
+
+.dismiss {
+  top: 4px;
+  right: 8px;
+  border-radius: var(--radius);
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 18px;
+  opacity: 0;
+  transition: opacity .15s;
+}
+
+li:hover .dismiss,
+.dismiss:focus-visible {
+  opacity: 1;
+}
+
+.dismiss:hover {
+  background: var(--line);
+  color: var(--text);
+}
+
+.empty {
+  color: var(--muted);
+}
+
+/* Entering and leaving: cards and actions fade up into place, staggered, and fade
+   back down to leave while the row closes up behind them. */
+li[data-new] {
+  animation: rise .3s ease-out backwards;
+  animation-delay: calc(var(--i) * 40ms);
+}
+
+.action[data-new] {
+  animation: rise .25s ease-out backwards;
+  animation-delay: calc(var(--i) * 30ms);
+}
+
+li[data-leaving],
+.action[data-leaving] {
+  animation: sink .18s ease-in both, collapse .2s .15s ease-in-out both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes sink {
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* A clicked action flashes its colour. After the entrance, so a click during it
+   still flashes. */
+.action.clicked {
+  animation: clicked .6s;
+}
+
+@keyframes clicked {
+  from {
+    background: var(--action);
+  }
+}
+
+/* With reduced motion, nothing moves: what leaves just closes up. */
+@media (prefers-reduced-motion: reduce) {
+
+  li[data-new],
+  .action[data-new] {
+    animation: none;
+  }
+
+  li[data-leaving],
+  .action[data-leaving] {
+    animation: collapse .2s ease-in-out both;
+  }
+}

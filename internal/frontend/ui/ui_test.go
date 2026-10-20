@@ -20,7 +20,8 @@ import (
 )
 
 // The tests that open windows only run with LEDGE_GUI_TEST=1; the rest always run.
-// They can't see hover, real clicks or drags, or how the windows look.
+// They can't see hover, real clicks or drags, or how the windows look. Those that go
+// through every built-in theme go through only those in LEDGE_THEMES, if it's set.
 var (
 	testBar *Bar
 	logs    syncBuffer
@@ -29,7 +30,8 @@ var (
 
 var defaults = Options{Edge: "bottom", Height: 110, Level: "normal"} // the zero Theme: the default
 
-// recorder keeps the handlers' calls, as "dismiss id", "open id", "run id", "url u".
+// recorder keeps the calls of the test Clicks and handlers: each Click's name, and
+// "url u".
 type recorder struct {
 	mu    sync.Mutex
 	calls []string
@@ -52,6 +54,9 @@ func (r *recorder) has(call string) bool {
 	return false
 }
 
+// record is a Click that records name.
+func record(name string) components.Click { return func() { calls.add(name) } }
+
 func TestMain(m *testing.M) {
 	if os.Getenv("LEDGE_GUI_TEST") == "" {
 		fmt.Println("skipping the tests that open windows; set LEDGE_GUI_TEST=1 to run them")
@@ -61,12 +66,7 @@ func TestMain(m *testing.M) {
 	// The main loop has the main goroutine, so the tests run beside it.
 	Init()
 	var err error
-	testBar, err = Open(defaults, Handlers{
-		Dismiss: func(id string) { calls.add("dismiss " + id) },
-		Open:    func(id string) { calls.add("open " + id) },
-		Run:     func(id string) { calls.add("run " + id) },
-		OpenURL: func(url string) { calls.add("url " + url) },
-	})
+	testBar, err = Open(defaults, Handlers{OpenURL: func(url string) { calls.add("url " + url) }})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -77,6 +77,25 @@ func TestMain(m *testing.M) {
 	}()
 	Run()
 	os.Exit(<-code)
+}
+
+// themes is the built-in themes for the tests that go through each one: all of them,
+// or only those named in LEDGE_THEMES, comma-separated, such as LEDGE_THEMES=default.
+func themes(t *testing.T) []string {
+	t.Helper()
+	names := os.Getenv("LEDGE_THEMES")
+	if names == "" {
+		return theme.Builtins.Names()
+	}
+	var chosen []string
+	for _, name := range strings.Split(names, ",") {
+		name = strings.TrimSpace(name)
+		if !slices.Contains(theme.Builtins.Names(), name) {
+			t.Fatalf("LEDGE_THEMES: no theme %q; the themes are %s", name, strings.Join(theme.Builtins.Names(), ", "))
+		}
+		chosen = append(chosen, name)
+	}
+	return chosen
 }
 
 func gui(t *testing.T) {
@@ -130,15 +149,37 @@ func eventually(t *testing.T, what string, check func() bool) {
 	t.Fatalf("timed out waiting for %s", what)
 }
 
-// show renders pills and cards for the length of the test. Afterwards it clears the
-// bar, and waits for them to have left.
-func show(t *testing.T, pills []components.Pill, cards []components.Card) {
+// show renders cards for the length of the test. Afterwards it clears the bar, and
+// waits for them to have left.
+func show(t *testing.T, cards []components.Basic) {
 	t.Helper()
-	testBar.Render(pills, cards)
+	testBar.Render(components.Cards(cards))
 	t.Cleanup(func() {
-		testBar.Render(nil, nil)
-		waitFor(t, `document.querySelector("#pills > *, #cards > *") === null`, "true")
+		testBar.Render(nil)
+		waitFor(t, `document.querySelector("#cards > *") === null`, "true")
 	})
+}
+
+// testThemes are themes made for a test, for what no built-in theme does. Each starts
+// from the default and adds to it.
+var testThemes = func() map[string]theme.Theme {
+	def, err := theme.Builtin(theme.Builtins.Default())
+	if err != nil {
+		panic(err)
+	}
+	frameless := def
+	frameless.Name = "frameless"
+	frameless.Report += "\n/* frameless: the window has no frame of its own. */"
+	frameless.Frame = theme.Frame{Frameless: true}
+	return map[string]theme.Theme{"frameless": frameless}
+}()
+
+// testTheme is the test theme name, or the built-in one.
+func testTheme(name string) (theme.Theme, error) {
+	if th, ok := testThemes[name]; ok {
+		return th, nil
+	}
+	return theme.Builtin(name)
 }
 
 // withTheme reloads the bar's page in theme for the length of the test; the page then
@@ -146,7 +187,7 @@ func show(t *testing.T, pills []components.Pill, cards []components.Card) {
 func withTheme(t *testing.T, name string) {
 	t.Helper()
 	load := func(name string) {
-		th, err := theme.Builtin(name)
+		th, err := testTheme(name)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -165,18 +206,16 @@ func withTheme(t *testing.T, name string) {
 	waitFor(t, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* `+name+`:"))`, "true")
 }
 
-var received = time.Now().Add(-2 * time.Minute)
-
 func TestReadMessage(t *testing.T) {
 	for body, want := range map[string]string{
-		`{"action": "ready"}`:                           "",
-		`{"action": "open", "id": "a"}`:                 "",
-		`{"action": "dismiss"}`:                         "dismiss needs an id",
-		`{"action": "ready", "id": "a"}`:                "ready takes no id",
-		`{"action": "exec", "id": "a"}`:                 `no action "exec"`,
-		`{"action": "open", "id": "a", "path": "/etc"}`: `unknown field "path"`,
-		`"dismiss"`:                        "cannot unmarshal string",
-		`{"action": "open", "id": "a"} {}`: "more than one value",
+		`{"action": "ready"}`:                            "",
+		`{"action": "click", "id": "a"}`:                 "",
+		`{"action": "click"}`:                            "click needs an id",
+		`{"action": "ready", "id": "a"}`:                 "ready takes no id",
+		`{"action": "open", "id": "a"}`:                  `no action "open"`,
+		`{"action": "click", "id": "a", "path": "/etc"}`: `unknown field "path"`,
+		`"click"`:                           "cannot unmarshal string",
+		`{"action": "click", "id": "a"} {}`: "more than one value",
 	} {
 		_, err := readMessage([]byte(body))
 		if want == "" && err != nil || want != "" && (err == nil || !strings.Contains(err.Error(), want)) {
@@ -194,30 +233,26 @@ func TestWindow(t *testing.T) {
 	if got := eval(t, `document.body.className`); got != `"bottom"` {
 		t.Errorf("body class = %s", got)
 	}
-	// The bar is solid: nothing behind it shows through.
-	if got := eval(t, `getComputedStyle(document.body).backgroundColor`); !strings.HasPrefix(got, `"rgb(`) {
-		t.Errorf("body background = %s, want an opaque colour", got)
-	}
 }
 
 func TestRender(t *testing.T) {
 	gui(t)
-	show(t, []components.Pill{
-		{ID: "aws", Title: "AWS", Color: "green", Command: "true",
-			Schedule: []components.Step{{At: time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), Color: "red"}}},
-	}, []components.Card{
-		{ID: "deploy", Title: "Deploy finished", Priority: "high", Tags: []string{"ci"}, Opens: true, Hint: "https://example.com", Source: "ci", Received: received},
-		{ID: "note", Title: "<b>not bold</b>", Description: "plain text", Source: "manual", Received: received},
+	show(t, []components.Basic{
+		{ID: "deploy", Title: "Deploy finished", Color: "#e0362c", Click: record("open deploy"),
+			Actions: []components.Action{{ID: "aws", Title: "AWS", Color: "red", Click: record("run aws")}}},
+		{ID: "note", Title: "<b>not bold</b>", Description: "plain text"},
 	})
 	waitFor(t, `[...document.querySelectorAll("li .title")].map(e => e.textContent).join("|")`, `"Deploy finished|<b>not bold</b>"`)
 	for js, want := range map[string]string{
-		`document.querySelector("li .title b") === null`:        "true",
-		`document.querySelector("li").className`:                `"high opens"`,
-		`document.querySelector("li .when").textContent`:        `"ci · 2m"`,
-		`document.querySelector(".pill").getAttribute("style")`: `"--pill: var(--c-red); --i: 0;"`,
-		`document.querySelector(".pill").dataset.color`:         `"red"`,
-		`document.querySelector("a") === null`:                  "true",
-		`document.querySelectorAll("li[data-new]").length > 0`:  "true",
+		`document.querySelector("li .title b") === null`:     "true",
+		`document.querySelector("li").className`:             `"basic clickable"`,
+		`document.querySelector("li").dataset.color`:         `"#e0362c"`,
+		`document.querySelector(".action").closest("li").id`: `"card-deploy"`,
+		// It arrived with its card, so isn't new itself.
+		`document.querySelector(".action").getAttribute("style")`: `"--action: var(--c-red);"`,
+		`document.querySelector(".action").dataset.color`:         `"red"`,
+		`document.querySelector("a") === null`:                    "true",
+		`document.querySelectorAll("li[data-new]").length > 0`:    "true",
 	} {
 		if got := eval(t, js); got != want {
 			t.Errorf("%s = %s, want %s", js, got, want)
@@ -225,57 +260,66 @@ func TestRender(t *testing.T) {
 	}
 }
 
-// A pill's scheduled colour change shows when it's due, without another Render.
-func TestScheduledColour(t *testing.T) {
-	gui(t)
-	show(t, []components.Pill{{ID: "soon", Title: "Soon", Color: "green",
-		Schedule: []components.Step{{At: time.Now().Add(time.Second), Color: "red"}}}}, nil)
-	waitFor(t, `document.querySelector(".pill")?.dataset.color`, `"green"`)
-	waitFor(t, `document.querySelector(".pill")?.dataset.color`, `"red"`)
-}
-
-// Clicks post only ids, which reach the handlers.
+// Clicks post only ids, which reach the Clicks. An action with a Click is clicked
+// apart from its card; one without is part of it. A click on what's gone is dropped.
 func TestClicks(t *testing.T) {
 	gui(t)
-	show(t, []components.Pill{
-		{ID: "pill-run", Title: "Run", Command: "echo hi"},
-		{ID: "pill-link", Title: "Link", Link: true},
-		{ID: "pill-plain", Title: "Plain"},
-	}, []components.Card{
-		{ID: "card-open", Title: "Opens", Opens: true, Source: "x", Received: received},
-		{ID: "card-still", Title: "Still", Source: "x", Received: received},
+	show(t, []components.Basic{
+		{ID: "card-open", Title: "Opens", Click: record("open card-open"), Dismiss: record("dismiss card-open"),
+			Actions: []components.Action{
+				{ID: "qa-run", Title: "Run", Click: record("run qa-run")},
+				{ID: "qa-link", Title: "Link", Click: record("open qa-link")},
+				{ID: "qa-plain", Title: "Plain"},
+			}},
+		{ID: "card-still", Title: "Still"},
 	})
-	waitFor(t, `document.querySelectorAll(".pill").length`, "3")
+	waitFor(t, `document.querySelectorAll(".action").length`, "3")
+	if got := eval(t, `document.querySelectorAll("#card-card-still .dismiss").length`); got != "0" {
+		t.Error("a card without a Dismiss has ×")
+	}
+	eval(t, `document.getElementById("action-qa-run").click(), document.querySelector("#action-qa-link .label").click(), true`)
+	for _, call := range []string{"run qa-run", "open qa-link"} {
+		eventually(t, call, func() bool { return calls.has(call) })
+	}
+	time.Sleep(200 * time.Millisecond)
+	if calls.has("open card-open") {
+		t.Error("clicking an action also opened its card")
+	}
 	for _, js := range []string{
-		`document.querySelector(".pill.runs").click()`,
-		`document.querySelector(".pill.opens .label").click()`,
-		`[...document.querySelectorAll(".pill .label")].find(l => l.textContent === "Plain").click()`,
-		`[...document.querySelectorAll("li")].find(li => li.textContent.includes("Opens")).click()`,
+		`document.getElementById("action-qa-plain").click()`,
 		`[...document.querySelectorAll("li")].find(li => li.textContent.includes("Still")).click()`,
 		`[...document.querySelectorAll("li")].find(li => li.textContent.includes("Opens")).querySelector(".dismiss").click()`,
 	} {
 		eval(t, js+", true")
 	}
-	for _, call := range []string{"run pill-run", "open pill-link", "open card-open", "dismiss card-open"} {
+	for _, call := range []string{"open card-open", "dismiss card-open"} {
 		eventually(t, call, func() bool { return calls.has(call) })
 	}
 	time.Sleep(200 * time.Millisecond)
-	for _, call := range []string{"open pill-plain", "open card-still", "open pill-run"} {
+	for _, call := range []string{"open qa-plain", "open card-still", "open qa-run"} {
 		if calls.has(call) {
 			t.Errorf("clicking something that doesn't open called %q", call)
 		}
 	}
+
+	// Once a render takes a card off, a click on it is dropped.
+	before := logs.Len()
+	testBar.Render(components.Cards([]components.Basic{{ID: "card-still", Title: "Still"}}))
+	eval(t, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "action-qa-run"}), true`)
+	eventually(t, "the click to be dropped", func() bool { return strings.Contains(logs.String()[before:], "isn't on it") })
 }
 
 func TestMessagesAreChecked(t *testing.T) {
 	gui(t)
+	show(t, []components.Basic{{ID: "kept", Title: "Kept", Click: record("click kept")}})
+	waitFor(t, `document.getElementById("card-kept") !== null`, "true")
 	before := logs.Len()
-	for _, message := range []string{`{action: "dismiss"}`, `{action: "dismiss", id: "kept", path: "/etc"}`, `{action: "exec", id: "kept"}`, `"dismiss"`} {
+	for _, message := range []string{`{action: "click"}`, `{action: "click", id: "card-kept", path: "/etc"}`, `{action: "exec", id: "card-kept"}`, `"click"`} {
 		eval(t, `window.webkit.messageHandlers.ledge.postMessage(`+message+`), true`)
 	}
 	eventually(t, "4 refusals", func() bool { return strings.Count(logs.String()[before:], "the bar sent") == 4 })
-	if calls.has("dismiss kept") {
-		t.Error("a refused message reached a handler")
+	if calls.has("click kept") {
+		t.Error("a refused message reached a Click")
 	}
 }
 
@@ -308,45 +352,21 @@ func TestNoNavigation(t *testing.T) {
 	}
 }
 
-func TestPillsScrollVertically(t *testing.T) {
-	gui(t)
-	var pills []components.Pill
-	for i := range 12 {
-		pills = append(pills, components.Pill{ID: fmt.Sprintf("pill-%02d", i), Title: fmt.Sprintf("Pill %02d", i)})
-	}
-	show(t, pills, nil)
-	waitFor(t, `document.querySelectorAll(".pill").length`, "12")
-
-	// One column: every pill starts at the same x.
-	if got := eval(t, `new Set([...document.querySelectorAll(".pill")].map(p => p.offsetLeft)).size`); got != "1" {
-		t.Errorf("pills are in %s columns, want 1", got)
-	}
-	if got := eval(t, `(p => p.scrollHeight > p.clientHeight)(document.querySelector(".pills"))`); got != "true" {
-		t.Fatal("12 pills fit without scrolling; the test needs more")
-	}
-	eval(t, `document.querySelector(".pills").scrollTop = 40, true`)
-	testBar.Render(pills, nil)
-	time.Sleep(200 * time.Millisecond)
-	if got := eval(t, `document.querySelector(".pills").scrollTop`); got != "40" {
-		t.Errorf("after a render the pills are scrolled to %s, want 40", got)
-	}
-}
-
-// A render morphs the bar: cards and pills still there keep their elements, the row
-// its scroll and a run pill its flash, while what changed changes.
+// A render morphs the bar: cards and actions still there keep their elements,
+// the row its scroll and a clicked action its flash, while what changed changes.
 func TestRenderMorphs(t *testing.T) {
 	gui(t)
-	pills := []components.Pill{{ID: "run", Title: "Run", Command: "true"}, {ID: "still", Title: "Still"}}
-	var cards []components.Card
+	var cards []components.Basic
 	for i := range 12 {
-		cards = append(cards, components.Card{ID: fmt.Sprintf("m-%02d", i), Title: fmt.Sprintf("Card %02d", i), Source: "x", Received: received})
+		cards = append(cards, components.Basic{ID: fmt.Sprintf("m-%02d", i), Title: fmt.Sprintf("Card %02d", i)})
 	}
-	show(t, pills, cards)
+	cards[5].Actions = []components.Action{{ID: "run", Title: "Run", Click: func() {}}, {ID: "still", Title: "Still"}}
+	show(t, cards)
 	waitFor(t, `document.querySelectorAll("li").length`, "12")
 	eval(t, `window.kept = document.getElementById("card-m-05");
-		window.keptPill = document.getElementById("pill-still");
+		window.keptAction = document.getElementById("action-still");
 		document.getElementById("cards").scrollLeft = 300;
-		document.getElementById("pill-run").click(), true`)
+		document.getElementById("action-run").click(), true`)
 	if got := eval(t, `document.getElementById("cards").scrollLeft`); got != "300" {
 		t.Fatalf("the row scrolled to %s, want 300; the test needs more cards", got)
 	}
@@ -354,16 +374,16 @@ func TestRenderMorphs(t *testing.T) {
 	// The first card goes, one changes its title, and one arrives.
 	changed := slices.Clone(cards[1:])
 	changed[4].Title = "Renamed"
-	changed = append(changed, components.Card{ID: "m-new", Title: "New", Source: "x", Received: received})
-	testBar.Render(pills, changed)
+	changed = append(changed, components.Basic{ID: "m-new", Title: "New"})
+	testBar.Render(components.Cards(changed))
 	waitFor(t, `document.getElementById("card-m-new") !== null`, "true")
 	for js, want := range map[string]string{
 		`document.getElementById("card-m-05") === window.kept`:                             "true",
-		`document.getElementById("pill-still") === window.keptPill`:                        "true",
+		`document.getElementById("action-still") === window.keptAction`:                    "true",
 		`window.kept.querySelector(".title").textContent`:                                  `"Renamed"`,
 		`document.getElementById("card-m-00").hasAttribute("data-leaving")`:                "true",
 		`document.getElementById("cards").scrollLeft`:                                      "300",
-		`document.getElementById("pill-run").classList.contains("ran")`:                    "true",
+		`document.getElementById("action-run").classList.contains("clicked")`:              "true",
 		`window.kept.hasAttribute("data-new")`:                                             "false",
 		`document.getElementById("card-m-new").hasAttribute("data-new")`:                   "true",
 		`[...document.querySelectorAll("li:not([data-leaving])")].map(li => li.id).join()`: `"` + strings.Join(idsOf(changed), ",") + `"`,
@@ -375,67 +395,67 @@ func TestRenderMorphs(t *testing.T) {
 	waitFor(t, `document.getElementById("card-m-00") === null`, "true")
 }
 
-// In every theme, new pills and cards animate in, and gone ones animate out before
-// they're removed, while what follows closes up; "No events." waits for the last.
+// New cards and actions are marked new, and gone ones are marked leaving,
+// told how far to collapse, and removed once they've left.
 func TestEnterAndLeave(t *testing.T) {
 	gui(t)
-	pills := []components.Pill{{ID: "a", Title: "A"}, {ID: "b", Title: "B"}}
-	cards := []components.Card{
-		{ID: "x", Title: "X", Source: "s", Received: received},
-		{ID: "y", Title: "Y", Source: "s", Received: received},
+	a := components.Action{ID: "a", Title: "A"}
+	b := components.Action{ID: "b", Title: "B"}
+	c := components.Action{ID: "c", Title: "C"}
+	x := components.Basic{ID: "x", Title: "X", Actions: []components.Action{a, b}}
+	y := components.Basic{ID: "y", Title: "Y"}
+	// leaving is whether the element is leaving and told how far to collapse.
+	leaving := func(t *testing.T, id string) {
+		t.Helper()
+		got := eval(t, `(e => [e.hasAttribute("data-leaving"), parseFloat(e.style.getPropertyValue("--collapse-x")) < 0].join())(document.getElementById("`+id+`"))`)
+		if got != `"true,true"` {
+			t.Errorf("%s: leaving, collapsing = %s", id, got)
+		}
 	}
-	for _, name := range theme.Builtins.Names() {
-		t.Run(name, func(t *testing.T) {
-			withTheme(t, name)
-			show(t, pills, cards)
-			waitFor(t, `document.querySelectorAll("#pills > .pill, #cards > li").length`, "4")
-			// Everything's new on a fresh page, and animates in.
-			if got := eval(t, `[...document.querySelectorAll(".pill, li")].every(e => e.hasAttribute("data-new") && e.getAnimations().length > 0)`); got != "true" {
-				t.Errorf("not every new pill and card is animating in")
-			}
-			// Once in, nothing's left of the animation: none holds its end, which
-			// WebKit can leave a step short of how the element looks.
-			waitFor(t, `[...document.querySelectorAll(".pill, li")].every(e => e.getAnimations().length === 0)`, "true")
-
-			// Pill a and card x go: each is kept, leaving, out of reach of clicks,
-			// and told how far to collapse.
-			testBar.Render(pills[1:], cards[1:])
-			waitFor(t, `document.getElementById("card-x")?.hasAttribute("data-leaving")`, "true")
-			for _, id := range []string{"pill-a", "card-x"} {
-				got := eval(t, `(e => [e.hasAttribute("data-leaving"), getComputedStyle(e).pointerEvents,
-					e.getAnimations().length > 0,
-					parseFloat(e.style.getPropertyValue(e.classList.contains("pill") ? "--collapse-y" : "--collapse-x")) < 0].join())(document.getElementById("`+id+`"))`)
-				if got != `"true,none,true,true"` {
-					t.Errorf("%s: leaving, pointer-events, animating, collapsing = %s", id, got)
-				}
-			}
-			waitFor(t, `document.getElementById("card-x") === null && document.getElementById("pill-a") === null`, "true")
-			// By layout, not on screen, as a theme can tilt or move its cards.
-			if got := eval(t, `document.getElementById("card-y").offsetLeft === document.getElementById("cards").offsetLeft + parseFloat(getComputedStyle(document.getElementById("cards")).paddingLeft)`); got != "true" {
-				t.Error("card y didn't close up into card x's place")
-			}
-
-			// The last card leaves before "No events." shows.
-			testBar.Render(nil, nil)
-			waitFor(t, `document.getElementById("card-y")?.hasAttribute("data-leaving")`, "true")
-			if got := eval(t, `getComputedStyle(document.querySelector(".empty")).display`); got != `"none"` {
-				t.Errorf(`"No events." shows while the last card is leaving (display %s)`, got)
-			}
-			waitFor(t, `document.getElementById("card-y") === null && getComputedStyle(document.querySelector(".empty")).display !== "none"`, "true")
-		})
+	withTheme(t, theme.Builtins.Default())
+	show(t, []components.Basic{x, y})
+	waitFor(t, `document.querySelectorAll("#cards > li").length`, "2")
+	// Every card's new on a fresh page; its actions arrive with it.
+	if got := eval(t, `[...document.querySelectorAll("li")].every(e => e.hasAttribute("data-new"))`); got != "true" {
+		t.Errorf("not every card on a fresh page is new")
 	}
+	if got := eval(t, `document.querySelectorAll(".action[data-new]").length`); got != "0" {
+		t.Errorf("%s actions are new apart from their cards", got)
+	}
+
+	// Action a goes from x, and c arrives on y, new.
+	yc := y
+	yc.Actions = []components.Action{c}
+	xb := x
+	xb.Actions = []components.Action{b}
+	testBar.Render(components.Cards([]components.Basic{xb, yc}))
+	waitFor(t, `document.getElementById("action-a")?.hasAttribute("data-leaving")`, "true")
+	leaving(t, "action-a")
+	if got := eval(t, `document.getElementById("action-c").hasAttribute("data-new")`); got != "true" {
+		t.Error("an action new to a card isn't marked new")
+	}
+	waitFor(t, `document.getElementById("action-a") === null`, "true")
+
+	// Card x goes, then the last card.
+	testBar.Render(components.Cards([]components.Basic{yc}))
+	waitFor(t, `document.getElementById("card-x")?.hasAttribute("data-leaving")`, "true")
+	leaving(t, "card-x")
+	waitFor(t, `document.getElementById("card-x") === null`, "true")
+	testBar.Render(nil)
+	waitFor(t, `document.getElementById("card-y")?.hasAttribute("data-leaving")`, "true")
+	waitFor(t, `document.getElementById("card-y") === null`, "true")
 }
 
 // A card that comes back while it's leaving stays.
 func TestComesBackWhileLeaving(t *testing.T) {
 	gui(t)
-	cards := []components.Card{{ID: "back", Title: "Back", Source: "s", Received: received}, {ID: "other", Title: "Other", Source: "s", Received: received}}
-	show(t, nil, cards)
+	cards := []components.Basic{{ID: "back", Title: "Back"}, {ID: "other", Title: "Other"}}
+	show(t, cards)
 	waitFor(t, `document.querySelectorAll("li").length`, "2")
 	eval(t, `window.back = document.getElementById("card-back"), true`)
-	testBar.Render(nil, cards[1:])
+	testBar.Render(components.Cards(cards[1:]))
 	waitFor(t, `window.back.hasAttribute("data-leaving")`, "true")
-	testBar.Render(nil, cards)
+	testBar.Render(components.Cards(cards))
 	waitFor(t, `window.back.hasAttribute("data-leaving")`, "false")
 	time.Sleep(3500 * time.Millisecond) // past the longest a leaving card is kept
 	if got := eval(t, `document.getElementById("card-back") === window.back && window.back.isConnected`); got != "true" {
@@ -443,7 +463,7 @@ func TestComesBackWhileLeaving(t *testing.T) {
 	}
 }
 
-func idsOf(cards []components.Card) []string {
+func idsOf(cards []components.Basic) []string {
 	var ids []string
 	for _, c := range cards {
 		ids = append(ids, "card-"+c.ID)
@@ -451,36 +471,31 @@ func idsOf(cards []components.Card) []string {
 	return ids
 }
 
-// Each theme loads, shows the cards, and paints the whole bar.
+// Each theme loads and shows the cards.
 func TestThemes(t *testing.T) {
 	gui(t)
-	show(t, []components.Pill{{ID: "p", Title: "Pill", Color: "red"}},
-		[]components.Card{{ID: "c", Title: "Themed", Priority: "high", Tags: []string{"a"}, Source: "x", Received: received}})
-	for _, name := range theme.Builtins.Names() {
+	show(t, []components.Basic{{ID: "c", Title: "Themed", Description: "Described", Color: "#e0362c",
+		Actions: []components.Action{{ID: "q", Title: "Quick", Color: "red"}}}})
+	for _, name := range themes(t) {
 		withTheme(t, name)
-		waitFor(t, `document.querySelector(".pill[data-color=red]") !== null && document.querySelector("li") !== null`, "true")
-		if got := eval(t, `getComputedStyle(document.body).backgroundColor`); !strings.HasPrefix(got, `"rgb(`) {
-			t.Errorf("%s: body background = %s, want an opaque colour", name, got)
-		}
+		waitFor(t, `document.querySelector("li .action[data-color=red]") !== null`, "true")
 	}
 }
 
-// In win95 a long description scrolls, with a scroll bar that takes up room, and the
-// mouse wheel over it scrolls the description rather than the row.
-func TestWin95DescriptionScrolls(t *testing.T) {
+// The mouse wheel over something in a card that scrolls vertically, such as a long
+// description, is left to scroll it rather than the row.
+func TestWheelOverScrolling(t *testing.T) {
 	gui(t)
-	cards := []components.Card{{ID: "long", Title: "Long", Description: strings.Repeat("A long description. ", 40), Source: "x", Received: received}}
+	cards := []components.Basic{{ID: "long", Title: "Long", Description: strings.Repeat("A long description. ", 40)}}
 	for i := range 8 {
-		cards = append(cards, components.Card{ID: fmt.Sprintf("wide-%d", i), Title: fmt.Sprintf("Card %d", i), Source: "x", Received: received})
+		cards = append(cards, components.Basic{ID: fmt.Sprintf("wide-%d", i), Title: fmt.Sprintf("Card %d", i)})
 	}
-	show(t, nil, cards)
-	withTheme(t, "win95")
+	show(t, cards)
 	waitFor(t, `document.querySelector("li .description") !== null`, "true")
 
+	// Made to scroll here, so it doesn't depend on how a theme lays the card out.
 	const description = `document.querySelector("li .description")`
-	if got := eval(t, `(d => d.scrollHeight > d.clientHeight && d.clientWidth < d.offsetWidth - 6)(`+description+`)`); got != "true" {
-		t.Fatal("the description doesn't scroll with a scroll bar")
-	}
+	eval(t, `(d => (d.style.height = "20px", d.style.overflowY = "auto", true))(`+description+`)`)
 	got := eval(t, `(d => {
 		const row = document.querySelector("ul"), before = row.scrollLeft;
 		const wheel = new WheelEvent("wheel", {deltaY: 40, bubbles: true, cancelable: true});
@@ -506,7 +521,7 @@ var reportBlocks = []templ.Component{
 
 // setTheme sets the theme the next report is shown in.
 func setTheme(name string) {
-	th, err := theme.Builtin(name)
+	th, err := testTheme(name)
 	if err != nil {
 		panic(err)
 	}
@@ -529,19 +544,14 @@ func TestReportWindow(t *testing.T) {
 	w := showReport(t, "report", "A report", reportBlocks)
 	waitIn(t, w, `document.querySelector(".titlebar span")?.textContent`, `"A report"`)
 	for js, want := range map[string]string{
-		`[...document.querySelectorAll("main > article > *")].map(e => e.tagName).join(" ")`:               `"H2 P DL DIV OL PRE DIV P"`,
-		`document.querySelector("p").textContent`:                                                `"<b>not bold</b>\nsecond line"`,
-		`document.querySelector("p b") === null`:                                                 "true",
-		`[...document.querySelectorAll("dd")].map(e => e.textContent).join()`:                    `"main,2"`,
-		`[...document.querySelectorAll("tbody tr")].map(r => r.children.length).join()`:          `"2,2,2"`,
-		`document.querySelector(".note").dataset.color`:                                          `"yellow"`,
-		`getComputedStyle(document.documentElement).backgroundColor.startsWith("rgb(")`:          "true",
-		`(s => s.position + " " + s.top)(getComputedStyle(document.querySelector(".titlebar")))`: `"fixed 0px"`,
-		// The page doesn't scroll, so it can't bounce away from the window's edges:
-		// <main> scrolls, under the title bar, and has the keys.
-		`(s => s.overflow)(getComputedStyle(document.documentElement))`: `"hidden"`,
-		`getComputedStyle(document.querySelector("main")).overflowY`:    `"auto"`,
-		`document.activeElement.tagName`:                                `"MAIN"`,
+		`[...document.querySelectorAll("main > article > *")].map(e => e.tagName).join(" ")`: `"H2 P DL DIV OL PRE DIV P"`,
+		`document.querySelector("p").textContent`:                                            `"<b>not bold</b>\nsecond line"`,
+		`document.querySelector("p b") === null`:                                             "true",
+		`[...document.querySelectorAll("dd")].map(e => e.textContent).join()`:                `"main,2"`,
+		`[...document.querySelectorAll("tbody tr")].map(r => r.children.length).join()`:      `"2,2,2"`,
+		`document.querySelector(".note").dataset.color`:                                      `"yellow"`,
+		// <main> has the keys.
+		`document.activeElement.tagName`: `"MAIN"`,
 		// The page can't post to the app.
 		`!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.ledge)`: "true",
 	} {
@@ -562,51 +572,21 @@ func TestReportWindow(t *testing.T) {
 	waitIn(t, w, `document.querySelector("p")?.textContent`, `"Second version"`)
 }
 
-// Every theme draws a report on an opaque background.
+// Each theme loads in a report.
 func TestReportThemes(t *testing.T) {
 	gui(t)
 	defer setTheme(theme.Builtins.Default())
-	for _, name := range theme.Builtins.Names() {
+	for _, name := range themes(t) {
 		setTheme(name)
 		w := showReport(t, "report", "Themed report", reportBlocks)
 		// Each report stylesheet starts with a comment naming its theme.
 		waitIn(t, w, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* `+name+`:"))`, "true")
-		if got := evalIn(t, w, `getComputedStyle(document.documentElement).backgroundColor`); !strings.HasPrefix(got, `"rgb(`) {
-			t.Errorf("%s: report background = %s, want an opaque colour", name, got)
-		}
-	}
-}
-
-// A long report scrolls in <main>, under the title bar, in every theme: the page and
-// its title bar stay put, and the last block clears the bottom of the window.
-func TestReportScrolls(t *testing.T) {
-	gui(t)
-	defer setTheme(theme.Builtins.Default())
-	var long []templ.Component
-	for i := range 40 {
-		long = append(long, components.Paragraph(fmt.Sprintf("Paragraph %d", i)))
-	}
-	for _, name := range theme.Builtins.Names() {
-		setTheme(name)
-		w := showReport(t, "report", "Long report", long)
-		waitIn(t, w, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* `+name+`:"))`, "true")
-		got := evalIn(t, w, `(() => {
-			const main = document.querySelector("main"), bar = document.querySelector(".titlebar");
-			const top = bar.getBoundingClientRect().top;
-			main.scrollTop = main.scrollHeight;
-			const last = main.querySelector("article").lastElementChild.getBoundingClientRect().bottom, end = main.getBoundingClientRect().bottom;
-			return [main.scrollTop > 0, document.scrollingElement.scrollTop === 0,
-			        bar.getBoundingClientRect().top === top, end - last >= 20,
-			        main.getBoundingClientRect().top >= bar.getBoundingClientRect().bottom].join();
-		})()`)
-		if got != `"true,true,true,true,true"` {
-			t.Errorf("%s: main scrolls, page still, title bar still, last block clear, main under the title bar = %s", name, got)
-		}
+		waitIn(t, w, `document.querySelectorAll("main > article > *").length`, fmt.Sprint(len(reportBlocks)))
 	}
 }
 
 // The report page can move and close its own window and nothing else; the bar page
-// can't do even that. A theme that draws its own buttons shows them, and they work.
+// can't do even that. A frameless theme's buttons, drawn by the page, work.
 func TestReportFrame(t *testing.T) {
 	gui(t)
 	defer setTheme(theme.Builtins.Default())
@@ -625,19 +605,11 @@ func TestReportFrame(t *testing.T) {
 	if !shim.WindowVisible(w) {
 		t.Fatal("a message other than close closed the report window")
 	}
-	if got := evalIn(t, w, `getComputedStyle(document.querySelector(".titlebar .close")).display`); got != `"none"` {
-		t.Errorf("the default theme shows its own close button (display %s)", got)
-	}
 
-	// Win 95 draws the whole window, buttons included; its close button closes it.
-	setTheme("win95")
+	// In a frameless theme, the page's close button closes the window.
+	setTheme("frameless")
 	w = showReport(t, "report", "Framed report", blocks)
-	waitIn(t, w, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* win95:"))`, "true")
-	for _, button := range []string{"close", "minimise", "zoom"} {
-		if got := evalIn(t, w, `getComputedStyle(document.querySelector(".titlebar .`+button+`")).display`); got == `"none"` {
-			t.Errorf("win95 hides its %s button", button)
-		}
-	}
+	waitIn(t, w, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* frameless:"))`, "true")
 	evalIn(t, w, `document.querySelector(".titlebar .close").click(), true`)
 	eventually(t, "the report window to close", func() bool { return !shim.WindowVisible(w) })
 
@@ -682,6 +654,49 @@ func TestReportWindowPerID(t *testing.T) {
 	}
 	evalIn(t, b, `window.webkit.messageHandlers.frame.postMessage("close"), true`)
 	eventually(t, "card-b's window to close", func() bool { return !shim.WindowVisible(b) })
+}
+
+// The page counts a timer down by itself, without another Render, and marks its card
+// done once it's up.
+func TestTimerCountsDown(t *testing.T) {
+	gui(t)
+	start := time.Now()
+	testBar.Render([]components.Card{components.Timer{ID: "egg", Title: "Egg", Start: start, End: start.Add(1500 * time.Millisecond)}})
+	t.Cleanup(func() { testBar.Render(nil) })
+	waitFor(t, `document.querySelector("#card-egg .time-left")?.textContent`, `"0:01"`)
+	if got := eval(t, `document.getElementById("card-egg").hasAttribute("data-done")`); got != "false" {
+		t.Error("the timer is done before it's up")
+	}
+	waitFor(t, `(c => c.querySelector(".time-left").textContent + " " + c.hasAttribute("data-done"))(document.getElementById("card-egg"))`, `"0:00 true"`)
+}
+
+// A card that ends has its Complete called once its end passes, once for that end
+// however many renders show it, and not at all if it's gone by then. It needs no
+// window: a bar whose page isn't ready keeps what it's given.
+func TestComplete(t *testing.T) {
+	bar := &Bar{}
+	var mu sync.Mutex
+	counts := map[string]int{}
+	timer := func(id string, end time.Time) components.Timer {
+		return components.Timer{ID: id, Title: id, Start: time.Now(), End: end,
+			Complete: func() { mu.Lock(); counts[id]++; mu.Unlock() }}
+	}
+	count := func(id string) int { mu.Lock(); defer mu.Unlock(); return counts[id] }
+
+	soon, gone, past := timer("soon", time.Now().Add(100*time.Millisecond)), timer("gone", time.Now().Add(100*time.Millisecond)), timer("past", time.Now().Add(-time.Second))
+	bar.Render([]components.Card{soon, gone, past})
+	eventually(t, "past to complete at once", func() bool { return count("past") == 1 })
+	// Rendering again before soon ends doesn't make it complete twice, and gone's left.
+	bar.Render([]components.Card{soon, past})
+	eventually(t, "soon to complete", func() bool { return count("soon") == 1 })
+	bar.Render([]components.Card{soon, past})
+	time.Sleep(200 * time.Millisecond)
+	if count("soon") != 1 || count("past") != 1 || count("gone") != 0 {
+		t.Errorf("completed %v, want soon and past once and gone not at all", counts)
+	}
+	// A new end is a new completion.
+	bar.Render([]components.Card{timer("soon", time.Now())})
+	eventually(t, "soon to complete at its new end", func() bool { return count("soon") == 2 })
 }
 
 func TestNavigate(t *testing.T) {

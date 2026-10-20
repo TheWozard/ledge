@@ -1,6 +1,0 @@
-{
-  "name": "win95",
-  "bar": ["css/win95.css"],
-  "report": ["css/win95.report.css"],
-  "frame": {"appearance": "light", "frameless": true}
-}

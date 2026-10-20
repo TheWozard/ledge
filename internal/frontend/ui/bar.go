@@ -24,11 +24,15 @@ type Bar struct {
 	handlers Handlers
 
 	mu     sync.Mutex
-	pills  []components.Pill
 	cards  []components.Card
-	shown  map[string]bool // the element ids of the pills and cards on the bar, to tell which are new
-	ready  bool            // the page has loaded and can take updates
-	redraw *time.Timer     // for the next relative time or scheduled colour to change
+	clicks map[string]components.Click // the Clicks on cards, by the page's id for them
+	shown  map[string]bool             // the element ids of the cards and actions on the bar, to tell which are new
+	ready  bool                        // the page has loaded and can take updates
+
+	// endings are the timers for the cards that end, each card's Complete when it's
+	// due, by card id; completed is the end each card on the bar has completed at.
+	endings   map[string]*time.Timer
+	completed map[string]time.Time
 
 	reports    map[string]int // each open report's window, by the id it was shown with
 	lastWindow int            // the last window id given out
@@ -70,33 +74,74 @@ func Open(options Options, handlers Handlers) (*Bar, error) {
 	return b, nil
 }
 
-// Render shows pills (in order of title) and cards (in the order given). Safe from
-// any goroutine.
-func (b *Bar) Render(pills []components.Pill, cards []components.Card) {
-	pills = slices.Clone(pills)
-	slices.SortStableFunc(pills, func(a, b components.Pill) int { return strings.Compare(a.Title, b.Title) })
+// Render shows cards, of any kinds, and their actions: highest priority first, and
+// those of the same priority in the order given. From then, clicking one calls its
+// Click; a click on what a render took off the bar is dropped. A card that ends has
+// its Complete called once its end has passed, if it's still on the bar then, and
+// only once for that end, however many renders show it. Safe from any goroutine.
+func (b *Bar) Render(cards []components.Card) {
 	b.mu.Lock()
-	b.pills, b.cards = pills, slices.Clone(cards)
+	b.cards = slices.Clone(cards)
+	components.SortByPriority(b.cards)
+	b.clicks = components.Clicks(b.cards)
+	b.schedule()
 	b.mu.Unlock()
 	b.draw()
 }
 
-// draw renders what the bar has into its page, once the page is ready, and sets a
-// timer for the next time it would look different: a card's relative time going stale
-// (once a minute) or a pill's scheduled colour change. With neither, it waits for the
-// next Render.
+// schedule sets a timer for each card on the bar that ends and hasn't completed at
+// that end, stopping those it set before. b.mu is held.
+func (b *Bar) schedule() {
+	for _, timer := range b.endings {
+		timer.Stop()
+	}
+	endings, completed := map[string]*time.Timer{}, map[string]time.Time{}
+	for _, card := range b.cards {
+		frame := card.Frame()
+		if frame.Complete == nil || frame.Ends.IsZero() {
+			continue
+		}
+		if at, ok := b.completed[frame.ID]; ok && at.Equal(frame.Ends) {
+			completed[frame.ID] = at
+			continue
+		}
+		id, ends := frame.ID, frame.Ends
+		endings[id] = time.AfterFunc(time.Until(ends), func() { b.complete(id, ends) })
+	}
+	b.endings, b.completed = endings, completed
+}
+
+// complete calls the Complete of card id, if it's still on the bar ending at ends and
+// hasn't already.
+func (b *Bar) complete(id string, ends time.Time) {
+	b.mu.Lock()
+	var complete components.Click
+	for _, card := range b.cards {
+		if frame := card.Frame(); frame.ID == id && frame.Ends.Equal(ends) {
+			if _, done := b.completed[id]; !done {
+				complete, b.completed[id] = frame.Complete, ends
+			}
+		}
+	}
+	b.mu.Unlock()
+	if complete != nil {
+		complete()
+	}
+}
+
+// draw renders what the bar has into its page, once the page is ready.
 func (b *Bar) draw() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if !b.ready {
 		return
 	}
-	now := time.Now()
-	// Each pill and card new since the last draw gets its place among the new ones of
-	// its kind, for the theme's entrance animation.
+	// Each card new since the last draw gets its place among the new ones, for the
+	// theme's entrance animation, and so does each action new to a card that was
+	// already there. A new card's actions arrive with it.
 	fresh := map[string]int{}
 	shown := map[string]bool{}
-	var newPills, newCards int
+	var newCards, newActions int
 	mark := func(id string, count *int) {
 		if !b.shown[id] {
 			fresh[id] = *count
@@ -104,39 +149,28 @@ func (b *Bar) draw() {
 		}
 		shown[id] = true
 	}
-	for _, pill := range b.pills {
-		mark(pill.ElementID(), &newPills)
-	}
 	for _, card := range b.cards {
-		mark(card.ElementID(), &newCards)
+		frame := card.Frame()
+		arriving := !b.shown[frame.ElementID()]
+		mark(frame.ElementID(), &newCards)
+		for _, action := range frame.Actions {
+			if arriving {
+				shown[action.ElementID()] = true
+			} else {
+				mark(action.ElementID(), &newActions)
+			}
+		}
 	}
 	b.shown = shown
 
 	var html strings.Builder
-	if err := components.BarContent(b.pills, b.cards, now, fresh).Render(context.Background(), &html); err != nil {
+	if err := components.BarContent(b.cards, fresh).Render(context.Background(), &html); err != nil {
 		log.Printf("ui: rendering the bar: %v", err)
 		return
 	}
 	// Marshalled, the html is a JS string; <, > and & are escaped in it.
 	js, _ := json.Marshal(html.String())
 	shim.Eval(BarWindow, "update("+string(js)+")")
-
-	var next time.Time
-	if len(b.cards) > 0 {
-		next = now.Add(time.Minute)
-	}
-	for _, pill := range b.pills {
-		if at, ok := pill.NextChange(now); ok && (next.IsZero() || at.Before(next)) {
-			next = at.Add(50 * time.Millisecond)
-		}
-	}
-	if b.redraw != nil {
-		b.redraw.Stop()
-		b.redraw = nil
-	}
-	if !next.IsZero() {
-		b.redraw = time.AfterFunc(time.Until(next), b.draw)
-	}
 }
 
 // Place puts the bar along its edge of its screen, and returns where it went. The bar
@@ -164,7 +198,7 @@ func readMessage(data []byte) (message, error) {
 		return m, errors.New("more than one value")
 	}
 	switch {
-	case !slices.Contains([]string{"ready", "dismiss", "open", "run"}, m.Action):
+	case !slices.Contains([]string{"ready", "click"}, m.Action):
 		return m, fmt.Errorf("no action %q", m.Action)
 	case m.Action == "ready" && m.ID != "":
 		return m, errors.New("ready takes no id")
@@ -181,23 +215,21 @@ func (b *Bar) handle(data []byte) {
 		log.Printf("ui: the bar sent %s: %v", data, err)
 		return
 	}
-	call := func(handle func(string)) {
-		if handle != nil {
-			handle(m.ID)
-		}
-	}
 	switch m.Action {
 	case "ready":
 		b.mu.Lock()
 		b.ready = true
-		b.shown = map[string]bool{} // a fresh page shows every pill and card arriving
+		b.shown = map[string]bool{} // a fresh page shows every card arriving
 		b.mu.Unlock()
 		b.draw()
-	case "dismiss":
-		call(b.handlers.Dismiss)
-	case "open":
-		call(b.handlers.Open)
-	case "run":
-		call(b.handlers.Run)
+	case "click":
+		b.mu.Lock()
+		click := b.clicks[m.ID]
+		b.mu.Unlock()
+		if click == nil {
+			log.Printf("ui: the bar clicked %q, which isn't on it", m.ID)
+			return
+		}
+		click()
 	}
 }

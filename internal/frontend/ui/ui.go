@@ -1,7 +1,7 @@
 // Package ui is the bar and its report window: native windows (through the shim)
 // showing pages built from components, in a theme. An app opens a Bar with Options
 // and Handlers, gives it what to show with Render and ShowReport, and is called back
-// with the ids the pages act on. Each report has its own window.
+// through the Clicks on what it shows. Each report has its own window.
 //
 // AppKit needs the main goroutine, so an app calls Init, then Open, then Run on the
 // main goroutine, and does its own work on others. Stop makes Run return.
@@ -27,13 +27,9 @@ type Options struct {
 	Theme theme.Theme
 }
 
-// Handlers is what the bar calls back with. Each is called on its own goroutine, and
-// may be nil. The pages only ever pass an id, never a url, path or command: the app
-// looks up what it holds for that id.
+// Handlers is what the bar calls back with, for what isn't a Click on a card. Each
+// is called on its own goroutine, and may be nil.
 type Handlers struct {
-	Dismiss func(id string) // a card's × was clicked
-	Open    func(id string) // a card that opens, or a pill's link, was clicked
-	Run     func(id string) // a pill with a command was clicked
 	// OpenURL is an http(s) link clicked in a report. The report window never goes
 	// there itself.
 	OpenURL func(url string)

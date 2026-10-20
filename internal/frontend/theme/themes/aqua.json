@@ -1,6 +1,0 @@
-{
-  "name": "aqua",
-  "bar": ["css/aqua.css"],
-  "report": ["css/aqua.report.css"],
-  "frame": {"appearance": "light", "frameless": true}
-}

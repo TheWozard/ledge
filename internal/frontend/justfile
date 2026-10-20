@@ -1,5 +1,8 @@
 # Shortcuts for working on ledge-frontend.
 
+# The tests that open windows and go through each built-in theme: that each loads.
+theme_tests := "^(TestThemes|TestReportThemes)$"
+
 # List the recipes.
 default:
     @just --list
@@ -22,10 +25,24 @@ check-generated:
 test: generate
     go test ./...
 
-# The tests that open windows: a bar and a report window appear for a few seconds.
-gui: generate
+# The tests that open windows, with those that go through each theme only in the
+# themes given (comma-separated): a bar and a report window appear for a few seconds.
+gui themes="default": generate
+    LEDGE_GUI_TEST=1 LEDGE_THEMES={{themes}} go test -count=1 ./ui
+
+# Only the tests that go through each theme, in the themes given (comma-separated).
+gui-themes themes: generate
+    LEDGE_GUI_TEST=1 LEDGE_THEMES={{themes}} go test -count=1 -run '{{theme_tests}}' ./ui
+
+# Every test that opens windows, in every theme.
+gui-all: generate
     LEDGE_GUI_TEST=1 go test -count=1 ./ui
 
 # Open a bar and a report window in a theme, until ctrl-c.
 preview theme="default": generate
     go run ./cmd/preview {{theme}}
+
+# Serve the bar and a report in a theme and open them in the browser, to inspect
+# them, until ctrl-c. Edits to the theme's stylesheets show on a reload.
+inspect theme="default": generate
+    go run ./cmd/preview -browser {{theme}}

@@ -8,10 +8,11 @@ import (
 	"testing/fstest"
 )
 
-// Every built-in theme loads from its manifest, named for it, with its fonts inlined,
-// and every file in themes/ is used.
+// Every built-in theme loads from its manifest, with its fonts inlined, and every file
+// in themes/ is used. Each stylesheet starts with a comment naming its theme, which
+// the window tests wait for to know a theme has loaded.
 func TestBuiltin(t *testing.T) {
-	used := map[string]bool{"fonts/OFL.txt": true}
+	used := map[string]bool{}
 	for _, name := range Builtins.Names() {
 		theme, err := Builtin(name)
 		if err != nil {
@@ -23,17 +24,12 @@ func TestBuiltin(t *testing.T) {
 		data, _ := fs.ReadFile(Files, file)
 		manifest, _ := readManifest(data)
 		for _, page := range []struct {
-			files         []string
-			css, variable string
-		}{{manifest.Bar, theme.Bar, "--bar:"}, {manifest.Report, theme.Report, "--page:"}} {
+			files []string
+			css   string
+		}{{manifest.Bar, theme.Bar}, {manifest.Report, theme.Report}} {
 			if fontURL.MatchString(page.css) {
 				t.Errorf("%s: a font wasn't inlined", name)
 			}
-			// Each page uses one variable for the opaque colour behind everything.
-			if !strings.Contains(page.css, page.variable) {
-				t.Errorf("%s doesn't set %s", name, page.variable)
-			}
-			// Each page's stylesheet has a comment naming its theme.
 			if !strings.Contains(page.css, "/* "+name+":") {
 				t.Errorf("%s: a stylesheet doesn't start /* %s:", name, name)
 			}
@@ -57,9 +53,6 @@ func TestBuiltin(t *testing.T) {
 	}
 	if Builtins.Default() != "default" || Builtins.Names()[0] != "default" {
 		t.Errorf("the default is %q, and Names starts with %q", Builtins.Default(), Builtins.Names()[0])
-	}
-	if theme, _ := Builtin("win95"); theme.Frame != (Frame{Appearance: "light", Frameless: true}) {
-		t.Errorf("win95's frame is %+v", theme.Frame)
 	}
 }
 
@@ -148,22 +141,23 @@ func TestReadSet(t *testing.T) {
 // A font's url, relative to the files given, is inlined whether it's quoted or not,
 // with its type; a missing font is an error, and other urls are left alone.
 func TestInlineFonts(t *testing.T) {
+	fonts := fstest.MapFS{"fonts/silkscreen.woff2": &fstest.MapFile{Data: []byte("font")}}
 	for _, css := range []string{
 		`src: url(fonts/silkscreen.woff2)`,
 		`src: url("fonts/silkscreen.woff2")`,
 		`src: url( 'fonts/silkscreen.woff2' )`,
 	} {
-		got, err := InlineFonts(css, Files)
+		got, err := InlineFonts(css, fonts)
 		if err != nil || !strings.HasPrefix(got, "src: url(data:font/woff2;base64,") || strings.Contains(got, "fonts/") {
 			t.Errorf("InlineFonts(%s) = %.60s…, %v", css, got, err)
 		}
 	}
 	for _, css := range []string{`url(https://example.com/a.woff2)`, `url(/fonts/silkscreen.woff2)`, `url(data:font/woff2;base64,AA==)`, `url(a.png)`} {
-		if got, err := InlineFonts(css, Files); got != css || err != nil {
+		if got, err := InlineFonts(css, fonts); got != css || err != nil {
 			t.Errorf("InlineFonts(%s) = %s, %v", css, got, err)
 		}
 	}
-	if _, err := InlineFonts(`url(fonts/missing.woff2)`, Files); err == nil {
+	if _, err := InlineFonts(`url(fonts/missing.woff2)`, fonts); err == nil {
 		t.Error("a missing font should be an error")
 	}
 }

@@ -20,7 +20,7 @@ import (
 	"sync"
 )
 
-//go:embed themes/*.json themes/css/*.css themes/fonts/*.woff2
+//go:embed themes
 var files embed.FS
 
 // Files is the built-in themes: a manifest for each, and the files they name.
