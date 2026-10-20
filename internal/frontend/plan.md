@@ -127,7 +127,7 @@ Verify: `go test ./shim`, then `just gui`.
 
 ## 7. `theme/`
 
-- [ ] Replace the anonymous-struct loop in `load` with
+- [x] Replace the anonymous-struct loop in `load` with
   `joinStylesheets(fsys, dir, files []string) (string, error)`, called once each
   for `Bar` and `Report`.
 

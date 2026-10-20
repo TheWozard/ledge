@@ -96,21 +96,28 @@ func Load(fsys fs.FS, file string) (Theme, error) {
 func load(fsys fs.FS, file string, manifest Manifest) (Theme, error) {
 	t := Theme{Name: manifest.Name, Frame: manifest.Frame}
 	dir := path.Dir(file)
-	for _, page := range []struct {
-		files []string
-		css   *string
-	}{{manifest.Bar, &t.Bar}, {manifest.Report, &t.Report}} {
-		var css []string
-		for _, name := range page.files {
-			sheet, err := loadStylesheet(fsys, path.Join(dir, name))
-			if err != nil {
-				return t, fmt.Errorf("theme %s: %w", t.Name, err)
-			}
-			css = append(css, sheet)
-		}
-		*page.css = strings.Join(css, "\n")
+	var err error
+	if t.Bar, err = joinStylesheets(fsys, dir, manifest.Bar); err != nil {
+		return t, fmt.Errorf("theme %s: %w", t.Name, err)
+	}
+	if t.Report, err = joinStylesheets(fsys, dir, manifest.Report); err != nil {
+		return t, fmt.Errorf("theme %s: %w", t.Name, err)
 	}
 	return t, nil
+}
+
+// joinStylesheets is the stylesheets files, relative to dir in fsys, each with its
+// fonts inlined, joined in order.
+func joinStylesheets(fsys fs.FS, dir string, files []string) (string, error) {
+	var css []string
+	for _, name := range files {
+		sheet, err := loadStylesheet(fsys, path.Join(dir, name))
+		if err != nil {
+			return "", err
+		}
+		css = append(css, sheet)
+	}
+	return strings.Join(css, "\n"), nil
 }
 
 // loadStylesheet is the stylesheet file in fsys with its fonts inlined.
