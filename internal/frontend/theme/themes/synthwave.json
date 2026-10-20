@@ -1,0 +1,6 @@
+{
+  "name": "synthwave",
+  "bar": ["css/synthwave.css"],
+  "report": ["css/synthwave.report.css"],
+  "frame": {"appearance": "dark"}
+}

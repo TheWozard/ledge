@@ -5,6 +5,9 @@
 // the bar.
 //
 //	go run ./cmd/preview [theme]
+//
+// theme is a built-in theme's name, or the path to a theme's json manifest of your
+// own, such as ~/themes/neon.json, loaded as theme.Load does.
 package main
 
 import (
@@ -12,6 +15,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -26,12 +30,23 @@ import (
 )
 
 func main() {
-	name := theme.Default
+	name := theme.Builtins.Default()
 	if len(os.Args) > 1 {
 		name = os.Args[1]
 	}
-	if !slices.Contains(theme.Names, name) {
-		fmt.Fprintf(os.Stderr, "no theme %q; the themes are %s\n", name, strings.Join(theme.Names, ", "))
+	var th theme.Theme
+	var err error
+	if strings.HasSuffix(name, ".json") {
+		// From the root, so its stylesheets and fonts can be anywhere.
+		var file string
+		if file, err = filepath.Abs(name); err == nil {
+			th, err = theme.Load(os.DirFS("/"), filepath.ToSlash(strings.TrimPrefix(file, "/")))
+		}
+	} else if th, err = theme.Builtin(name); err != nil {
+		err = fmt.Errorf("%w; the themes are %s, or give the path to your own .json", err, strings.Join(theme.Builtins.Names(), ", "))
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
 
@@ -124,8 +139,8 @@ func main() {
 
 	ui.Init()
 	var bar *ui.Bar
-	bar, err := ui.Open(
-		ui.Options{Edge: "bottom", Height: 110, Level: "normal", Theme: name},
+	bar, err = ui.Open(
+		ui.Options{Edge: "bottom", Height: 110, Level: "normal", Theme: th},
 		ui.Handlers{
 			Dismiss: func(id string) {
 				log.Printf("dismiss %s", id)

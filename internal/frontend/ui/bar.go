@@ -43,12 +43,14 @@ func Open(options Options, handlers Handlers) (*Bar, error) {
 	if opened.Load() {
 		return nil, errors.New("ui: the bar is already open")
 	}
-	css, err := theme.CSS(options.Theme, theme.Bar)
-	if err != nil {
-		return nil, err
+	if options.Theme == (theme.Theme{}) {
+		var err error
+		if options.Theme, err = theme.Builtin(theme.Builtins.Default()); err != nil {
+			return nil, err
+		}
 	}
 	var page bytes.Buffer
-	if err := components.BarPage(css, options.Edge).Render(context.Background(), &page); err != nil {
+	if err := components.BarPage(options.Theme.Bar, options.Edge).Render(context.Background(), &page); err != nil {
 		return nil, err
 	}
 	opened.Store(true)

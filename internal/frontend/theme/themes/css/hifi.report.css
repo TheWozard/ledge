@@ -1,6 +1,5 @@
 /* hifi: the report on the receiver's faceplate: engraved headings, and the details
    on glowing display glass. */
-@font-face { font-family: "Share Tech Mono"; src: url(fonts/share-tech-mono.woff2) format("woff2"); }
 :root { --page: #c9c9c5; --vfd: #5ff6ff; --c-green: #3dff7a; --c-yellow: #ffb52e; --c-red: #ff3b2f; --c-blue: #39c6ff; --c-gray: #8a8a8a;
         --glass: radial-gradient(ellipse at 50% 30%, #0e2226, #061012 75%);
         --glass-shadow: inset 0 0 0 1px #000, inset 0 0 14px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.85); }

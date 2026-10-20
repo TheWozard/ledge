@@ -1,0 +1,6 @@
+{
+  "name": "platinum",
+  "bar": ["css/platinum.css"],
+  "report": ["css/platinum.report.css"],
+  "frame": {"appearance": "light", "frameless": true}
+}

@@ -1,6 +1,4 @@
 /* handheld: the report on a four-shade green LCD, with dialog-box borders. */
-@font-face { font-family: "Silkscreen"; font-weight: 400; src: url(fonts/silkscreen.woff2) format("woff2"); }
-@font-face { font-family: "Silkscreen"; font-weight: 700; src: url(fonts/silkscreen-bold.woff2) format("woff2"); }
 :root { --g0: #0f380f; --g1: #306230; --g2: #8bac0f; --g3: #9bbc0f; --page: var(--g3);
         --c-green: var(--g0); --c-yellow: var(--g0); --c-red: var(--g0); --c-blue: var(--g0); --c-gray: var(--g0);
         --box: 0 0 0 3px var(--g0), inset 0 0 0 2px var(--g3), inset 0 0 0 3px var(--g1); }

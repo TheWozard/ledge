@@ -27,7 +27,7 @@ var (
 	calls   recorder // what the handlers were called with
 )
 
-var defaults = Options{Edge: "bottom", Height: 110, Level: "normal", Theme: theme.Default}
+var defaults = Options{Edge: "bottom", Height: 110, Level: "normal"} // the zero Theme: the default
 
 // recorder keeps the handlers' calls, as "dismiss id", "open id", "run id", "url u".
 type recorder struct {
@@ -146,20 +146,20 @@ func show(t *testing.T, pills []components.Pill, cards []components.Card) {
 func withTheme(t *testing.T, name string) {
 	t.Helper()
 	load := func(name string) {
-		css, err := theme.CSS(name, theme.Bar)
+		th, err := theme.Builtin(name)
 		if err != nil {
 			t.Fatal(err)
 		}
 		var page bytes.Buffer
-		components.BarPage(css, testBar.options.Edge).Render(context.Background(), &page)
+		components.BarPage(th.Bar, testBar.options.Edge).Render(context.Background(), &page)
 		testBar.mu.Lock()
-		testBar.options.Theme, testBar.ready = name, false
+		testBar.options.Theme, testBar.ready = th, false
 		testBar.mu.Unlock()
 		shim.LoadHTML(BarWindow, page.String())
 	}
 	load(name)
 	t.Cleanup(func() {
-		load(theme.Default)
+		load(theme.Builtins.Default())
 		waitFor(t, `document.querySelector("#app > *") !== null`, "true")
 	})
 	waitFor(t, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* `+name+`:"))`, "true")
@@ -384,7 +384,7 @@ func TestEnterAndLeave(t *testing.T) {
 		{ID: "x", Title: "X", Source: "s", Received: received},
 		{ID: "y", Title: "Y", Source: "s", Received: received},
 	}
-	for _, name := range theme.Names {
+	for _, name := range theme.Builtins.Names() {
 		t.Run(name, func(t *testing.T) {
 			withTheme(t, name)
 			show(t, pills, cards)
@@ -456,7 +456,7 @@ func TestThemes(t *testing.T) {
 	gui(t)
 	show(t, []components.Pill{{ID: "p", Title: "Pill", Color: "red"}},
 		[]components.Card{{ID: "c", Title: "Themed", Priority: "high", Tags: []string{"a"}, Source: "x", Received: received}})
-	for _, name := range theme.Names {
+	for _, name := range theme.Builtins.Names() {
 		withTheme(t, name)
 		waitFor(t, `document.querySelector(".pill[data-color=red]") !== null && document.querySelector("li") !== null`, "true")
 		if got := eval(t, `getComputedStyle(document.body).backgroundColor`); !strings.HasPrefix(got, `"rgb(`) {
@@ -506,9 +506,13 @@ var reportBlocks = []templ.Component{
 
 // setTheme sets the theme the next report is shown in.
 func setTheme(name string) {
+	th, err := theme.Builtin(name)
+	if err != nil {
+		panic(err)
+	}
 	testBar.mu.Lock()
 	defer testBar.mu.Unlock()
-	testBar.options.Theme = name
+	testBar.options.Theme = th
 }
 
 // showReport shows a report for id and returns its window.
@@ -561,8 +565,8 @@ func TestReportWindow(t *testing.T) {
 // Every theme draws a report on an opaque background.
 func TestReportThemes(t *testing.T) {
 	gui(t)
-	defer setTheme(theme.Default)
-	for _, name := range theme.Names {
+	defer setTheme(theme.Builtins.Default())
+	for _, name := range theme.Builtins.Names() {
 		setTheme(name)
 		w := showReport(t, "report", "Themed report", reportBlocks)
 		// Each report stylesheet starts with a comment naming its theme.
@@ -577,12 +581,12 @@ func TestReportThemes(t *testing.T) {
 // its title bar stay put, and the last block clears the bottom of the window.
 func TestReportScrolls(t *testing.T) {
 	gui(t)
-	defer setTheme(theme.Default)
+	defer setTheme(theme.Builtins.Default())
 	var long []templ.Component
 	for i := range 40 {
 		long = append(long, components.Paragraph(fmt.Sprintf("Paragraph %d", i)))
 	}
-	for _, name := range theme.Names {
+	for _, name := range theme.Builtins.Names() {
 		setTheme(name)
 		w := showReport(t, "report", "Long report", long)
 		waitIn(t, w, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* `+name+`:"))`, "true")
@@ -605,7 +609,7 @@ func TestReportScrolls(t *testing.T) {
 // can't do even that. A theme that draws its own buttons shows them, and they work.
 func TestReportFrame(t *testing.T) {
 	gui(t)
-	defer setTheme(theme.Default)
+	defer setTheme(theme.Builtins.Default())
 	if got := eval(t, `!!window.webkit.messageHandlers.frame`); got != "false" {
 		t.Error("the bar page has the frame handler")
 	}

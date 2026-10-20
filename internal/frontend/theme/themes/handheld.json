@@ -1,0 +1,6 @@
+{
+  "name": "handheld",
+  "bar": ["css/silkscreen.css", "css/handheld.css"],
+  "report": ["css/silkscreen.css", "css/handheld.report.css"],
+  "frame": {"appearance": "light"}
+}

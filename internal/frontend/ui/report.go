@@ -10,7 +10,6 @@ import (
 
 	"github.com/TheWozard/ledge-frontend/components"
 	"github.com/TheWozard/ledge-frontend/shim"
-	"github.com/TheWozard/ledge-frontend/theme"
 )
 
 // ShowReport shows title and blocks in id's report window, in the bar's theme, and
@@ -20,22 +19,17 @@ import (
 // usual ones.
 func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	b.mu.Lock()
-	name := b.options.Theme
+	t := b.options.Theme
 	b.mu.Unlock()
-	css, err := theme.CSS(name, theme.Report)
-	if err != nil {
-		return err
-	}
 	var page bytes.Buffer
-	if err := components.ReportPage(css, title, blocks).Render(context.Background(), &page); err != nil {
+	if err := components.ReportPage(t.Report, title, blocks).Render(context.Background(), &page); err != nil {
 		return err
 	}
 	window := b.reportWindow(id)
-	frame := theme.Frames[name]
 	shim.CreateWindow(window, title, 900, 700)
 	shim.SetTitle(window, title)
-	shim.SetAppearance(window, frame.Appearance)
-	shim.SetFrameless(window, frame.Frameless)
+	shim.SetAppearance(window, t.Frame.Appearance)
+	shim.SetFrameless(window, t.Frame.Frameless)
 	shim.LoadHTML(window, page.String())
 	shim.ShowWindow(window)
 	return nil

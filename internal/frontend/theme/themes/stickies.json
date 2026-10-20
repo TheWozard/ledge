@@ -1,0 +1,6 @@
+{
+  "name": "stickies",
+  "bar": ["css/stickies.css"],
+  "report": ["css/stickies.report.css"],
+  "frame": {"appearance": "light"}
+}

@@ -13,13 +13,14 @@ import (
 	"github.com/a-h/templ"
 
 	"github.com/TheWozard/ledge-frontend/components"
+	"github.com/TheWozard/ledge-frontend/theme"
 	"github.com/TheWozard/ledge-frontend/ui"
 )
 
 func main() {
 	ui.Init() // on the main goroutine; AppKit needs it
 	bar, err := ui.Open(
-		ui.Options{Edge: "bottom", Height: 110, Level: "floating", Theme: "win95"},
+		ui.Options{Edge: "bottom", Height: 110, Level: "floating", Theme: must(theme.Builtin("win95"))},
 		ui.Handlers{
 			Dismiss: func(id string) { /* forget it, then bar.Render again */ },
 			Open:    func(id string) { /* bar.ShowReport(id, ...), or open its url */ },
@@ -40,6 +41,13 @@ func main() {
 	}()
 	ui.Run() // until ui.Stop
 }
+
+func must[T any](v T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
 ```
 
 ## Packages
@@ -48,7 +56,7 @@ func main() {
 |---|---|
 | `ui` | the bar and report windows: `Open` places the bar and loads its page, `Render` shows pills and cards, `ShowReport` shows a report in its id's own window; the pages' clicks come back to `Handlers` as ids |
 | `components` | the templ components: the pages (`BarPage`, `ReportPage`), the bar's contents (`BarContent`, from `Pill`s and `Card`s), and the report blocks |
-| `theme` | the themes' stylesheets and fonts, built in, and how each theme's report window frame looks |
+| `theme` | a `Theme`: the bar's and report window's stylesheets, fonts inlined, and how the report window's frame looks; `ReadSet` finds the themes in any files, `Load` reads one, `Builtin` is one of the built-in themes |
 | `shim` | the native layer (cgo + Objective-C): windows and WKWebView, and nothing else |
 
 ### Components
@@ -92,25 +100,56 @@ Neither window can navigate: a report's clicked http(s) link goes to `OpenURL`.
 
 ## Themes
 
-`default`, `platinum`, `win95`, `handheld`, `synthwave`, `hifi`, `splitflap`, `stickies`,
-`aqua` and `blueprint`. A theme is two
-stylesheets in [theme/themes/](theme/themes/): `<name>.css` on top of the bar's layout,
-and `<name>.report.css` on top of the report window's. The comments at the top of the
-layout styles in [bar.templ](components/bar.templ) and
-[report.templ](components/report.templ) say what a theme can hook into: the colour
-variables it sets, the bar's padding (`--pad-top`, `--pad-x` and `--pad-bottom`, which
-the pills scroll through to the bar's edges), a pill's `data-color`, a new pill's or card's `data-new` and a gone
-one's `data-leaving` (for enter and exit animations, the exit ending with the layout's
-`collapse` so the rest close up), the report window's
-`.titlebar` and its buttons, the `main` that scrolls under it, and the `article` in it
-that holds the blocks (for a background that scrolls with them). `theme.Frames` says whether a theme's report window is
-light or dark, and whether the theme draws the whole window (square corners, its own
-buttons and border).
+`ui.Options.Theme` is a `theme.Theme`: the bar's stylesheet, the report window's, and
+its `Frame` (whether the report window is light or dark, and whether the theme draws the
+whole window: square corners, its own buttons and border). The zero `Theme` is the
+built-in default. Get one with:
 
-Adding a theme: add its two stylesheets, its name to `theme.Names`, and a `Frames`
-entry if it needs one. Fonts not on every Mac go in `theme/themes/fonts/` as woff2,
-named in a stylesheet as `url(fonts/<file>)`, and are inlined when it loads; their
-licences are in [OFL.txt](theme/themes/fonts/OFL.txt).
+- `theme.ReadSet(fsys)`: every theme in an `fs.FS`, such as `os.DirFS` of a user's
+  themes directory: each `.json` in it, at any depth, is a theme's manifest. `Names()`
+  lists them, `Default()` names the one whose manifest says `"default": true` (at most
+  one may), and `Theme(name)` loads one.
+- `theme.Builtin(name)`: one of the built-in themes, `theme.Builtins`: `default`,
+  `aqua`, `blueprint`, `handheld`, `hifi`, `platinum`, `splitflap`, `stickies`,
+  `synthwave` and `win95`.
+- `theme.Load(fsys, file)`: one from its json manifest `file` in any `fs.FS`, such as
+  `os.DirFS` of a user's themes directory.
+- Or make one up: the stylesheets are plain strings. `theme.InlineFonts` inlines a
+  stylesheet's fonts from an `fs.FS`.
+
+A manifest names the theme, says if it's its set's default, and lists each page's stylesheets, joined in order, so files
+can be shared between pages and themes (paths are relative to the manifest):
+
+```json
+{
+  "name": "handheld",
+  "bar": ["css/silkscreen.css", "css/handheld.css"],
+  "report": ["css/silkscreen.css", "css/handheld.report.css"],
+  "frame": {"appearance": "light"}
+}
+```
+
+`frame` is optional: `appearance` is `"light"`, `"dark"` or unset (follow the system),
+and `frameless` is true for a theme that draws the whole window. A stylesheet names a
+font (woff2, woff, ttf or otf) by a url relative to itself, such as
+`url(../fonts/silkscreen.woff2)`, and it can be anywhere in the `fs.FS`.
+
+The pages are loaded from strings and can't fetch files, so `Load` inlines each font as
+a `data:` url. The comments at the top of the layout styles in
+[bar.templ](components/bar.templ) and [report.templ](components/report.templ) say what a
+theme can hook into: the colour variables it sets, the bar's padding (`--pad-top`,
+`--pad-x` and `--pad-bottom`, which the pills scroll through to the bar's edges), a
+pill's `data-color`, a new pill's or card's `data-new` and a gone one's `data-leaving`
+(for enter and exit animations, the exit ending with the layout's `collapse` so the rest
+close up), the report window's `.titlebar` and its buttons, the `main` that scrolls
+under it, and the `article` in it that holds the blocks (for a background that scrolls
+with them).
+
+Adding a built-in theme: add its manifest, `<name>.json`, to
+[theme/themes/](theme/themes/), its stylesheets to [css/](theme/themes/css/), any fonts
+to [fonts/](theme/themes/fonts/); nothing lists the themes, so that's all. The bundled fonts'
+licences are in [OFL.txt](theme/themes/fonts/OFL.txt), and their `@font-face` rules in
+`css/<font>.css`. To try a theme of your own, `just preview path/to/neon.json`.
 
 ## Developing
 
@@ -123,7 +162,7 @@ just generate      # templ generate
 just check-generated # fail if the committed *_templ.go are stale
 just test          # go test ./...
 just gui           # the tests that open windows: LEDGE_GUI_TEST=1 go test ./ui
-just preview win95 # a bar and a report window in a theme, until ctrl-c
+just preview win95 # a bar and a report window in a theme (or a .json), until ctrl-c
 ```
 
 The tests that open windows put a bar on your screen and a report window over it for a

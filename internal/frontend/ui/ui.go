@@ -9,6 +9,7 @@ package ui
 
 import (
 	"github.com/TheWozard/ledge-frontend/shim"
+	"github.com/TheWozard/ledge-frontend/theme"
 )
 
 // BarWindow is the bar's id in the shim. Report windows take the ids after it, one
@@ -21,7 +22,9 @@ type Options struct {
 	Edge   string // "top" or "bottom"
 	Height int    // in points
 	Level  string // which windows it stays above: "top", "floating" or "normal"
-	Theme  string // one of theme.Names
+	// Theme is how the bar and its reports look: theme.Builtin's or theme.Load's, or
+	// one made up. The zero Theme is the built-in default.
+	Theme theme.Theme
 }
 
 // Handlers is what the bar calls back with. Each is called on its own goroutine, and

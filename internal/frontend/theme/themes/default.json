@@ -1,0 +1,6 @@
+{
+  "name": "default",
+  "default": true,
+  "bar": ["css/default.css"],
+  "report": ["css/default.report.css"]
+}

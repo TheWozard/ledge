@@ -1,0 +1,6 @@
+{
+  "name": "splitflap",
+  "bar": ["css/splitflap.css"],
+  "report": ["css/splitflap.report.css"],
+  "frame": {"appearance": "dark"}
+}
