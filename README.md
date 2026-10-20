@@ -23,8 +23,10 @@ ledge update                       # install it; a running ledge keeps the old o
 ledge version
 ```
 
-From source, with Go and Xcode's command line tools: `go install ./ledge`. A source
-build reports its version as `dev` and won't `update`; install a release instead.
+From source, with Go and Xcode's command line tools: `go install ./ledge`. The bar's
+windows, pages and themes are [ledge-frontend](https://github.com/TheWozard/ledge-frontend),
+a Go module that `go.mod` takes from GitHub. A source build reports its version as `dev` and won't `update`; install a
+release instead.
 
 ## Usage
 
@@ -125,13 +127,14 @@ so `ledge restart` to switch:
 | `handheld` | a four-shade green LCD; pill colours become patterns |
 | `synthwave` | neon outlines and glowing type |
 | `hifi` | a 1970s receiver: LED lamps and glowing display glass |
+| `aqua` | Mac OS X 10.0–10.4: pinstripes, gel buttons and the genie effect |
+| `blueprint` | white lines on blueprint blue over a drafting grid |
+| `splitflap` | a departures board of clattering lettered flaps |
+| `stickies` | sticky notes pinned askew on a corkboard |
 
-Each theme is two stylesheets in [internal/pages/themes/](internal/pages/themes/), one on
-top of the bar's layout and one on the report window's (`<name>.report.css`); the
-comments at the top of [bar.html](internal/pages/bar.html)'s and
-[report.html](internal/pages/report.html)'s styles say what a theme can hook into.
-The fonts that aren't on every Mac are built in (SIL Open Font License,
-[OFL.txt](internal/pages/themes/fonts/OFL.txt)), so nothing is fetched.
+The themes, and the pages they style, are in ledge-frontend, whose README says how to
+write one. The fonts that aren't on every Mac are built in (SIL Open Font License), so
+nothing is fetched.
 
 ### In the background
 
@@ -196,6 +199,9 @@ header, so a web page can't post events. A refused request gets a 400 with
 
 ## Layout
 
+The bar and report windows (the native shim, window placement, pages, components and
+themes) are ledge-frontend. ledge is everything else:
+
 | Path | What it is |
 |---|---|
 | `ledge/` | `main`, which hands off to `cmd` |
@@ -206,9 +212,7 @@ header, so a web page can't post events. A refused request gets a 400 with
 | `internal/config/` | the `--config` file and its schema |
 | `internal/background/` | `ledge start`, `stop` and `restart`: the background process, its pid file, log and saved flags |
 | `internal/update/` | `ledge update`: finding the latest release, checking its checksum, replacing the binary |
-| `internal/shim/` | the native layer (cgo + Objective-C): windows and WKWebView; no app logic |
-| `internal/bar/` | the Go side of the bar and the report window: placement, rendering, the page's actions (checked against `message.schema.json`), opening urls and reports, running commands, and which navigations a window may make |
-| `internal/pages/` | the bar and report window pages and their themes (stylesheets and fonts), built in with `go:embed` |
+| `internal/bar/` | connects the store to ledge-frontend's bar: events as cards, pills and report blocks, and what the pages ask for by id (dismiss, open a report or url, run a command) |
 | `internal/state/` | the state directory and port |
 | `internal/version/` | version metadata, set with `-ldflags` at release time |
 
@@ -246,16 +250,17 @@ LEDGE_PORT=47392 XDG_STATE_HOME=/tmp/ledge-test ledge run --headless
 
 Stop test instances by pid, never by name.
 
-The bar's tests open a real window, so they only run when asked:
+Some of the bar's tests open a real window, so they only run when asked:
 
 ```sh
 LEDGE_GUI_TEST=1 go test ./internal/bar
 ```
 
-They open the bar and the report window and read their pages' DOM through the shim.
-Clicks are made from JavaScript, and `open` is recorded rather than run, so they never
-open your browser; status commands do run. They can't check hover, a real mouse
-click, keyboard shortcuts or how the windows look; those need a person.
+They check that the bar reaches ledge: a click dismisses from the store, opens a
+report or url, or runs a command. They read the pages' DOM through ledge-frontend's
+shim, and click from JavaScript; `open` is recorded rather than run, so they never
+open your browser, but status commands do run. How the bar and reports look and
+behave is tested in ledge-frontend.
 
 ## License
 

@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/TheWozard/ledge/internal/version"
 	"github.com/spf13/cobra"
-	"ledge/internal/version"
 )
 
 var versionCmd = &cobra.Command{

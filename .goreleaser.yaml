@@ -22,9 +22,9 @@ builds:
       - arm64
     ldflags:
       - -s -w
-      - -X ledge/internal/version.Version={{ .Version }}
-      - -X ledge/internal/version.Commit={{ .ShortCommit }}
-      - -X ledge/internal/version.Date={{ .Date }}
+      - -X github.com/TheWozard/ledge/internal/version.Version={{ .Version }}
+      - -X github.com/TheWozard/ledge/internal/version.Commit={{ .ShortCommit }}
+      - -X github.com/TheWozard/ledge/internal/version.Date={{ .Date }}
 
 archives:
   - id: ledge

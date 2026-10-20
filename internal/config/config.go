@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"os"
 
-	"ledge/internal/schema"
+	"github.com/TheWozard/ledge/internal/schema"
 )
 
 //go:embed *.schema.json

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/TheWozard/ledge/internal/version"
 	"github.com/spf13/cobra"
-	"ledge/internal/version"
 )
 
 var rootCmd = &cobra.Command{

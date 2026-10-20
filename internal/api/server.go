@@ -22,8 +22,8 @@ import (
 	"strings"
 	"time"
 
-	"ledge/internal/schema"
-	"ledge/internal/store"
+	"github.com/TheWozard/ledge/internal/schema"
+	"github.com/TheWozard/ledge/internal/store"
 )
 
 // MaxBody is the largest request body accepted.

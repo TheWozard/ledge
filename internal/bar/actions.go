@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"ledge/internal/store"
+	"github.com/TheWozard/ledge/internal/store"
 )
 
 // web is the urls a status pill's label opens: the page only makes http(s) ones

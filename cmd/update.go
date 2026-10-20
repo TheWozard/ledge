@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/TheWozard/ledge/internal/update"
+	"github.com/TheWozard/ledge/internal/version"
 	"github.com/spf13/cobra"
-	"ledge/internal/update"
-	"ledge/internal/version"
 )
 
 var updateCheck bool

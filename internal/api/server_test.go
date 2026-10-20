@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"ledge/internal/store"
+	"github.com/TheWozard/ledge/internal/store"
 )
 
 func TestServer(t *testing.T) {

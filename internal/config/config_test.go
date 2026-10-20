@@ -1,10 +1,14 @@
 package config
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/TheWozard/ledge-frontend/theme"
 )
 
 func TestLoad(t *testing.T) {
@@ -40,5 +44,29 @@ func TestLoad(t *testing.T) {
 	}
 	if _, err := Load(filepath.Join(dir, "missing.json")); err == nil {
 		t.Error("a missing file named with --config should be an error")
+	}
+}
+
+// The schema allows exactly the frontend's themes.
+func TestThemesMatchFrontend(t *testing.T) {
+	data, err := schemaFiles.ReadFile("config.schema.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var schema struct {
+		Properties struct {
+			Theme struct {
+				Enum []string `json:"enum"`
+			} `json:"theme"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(data, &schema); err != nil {
+		t.Fatal(err)
+	}
+	if allowed, names := slices.Sorted(slices.Values(schema.Properties.Theme.Enum)), slices.Sorted(slices.Values(theme.Builtins.Names())); !slices.Equal(allowed, names) {
+		t.Errorf("config.schema.json allows themes %v, but ledge-frontend has %v", allowed, names)
+	}
+	if Defaults.Theme != theme.Builtins.Default() {
+		t.Errorf("the default theme is %q, but ledge-frontend's is %q", Defaults.Theme, theme.Builtins.Default())
 	}
 }

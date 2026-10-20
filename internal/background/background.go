@@ -19,7 +19,7 @@ import (
 	"syscall"
 	"time"
 
-	"ledge/internal/api"
+	"github.com/TheWozard/ledge/internal/api"
 )
 
 // How long start waits for the API to answer, and stop for the process to exit

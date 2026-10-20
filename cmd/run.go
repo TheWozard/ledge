@@ -12,13 +12,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/TheWozard/ledge-frontend/ui"
+	"github.com/TheWozard/ledge/internal/api"
+	"github.com/TheWozard/ledge/internal/bar"
+	"github.com/TheWozard/ledge/internal/config"
+	"github.com/TheWozard/ledge/internal/state"
+	"github.com/TheWozard/ledge/internal/store"
 	"github.com/spf13/cobra"
-	"ledge/internal/api"
-	"ledge/internal/bar"
-	"ledge/internal/config"
-	"ledge/internal/shim"
-	"ledge/internal/state"
-	"ledge/internal/store"
 )
 
 // pruneEvery is how often expired events are dropped.
@@ -72,14 +72,18 @@ var runCmd = &cobra.Command{
 
 		// AppKit's main loop takes the main goroutine; the API runs beside it, and
 		// stopping either stops both.
-		shim.Init()
-		server.Changed = bar.Open(events, cfg, dir).Render
+		ui.Init()
+		b, err := bar.Open(events, cfg, dir)
+		if err != nil {
+			return err
+		}
+		server.Changed = b.Render
 		done := make(chan error, 1)
 		go func() {
 			done <- serve(ctx, listener, server)
-			shim.Stop()
+			ui.Stop()
 		}()
-		shim.Run()
+		ui.Run()
 		stop()
 		return <-done
 	},

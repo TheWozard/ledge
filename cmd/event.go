@@ -8,10 +8,10 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/TheWozard/ledge/internal/api"
+	"github.com/TheWozard/ledge/internal/state"
+	"github.com/TheWozard/ledge/internal/store"
 	"github.com/spf13/cobra"
-	"ledge/internal/api"
-	"ledge/internal/state"
-	"ledge/internal/store"
 )
 
 var (

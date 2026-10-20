@@ -1,6 +1,6 @@
 package main
 
-import "ledge/cmd"
+import "github.com/TheWozard/ledge/cmd"
 
 func main() {
 	cmd.Execute()

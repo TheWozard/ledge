@@ -6,10 +6,10 @@ import (
 	"slices"
 	"strconv"
 
+	"github.com/TheWozard/ledge/internal/background"
+	"github.com/TheWozard/ledge/internal/config"
+	"github.com/TheWozard/ledge/internal/state"
 	"github.com/spf13/cobra"
-	"ledge/internal/background"
-	"ledge/internal/config"
-	"ledge/internal/state"
 )
 
 // runFlags are the flags start and restart pass on to `ledge run`.

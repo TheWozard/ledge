@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"ledge/internal/schema"
+	"github.com/TheWozard/ledge/internal/schema"
 )
 
 var received = time.Date(2026, 10, 14, 12, 0, 0, 0, time.UTC)
