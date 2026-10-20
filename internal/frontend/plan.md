@@ -100,14 +100,15 @@ Verify: `just test`, `just gui`.
 
 ## 5. `cmd/preview/`
 
-- [ ] **`sample.go`**: the `sample` type and methods, and a
-  `newSample(now time.Time) *sample` holding the card, timer and report data now in
-  `main()`. Fold the timer branch of `sample.report` into `reportFor`.
-- [ ] **`theme.go`**: `loadTheme`.
-- [ ] **`browser.go`**: the index page into an embedded `index.html` (rendered
-  with `html/template`, no `%%` escaping), and the handlers as methods on a
-  `browserServer{sample, load, mu, opening}`.
-- [ ] `main.go` is left with flags, opening the windows and the signal handling.
+- [x] **`sample.go`**: the `sample` type and methods, `newSample(now)` and
+  `longReport(now)` with the data that was in `main()`, and `longID`. `reportFor`
+  is folded into `sample.report`, timers included.
+- [x] **`theme.go`**: `loadTheme` and `builtinDir`.
+- [x] **`browser.go`**: the index page is the embedded `index.html` (rendered
+  with `html/template`, no `%%` escaping), and the handlers are methods on
+  `browserServer`.
+- [x] `main.go` is left with flags and `showWindows` (opening the windows and the
+  signal handling).
 
 Verify: `just test`, then ask for `just preview` and `just inspect` to be run.
 

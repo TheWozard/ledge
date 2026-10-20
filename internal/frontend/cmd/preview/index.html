@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ledge preview: {{.Name}}</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { display: flex; flex-direction: column; align-items: center; background: #7a7a80; }
+  #report { flex: none; width: 900px; max-width: calc(100% - 32px); height: 700px; max-height: calc(100% - {{.BarHeight}}px - 32px);
+            margin: auto 0; border: 0; box-shadow: 0 8px 30px rgba(0, 0, 0, .35); }
+  #bar { flex: none; width: 100%; height: {{.BarHeight}}px; border: 0; }
+</style>
+</head>
+<body>
+<iframe id="report" src="/report?id={{.Report}}"></iframe>
+<iframe id="bar" src="/bar"></iframe>
+</body>
+</html>

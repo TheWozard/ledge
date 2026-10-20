@@ -3,9 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
-	"html"
+	"html/template"
 	"log"
 	"net"
 	"net/http"
@@ -38,101 +39,42 @@ const reportStub = `<base target="_blank"><script>
 window.webkit = { messageHandlers: { frame: { postMessage(message) { console.log("report posted", message); } } } };
 </script>`
 
-// serveBrowser serves the bar and a report on addr, for a browser's inspector, and
-// opens them: / is both, the bar at the bottom at its height and the report above it
-// at its window's size; /bar and /report?id= are each alone. The theme is loaded
-// afresh for every page, so an edit to its stylesheets shows on a reload. A click
-// calls its Click here; dismissing a card takes it off the bar until the server stops.
+// index is the page at /: the report above the bar, each in a frame at its window's
+// size.
+//
+//go:embed index.html
+var indexHTML string
+var index = template.Must(template.New("index").Parse(indexHTML))
+
+// browserServer serves the bar and a report, for a browser's inspector: / is both,
+// the bar at the bottom at its height and the report above it at its window's size;
+// /bar and /report?id= are each alone. The theme is loaded afresh for every page, so
+// an edit to its stylesheets shows on a reload. A click calls its Click here;
+// dismissing a card takes it off the bar until the server stops.
+type browserServer struct {
+	name   string
+	load   func() (theme.Theme, error)
+	sample *sample
+
+	mu      sync.Mutex
+	opening string // the report a click opened, to send back with its reply
+}
+
+// serveBrowser serves sample on addr, as browserServer says, and opens it in the
+// browser.
 func serveBrowser(addr, name string, load func() (theme.Theme, error), sample *sample) {
-	// opening is the report a click opened, to send back with its reply.
-	var mu sync.Mutex
-	var opening string
+	s := &browserServer{name: name, load: load, sample: sample}
 	sample.open = func(id string) {
-		mu.Lock()
-		opening = id
-		mu.Unlock()
+		s.mu.Lock()
+		s.opening = id
+		s.mu.Unlock()
 	}
 	sample.changed = func() {} // every reply to a click has the cards
 
-	page := func(w http.ResponseWriter, render func(theme.Theme) templ.Component, stub string) {
-		th, err := load()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		var buf bytes.Buffer
-		if err := render(th).Render(context.Background(), &buf); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Cache-Control", "no-store")
-		fmt.Fprint(w, strings.Replace(buf.String(), "<head>", "<head>"+stub, 1))
-	}
-	content := func() string {
-		shown := sample.shown()
-		components.SortByPriority(shown)
-		var buf bytes.Buffer
-		if err := components.BarContent(shown, map[string]int{}).Render(context.Background(), &buf); err != nil {
-			log.Print(err)
-		}
-		return buf.String()
-	}
-
-	http.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>ledge preview: %s</title>
-<style>
-  html, body { margin: 0; height: 100%%; }
-  body { display: flex; flex-direction: column; align-items: center; background: #7a7a80; }
-  #report { flex: none; width: 900px; max-width: calc(100%% - 32px); height: 700px; max-height: calc(100%% - %dpx - 32px);
-            margin: auto 0; border: 0; box-shadow: 0 8px 30px rgba(0, 0, 0, .35); }
-  #bar { flex: none; width: 100%%; height: %dpx; border: 0; }
-</style>
-</head>
-<body>
-<iframe id="report" src="/report?id=report"></iframe>
-<iframe id="bar" src="/bar"></iframe>
-</body>
-</html>
-`, html.EscapeString(name), barHeight, barHeight)
-	})
-	http.HandleFunc("GET /bar", func(w http.ResponseWriter, r *http.Request) {
-		page(w, func(th theme.Theme) templ.Component { return components.BarPage(th.Bar, "bottom") }, barStub)
-	})
-	http.HandleFunc("GET /report", func(w http.ResponseWriter, r *http.Request) {
-		title, blocks := sample.report(r.URL.Query().Get("id"))
-		page(w, func(th theme.Theme) templ.Component { return components.ReportPage(th.Report, title, blocks) }, reportStub)
-	})
-	http.HandleFunc("POST /action", func(w http.ResponseWriter, r *http.Request) {
-		var message struct{ Action, ID string }
-		if err := json.NewDecoder(r.Body).Decode(&message); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		log.Printf("%s %s", message.Action, message.ID)
-		reply := map[string]string{}
-		switch message.Action {
-		case "ready":
-			reply["html"] = content()
-		case "click":
-			if click := components.Clicks(sample.shown())[message.ID]; click != nil {
-				click()
-			}
-			reply["html"] = content()
-			mu.Lock()
-			if opening != "" {
-				reply["report"], opening = opening, ""
-			}
-			mu.Unlock()
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(reply)
-	})
+	http.HandleFunc("GET /{$}", s.index)
+	http.HandleFunc("GET /bar", s.bar)
+	http.HandleFunc("GET /report", s.report)
+	http.HandleFunc("POST /action", s.action)
 
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -144,4 +86,83 @@ func serveBrowser(addr, name string, load func() (theme.Theme, error), sample *s
 		log.Print(err)
 	}
 	log.Fatal(http.Serve(listener, nil))
+}
+
+// index serves the report above the bar.
+func (s *browserServer) index(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	data := struct {
+		Name, Report string
+		BarHeight    int
+	}{s.name, longID, barHeight}
+	if err := index.Execute(w, data); err != nil {
+		log.Print(err)
+	}
+}
+
+// bar serves the bar's page, empty until it posts ready.
+func (s *browserServer) bar(w http.ResponseWriter, r *http.Request) {
+	s.page(w, func(th theme.Theme) templ.Component { return components.BarPage(th.Bar, "bottom") }, barStub)
+}
+
+// report serves the report for ?id=.
+func (s *browserServer) report(w http.ResponseWriter, r *http.Request) {
+	title, blocks := s.sample.report(r.URL.Query().Get("id"))
+	s.page(w, func(th theme.Theme) templ.Component { return components.ReportPage(th.Report, title, blocks) }, reportStub)
+}
+
+// action takes what the bar page posts, as the app would, and replies with the bar's
+// content and any report a click opened.
+func (s *browserServer) action(w http.ResponseWriter, r *http.Request) {
+	var message struct{ Action, ID string }
+	if err := json.NewDecoder(r.Body).Decode(&message); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	log.Printf("%s %s", message.Action, message.ID)
+	reply := map[string]string{}
+	switch message.Action {
+	case "ready":
+		reply["html"] = s.content()
+	case "click":
+		if click := components.Clicks(s.sample.shown())[message.ID]; click != nil {
+			click()
+		}
+		reply["html"] = s.content()
+		s.mu.Lock()
+		if s.opening != "" {
+			reply["report"], s.opening = s.opening, ""
+		}
+		s.mu.Unlock()
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(reply)
+}
+
+// page serves the page render makes in the theme, with stub at the top of its head.
+func (s *browserServer) page(w http.ResponseWriter, render func(theme.Theme) templ.Component, stub string) {
+	th, err := s.load()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	var buf bytes.Buffer
+	if err := render(th).Render(context.Background(), &buf); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	fmt.Fprint(w, strings.Replace(buf.String(), "<head>", "<head>"+stub, 1))
+}
+
+// content is the bar's content: the sample's cards, in the bar's order.
+func (s *browserServer) content() string {
+	shown := s.sample.shown()
+	components.SortByPriority(shown)
+	var buf bytes.Buffer
+	if err := components.BarContent(shown, map[string]int{}).Render(context.Background(), &buf); err != nil {
+		log.Print(err)
+	}
+	return buf.String()
 }
