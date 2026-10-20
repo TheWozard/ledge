@@ -77,19 +77,23 @@ Verify: `just test`, `just check-generated`, `just gui`.
 
 ## 4. `ui/`
 
-- [ ] **`ui/endings.go`**: `schedule` and `complete`, with `endings` and
-  `completed` in a small struct of their own.
-- [ ] **`ui/message.go`**: `message`, `readMessage`, `handle`.
-- [ ] **Report windows off the bar's lock**: move `reports` and `lastWindow` into a
-  `reportWindows` struct in `report.go`, with its own mutex.
-- [ ] **Break up `draw()`**: pull the new-card/new-action marking into a pure
-  `arrivals(cards []components.Card, shown map[string]bool) (fresh map[string]int, now map[string]bool)`
-  and unit-test it without a window (runs under `just test`).
-- [ ] **Split `ui_test.go`** (745 lines):
-  - `harness_test.go`: `TestMain`, `recorder`, `eval` / `waitFor` / `eventually`,
-    `show`, `withTheme`, `setTheme`, `testThemes`, `syncBuffer`
-  - `bar_test.go`, `report_test.go`
-  - `message_test.go`: `TestReadMessage`, `TestNavigate`, the new `arrivals` tests
+- [x] **`ui/endings.go`**: an `endings` type (`schedule`, `finish`) holding the
+  timers and completed ends, and `Bar.complete`.
+- [x] **`ui/message.go`**: `message`, `readMessage`, `handle`.
+- [x] **Report windows off the bar's lock**: a `*reportWindows` (`window`, `closed`)
+  in `report.go`, with its own mutex.
+- [x] **Break up `draw()`**: the new-card/new-action marking is the pure
+  `arrivals(cards, shown) (fresh, now)`, unit-tested by `TestArrivals` (runs under
+  `just test`).
+- [x] **Split `ui_test.go`** (745 lines), by subject rather than by whether a test
+  opens a window (each window test skips itself without `LEDGE_GUI_TEST`):
+  - `harness_test.go` (was `ui_test.go`): `TestMain`, `recorder`, `eval` /
+    `waitFor` / `eventually`, `show`, `withTheme`, `setTheme`, `showReport`,
+    `testThemes`, `syncBuffer`
+  - `bar_test.go`: rendering, morphing, entering and leaving, themes, the wheel,
+    timers counting down, `TestArrivals`
+  - `message_test.go`: `TestReadMessage`, clicks, refused and non-JSON messages
+  - `report_test.go`: the report windows, and `TestNavigate`
   - `endings_test.go`: `TestComplete`
 
 Verify: `just test`, `just gui`.

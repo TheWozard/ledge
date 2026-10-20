@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/a-h/templ"
 
@@ -25,7 +26,7 @@ func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	if err := components.ReportPage(t.Report, title, blocks).Render(context.Background(), &page); err != nil {
 		return err
 	}
-	window := b.reportWindow(id)
+	window := b.reports.window(id)
 	shim.CreateWindow(window, title, 900, 700)
 	shim.SetTitle(window, title)
 	shim.SetAppearance(window, t.Frame.Appearance)
@@ -35,26 +36,40 @@ func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	return nil
 }
 
-// reportWindow is id's report window, given a new one if it hasn't got one open.
-func (b *Bar) reportWindow(id string) int {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	window, ok := b.reports[id]
+// reportWindows is the window of each report that's open, by the id it was shown
+// with. Each report has its own window, its id never reused.
+type reportWindows struct {
+	mu   sync.Mutex
+	byID map[string]int
+	last int // the last window id given out
+}
+
+// newReportWindows is no report windows yet; the first will take the id after the
+// bar's.
+func newReportWindows() *reportWindows {
+	return &reportWindows{byID: map[string]int{}, last: BarWindow}
+}
+
+// window is id's report window, given a new one if it hasn't got one open.
+func (r *reportWindows) window(id string) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	window, ok := r.byID[id]
 	if !ok {
-		b.lastWindow++
-		window = b.lastWindow
-		b.reports[id] = window
+		r.last++
+		window = r.last
+		r.byID[id] = window
 	}
 	return window
 }
 
 // closed forgets a report window that's been closed, so its id opens a new one.
-func (b *Bar) closed(window int) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	for id, w := range b.reports {
+func (r *reportWindows) closed(window int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for id, w := range r.byID {
 		if w == window {
-			delete(b.reports, id)
+			delete(r.byID, id)
 		}
 	}
 }

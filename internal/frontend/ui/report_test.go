@@ -1,0 +1,164 @@
+package ui
+
+import (
+	"fmt"
+	"testing"
+	"time"
+
+	"github.com/a-h/templ"
+
+	"github.com/TheWozard/ledge-frontend/components"
+	"github.com/TheWozard/ledge-frontend/shim"
+	"github.com/TheWozard/ledge-frontend/theme"
+)
+
+// reportBlocks is one of each block, its text partly HTML-looking.
+var reportBlocks = []templ.Component{
+	components.Heading("Summary"),
+	components.Paragraph("<b>not bold</b>\nsecond line"),
+	components.Fields([]components.Field{{Label: "Branch", Value: "main"}, {Label: "Failures", Value: "2"}}),
+	components.Table([]string{"Job", "Result"}, [][]string{{"lint", "ok"}, {"test"}, {"build", "ok", "extra"}}),
+	components.List([]string{"one", "two"}, true),
+	components.Code("$ go test\nFAIL"),
+	components.Note("Flaky", "yellow"),
+	components.Link("The run", "https://example.com/from-report"),
+}
+
+func TestReportWindow(t *testing.T) {
+	gui(t)
+	w := showReport(t, "report", "A report", reportBlocks)
+	waitIn(t, w, `document.querySelector(".titlebar span")?.textContent`, `"A report"`)
+	for js, want := range map[string]string{
+		`[...document.querySelectorAll("main > article > *")].map(e => e.tagName).join(" ")`: `"H2 P DL DIV OL PRE DIV P"`,
+		`document.querySelector("p").textContent`:                                            `"<b>not bold</b>\nsecond line"`,
+		`document.querySelector("p b") === null`:                                             "true",
+		`[...document.querySelectorAll("dd")].map(e => e.textContent).join()`:                `"main,2"`,
+		`[...document.querySelectorAll("tbody tr")].map(r => r.children.length).join()`:      `"2,2,2"`,
+		`document.querySelector(".note").dataset.color`:                                      `"yellow"`,
+		// <main> has the keys.
+		`document.activeElement.tagName`: `"MAIN"`,
+		// The page can't post to the app.
+		`!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.ledge)`: "true",
+	} {
+		if got := evalIn(t, w, js); got != want {
+			t.Errorf("%s = %s, want %s", js, got, want)
+		}
+	}
+	// The link goes to OpenURL, and the report stays put.
+	evalIn(t, w, `document.querySelector("a").click(), true`)
+	eventually(t, "OpenURL", func() bool { return calls.has("url https://example.com/from-report") })
+	if got := evalIn(t, w, `location.href`); got != `"about:blank"` {
+		t.Errorf("the link moved the report to %s", got)
+	}
+	// Showing its id again replaces it, in the same window.
+	if again := showReport(t, "report", "Another", []templ.Component{components.Paragraph("Second version")}); again != w {
+		t.Errorf("showing the same id again opened window %d, not %d", again, w)
+	}
+	waitIn(t, w, `document.querySelector("p")?.textContent`, `"Second version"`)
+}
+
+// Each theme loads in a report.
+func TestReportThemes(t *testing.T) {
+	gui(t)
+	defer setTheme(theme.Builtins.Default())
+	for _, name := range themes(t) {
+		setTheme(name)
+		w := showReport(t, "report", "Themed report", reportBlocks)
+		// Each report stylesheet starts with a comment naming its theme.
+		waitIn(t, w, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* `+name+`:"))`, "true")
+		waitIn(t, w, `document.querySelectorAll("main > article > *").length`, fmt.Sprint(len(reportBlocks)))
+	}
+}
+
+// The report page can move and close its own window and nothing else; the bar page
+// can't do even that. A frameless theme's buttons, drawn by the page, work.
+func TestReportFrame(t *testing.T) {
+	gui(t)
+	defer setTheme(theme.Builtins.Default())
+	if got := eval(t, `!!window.webkit.messageHandlers.frame`); got != "false" {
+		t.Error("the bar page has the frame handler")
+	}
+	blocks := []templ.Component{components.Paragraph("Framed")}
+	w := showReport(t, "report", "Framed report", blocks)
+	waitIn(t, w, `document.querySelector(".titlebar span")?.textContent`, `"Framed report"`)
+	if got := evalIn(t, w, `!!window.webkit.messageHandlers.frame`); got != "true" {
+		t.Fatal("the report page has no frame handler")
+	}
+	// Anything but the four actions is dropped, and a drag needs the mouse held down.
+	evalIn(t, w, `["open", {action: "close"}, 1, "drag"].forEach(m => window.webkit.messageHandlers.frame.postMessage(m)), true`)
+	time.Sleep(200 * time.Millisecond)
+	if !shim.WindowVisible(w) {
+		t.Fatal("a message other than close closed the report window")
+	}
+
+	// In a frameless theme, the page's close button closes the window.
+	setTheme("frameless")
+	w = showReport(t, "report", "Framed report", blocks)
+	waitIn(t, w, `[...document.querySelectorAll("style")].some(s => s.textContent.includes("/* frameless:"))`, "true")
+	evalIn(t, w, `document.querySelector(".titlebar .close").click(), true`)
+	eventually(t, "the report window to close", func() bool { return !shim.WindowVisible(w) })
+
+	// Closed, it's gone: showing its id again opens a new window. Its minimise button
+	// works without a title bar too, and showing it brings it back.
+	closed := w
+	eventually(t, "the closed window to be forgotten", func() bool { return testBar.reports.window("report") != closed })
+	w = showReport(t, "report", "Framed report", blocks)
+	if w == closed {
+		t.Errorf("showing a closed report's id again reused window %d", w)
+	}
+	eventually(t, "the report window to open", func() bool { return shim.WindowVisible(w) })
+	waitIn(t, w, `document.querySelector(".titlebar .minimise") !== null`, "true")
+	evalIn(t, w, `document.querySelector(".titlebar .minimise").click(), true`)
+	eventually(t, "the report window to minimise", func() bool { return !shim.WindowVisible(w) })
+	w = showReport(t, "report", "Framed report", blocks)
+	eventually(t, "the report window to come back", func() bool { return shim.WindowVisible(w) })
+}
+
+// Each id has its own report window, opened down and to the right of the last;
+// closing one leaves the others.
+func TestReportWindowPerID(t *testing.T) {
+	gui(t)
+	a := showReport(t, "card-a", "Report A", []templ.Component{components.Paragraph("A")})
+	b := showReport(t, "card-b", "Report B", []templ.Component{components.Paragraph("B")})
+	if a == b || a == BarWindow || b == BarWindow {
+		t.Fatalf("card-a and card-b have windows %d and %d", a, b)
+	}
+	waitIn(t, a, `document.querySelector("p")?.textContent`, `"A"`)
+	waitIn(t, b, `document.querySelector("p")?.textContent`, `"B"`)
+	if fa, fb := shim.WindowFrame(a), shim.WindowFrame(b); !(fb.X > fa.X && fb.Y < fa.Y) {
+		t.Errorf("card-a's window is at %+v and card-b's at %+v, want b down and to the right", fa, fb)
+	}
+
+	evalIn(t, a, `window.webkit.messageHandlers.frame.postMessage("close"), true`)
+	eventually(t, "card-a's window to close", func() bool { return !shim.WindowVisible(a) })
+	if !shim.WindowVisible(b) {
+		t.Error("closing card-a's window closed card-b's")
+	}
+	if _, err := shim.EvalResult(a, `1`); err == nil {
+		t.Error("card-a's closed window still has its page")
+	}
+	evalIn(t, b, `window.webkit.messageHandlers.frame.postMessage("close"), true`)
+	eventually(t, "card-b's window to close", func() bool { return !shim.WindowVisible(b) })
+}
+
+func TestNavigate(t *testing.T) {
+	bar := &Bar{handlers: Handlers{OpenURL: func(string) {}}}
+	for _, c := range []struct {
+		window  int
+		url     string
+		clicked bool
+		want    bool
+	}{
+		{BarWindow, "about:blank", false, true},
+		{BarWindow, "https://example.com", true, false},
+		{BarWindow + 1, "about:blank", false, true},
+		{BarWindow + 1, "file:///etc/hosts", true, false},
+		{BarWindow + 1, "https://example.com", false, false},
+		{BarWindow + 1, "https://example.com", true, false}, // to OpenURL instead
+		{BarWindow + 1, "javascript:alert(1)", true, false},
+	} {
+		if got := bar.navigate(c.window, c.url, c.clicked); got != c.want {
+			t.Errorf("navigate(%d, %s, %v) = %v, want %v", c.window, c.url, c.clicked, got, c.want)
+		}
+	}
+}
