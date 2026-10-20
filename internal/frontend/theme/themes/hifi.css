@@ -8,9 +8,9 @@
 body { color: #222; font: 700 9px/1.2 "Helvetica Neue", Helvetica, Arial, sans-serif; }
 #app { background: repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 1px, rgba(0,0,0,.035) 1px 2px, transparent 2px 4px),
                    linear-gradient(#ececea, #bdbdb9 85%, #9c9c98);
-       border-top: 1px solid #fff; box-shadow: inset 0 -2px 0 #777; padding: 9px 12px; gap: 14px; }
+       border-top: 1px solid #fff; box-shadow: inset 0 -2px 0 #777; --pad-top: 9px; --pad-x: 12px; --pad-bottom: 9px; --frame-bottom: 2px; gap: 14px; }
 
-.pills { gap: 7px; padding: 3px 4px 0; }
+.pills { gap: 7px; padding-inline: 4px; }
 .pill { height: 18px; padding: 0 2px; gap: 9px; }
 .pill .dot { width: 9px; height: 9px; border-radius: 50%;
              background: radial-gradient(circle at 35% 30%, #fff 0 10%, var(--pill) 45%, color-mix(in srgb, var(--pill) 45%, #000));

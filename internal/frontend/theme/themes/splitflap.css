@@ -1,0 +1,56 @@
+/* splitflap: a departures board. A card is a row of the board, its title on lettered
+   flaps; priority lights the lamp at its left: red and blinking, amber, green, or off.
+   Cards and pills clatter through a few flips to arrive, and flip away to leave. */
+:root { --bar: #141414; --c-green: #3ddc68; --c-yellow: #ffc72c; --c-red: #ff4d3d; --c-blue: #4da8ff; --c-gray: #6b6b6b;
+        --amber: #ffc72c; --flap: #303030; --mono: ui-monospace, Menlo, monospace; }
+body { color: #f2f2f2; font: 600 11px/1.3 var(--mono); text-transform: uppercase; }
+#app { background: linear-gradient(#1f1f1f, #121212); border-top: 3px solid #3a3a3a; box-shadow: inset 0 1px #000;
+       --pad-x: 10px; gap: 10px; }
+body.top #app { border-top: 0; border-bottom: 3px solid #3a3a3a; box-shadow: inset 0 -1px #000; }
+
+/* A pill is one wide flap, split across the middle. */
+.pill { height: 22px; padding: 0 9px 0 7px; gap: 7px; border-radius: 2px; font-weight: 700; font-size: 12px;
+        background: linear-gradient(transparent 10.5px, #000 0 11.5px, transparent 0), linear-gradient(#2c2c2c, #222);
+        box-shadow: 0 1px 0 #000; }
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pill); box-shadow: 0 0 6px var(--pill); }
+.pill[data-color=gray] .dot { box-shadow: none; }
+.pill.runs:hover, .pill.opens .label:hover { color: var(--amber); }
+
+li { --lamp: #333; width: 290px; padding: 6px 10px 5px 20px; border-radius: 3px; background: #121212;
+     box-shadow: inset 0 0 0 1px #000, inset 0 1px 0 #2c2c2c; }
+li::before { content: ""; position: absolute; left: 7px; top: 12px; width: 7px; height: 7px; border-radius: 50%; background: var(--lamp); }
+li.high { --lamp: var(--c-red); }
+li.medium { --lamp: var(--amber); }
+li.low { --lamp: var(--c-green); }
+li.high::before, li.medium::before, li.low::before { box-shadow: 0 0 6px var(--lamp); }
+li.high::before { animation: blink 1s steps(1) infinite; }
+/* The title on a flap per letter, blank ones filling out the row, each split across the
+   middle: from the top, the split, the gap under each row of flaps, then the flaps. */
+.title { margin-right: 22px; font: 700 15px/20px var(--mono); letter-spacing: 0;
+         background: linear-gradient(transparent 9.5px, #000 0 10.5px, transparent 0) 0 0 / 100% 20px,
+                     linear-gradient(transparent 19px, #121212 0) 0 0 / 100% 20px,
+                     repeating-linear-gradient(90deg, var(--flap) 0 calc(1ch - 2px), transparent 0 1ch); }
+li.opens:hover .title { color: var(--amber); }
+.description { margin-top: 3px; color: var(--amber); font-weight: 500; }
+.meta { color: #9a9a9a; font-size: 10px; letter-spacing: .04em; }
+.tag { padding: 0 4px; border-radius: 1px; background: #e8e8e8; color: #111; line-height: 14px; font-weight: 700; }
+.dismiss { top: 5px; color: #777; font-size: 16px; }
+.dismiss:hover { color: #fff; }
+
+.empty { color: #777; font-weight: 700; font-size: 12px; letter-spacing: .1em; }
+
+.pill.ran { animation: flip .1s linear 2; }
+
+/* Entering and leaving: a card's flaps clatter round, blank, three times before they
+   land on it; to leave, they flip on to blank and away. A pill does the same, quicker. */
+li[data-new] { animation: flip .1s linear 4 backwards; animation-delay: calc(var(--i) * 120ms); }
+li[data-new] > * { animation: blank .3s steps(1) backwards; animation-delay: calc(var(--i) * 120ms); }
+.pill[data-new] { animation: flip .1s linear 3 backwards; animation-delay: calc(var(--i) * 80ms); }
+.pill[data-new] > * { animation: blank .2s steps(1) backwards; animation-delay: calc(var(--i) * 80ms); }
+li[data-leaving] { animation: flip-away .1s linear 3 both, collapse .2s .3s ease-in-out both; }
+.pill[data-leaving] { animation: flip-away .1s linear 2 both, collapse .15s .2s ease-in-out both; }
+li[data-leaving] > *, .pill[data-leaving] > * { animation: blank-out .1s steps(1) both; }
+@keyframes flip { from { transform: perspective(400px) rotateX(-90deg); filter: brightness(.5); } }
+@keyframes flip-away { to { transform: perspective(400px) rotateX(90deg); filter: brightness(.5); } }
+@keyframes blank { from { opacity: 0; } }
+@keyframes blank-out { to { opacity: 0; } }

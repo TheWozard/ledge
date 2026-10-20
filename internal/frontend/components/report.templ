@@ -34,21 +34,27 @@ templ ReportPage(themeCSS string, title string, blocks []templ.Component) {
 	   The page itself never scrolls: macOS's rubber-band bounce would pull the title
 	   bar and a drawn border away from the window's edges. <main> scrolls instead, in
 	   the space under the title bar; a theme that draws a border sets its inset to keep
-	   inside it, and can style its scroll bar with main::-webkit-scrollbar. */
+	   inside it, and can style its scroll bar with main::-webkit-scrollbar.
+
+	   The blocks are in an <article> in <main>, at least as tall as it and padded, so a
+	   background that scrolls with them, such as ruled lines, goes on the <article>.
+	   One on <main> with background-attachment: local drifts against them as it
+	   scrolls in WebKit. */
 	:root { --titlebar: 28px; }
 	* { box-sizing: border-box; }
 	html { background: var(--page); }
 	html, body { height: 100%; overflow: hidden; }
 	body { margin: 0; overflow-wrap: anywhere; }
-	main { position: absolute; inset: var(--titlebar) 0 0; overflow-x: hidden; overflow-y: auto; padding: 18px 24px 28px; }
+	main { position: absolute; inset: var(--titlebar) 0 0; overflow-x: hidden; overflow-y: auto; }
 	main:focus { outline: none; }
 	.titlebar { position: fixed; z-index: 1; top: 0; left: 0; right: 0; height: var(--titlebar); padding: 0 78px;
 	            line-height: var(--titlebar); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 	            -webkit-user-select: none; cursor: default; }
 	.titlebar button { display: none; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: default; }
-	main > * { margin: 0; }
-	main > * + * { margin-top: 12px; }
-	main > h2:first-child { margin-top: 0 !important; }
+	article { min-height: 100%; padding: 18px 24px 28px; }
+	article > * { margin: 0; }
+	article > * + * { margin-top: 12px; }
+	article > h2:first-child { margin-top: 0 !important; }
 	h2 { font-size: 1.15em; margin-top: 20px !important; }
 	p { white-space: pre-wrap; }
 	dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; }
@@ -66,9 +72,11 @@ templ ReportPage(themeCSS string, title string, blocks []templ.Component) {
 		<body>
 			<header class="titlebar"><span>{ title }</span><button class="minimise" title="Minimise" aria-label="Minimise"></button><button class="zoom" title="Zoom" aria-label="Zoom"></button><button class="close" title="Close" aria-label="Close"></button></header>
 			<main tabindex="-1">
-				for _, block := range blocks {
-					@block
-				}
+				<article>
+					for _, block := range blocks {
+						@block
+					}
+				</article>
 			</main>
 			<script>
 	const titlebar = document.querySelector(".titlebar");

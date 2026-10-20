@@ -44,7 +44,7 @@ func BarPage(themeCSS string, edge string) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><style>\n\t/* Layout only. How the bar looks comes from its theme, added after this, so a\n\t   theme's rules win over these. A theme sets --bar to an opaque colour for the\n\t   page behind the bar, and --c-green, --c-yellow, --c-red, --c-blue and --c-gray\n\t   for pills.\n\n\t   A pill carries its current colour in data-color.\n\n\t   Entering and leaving: a pill or card new since the last render has data-new and\n\t   --i, its place among the new ones of its kind, for an entrance animation; the\n\t   next render takes them off. An entrance should fill backwards, not both: it ends\n\t   at how the element looks anyway, and WebKit can hold a stepped one a step short\n\t   of its end. Each render morphs the page rather than replacing\n\t   it, so that only plays for what's really new. A pill or card that's gone stays,\n\t   with data-leaving, until its animations end, then goes. A theme's exit should\n\t   end with \"collapse\", which closes up the space it leaves so what follows slides\n\t   into place; without one, it just collapses. */\n\t* { box-sizing: border-box; }\n\thtml, body { margin: 0; height: 100%; background: var(--bar); overflow: hidden; }\n\t/* The bar stays put against the window's edges: no rubber-band bounce. */\n\thtml { overscroll-behavior: none; }\n\tbody { -webkit-user-select: none; cursor: default; }\n\n\t/* The bar fills the window: status pills on the left, then the scrolling row of cards. */\n\t#app { position: relative; display: flex; height: 100%; gap: 8px; padding: 8px; }\n\n\t/* Status pills stack in one column that scrolls vertically when they don't fit. */\n\t.pills { flex: none; display: flex; flex-direction: column; gap: 4px; max-width: 50%;\n\t         overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }\n\t.pills::-webkit-scrollbar { display: none; }\n\t.pill { position: relative; flex: none; display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px;\n\t        white-space: nowrap; }\n\t.pill .dot { flex: none; }\n\t.pill.opens .label { cursor: pointer; }\n\t/* A pill with a command is a button: clicking it runs the command. */\n\t.pill.runs { cursor: pointer; }\n\n\tul { flex: 1; min-width: 0; list-style: none; margin: 0; padding: 0; display: flex; gap: 8px;\n\t     overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }\n\tul::-webkit-scrollbar { display: none; }\n\tli { position: relative; flex: none; width: 280px; height: 100%; display: flex; flex-direction: column; overflow: hidden; }\n\t/* A card with a report or a url opens it when clicked. */\n\tli.opens { cursor: pointer; }\n\t/* Title, description, then the meta line pinned to the bottom: source and age on the\n\t   left, tags on the right. Title and description clamp; the description gives way\n\t   first if the card runs out of height. If the tags don't fit, they're the ones cut. */\n\t.tags { display: flex; justify-content: flex-end; gap: 4px; overflow: hidden; min-width: 0; margin-left: auto; }\n\t/* Only the title shares the top line with ×, so only it keeps clear of it. */\n\t.title { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; -webkit-line-clamp: 2; flex: none;\n\t         margin-right: 16px; }\n\t.description { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; -webkit-line-clamp: 2;\n\t               min-height: 0; flex: 0 1 auto; }\n\t.meta .when { flex: none; }\n\t.meta { display: flex; flex-wrap: nowrap; align-items: center; gap: 4px; margin-top: auto; padding-top: 3px;\n\t        white-space: nowrap; overflow: hidden; }\n\t.tag { display: inline-block; flex: none; }\n\n\t.dismiss { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border: 0; padding: 0;\n\t           background: none; color: inherit; font: inherit; cursor: pointer; }\n\n\t.empty { flex: 1; display: flex; align-items: center; }\n\t/* The column and the row are always there, so the last of them can leave; empty,\n\t   they're hidden, and \"No events.\" shows once the last card has gone. */\n\t.pills:empty, ul:empty { display: none; }\n\tul:not(:empty) ~ .empty { display: none; }\n\n\t/* --collapse-x and --collapse-y are set on a leaving element to minus the room it\n\t   takes in its row or column, gap included. */\n\t[data-leaving] { pointer-events: none; animation: collapse .2s ease-in-out both; }\n\t@keyframes collapse { to { margin-right: var(--collapse-x, 0); margin-bottom: var(--collapse-y, 0); } }\n\t@keyframes blink { 50% { opacity: 0; } }\n\t\t\t</style>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><style>\n\t/* Layout only. How the bar looks comes from its theme, added after this, so a\n\t   theme's rules win over these. A theme sets --bar to an opaque colour for the\n\t   page behind the bar, and --c-green, --c-yellow, --c-red, --c-blue and --c-gray\n\t   for pills.\n\n\t   A pill carries its current colour in data-color.\n\n\t   Entering and leaving: a pill or card new since the last render has data-new and\n\t   --i, its place among the new ones of its kind, for an entrance animation; the\n\t   next render takes them off. An entrance should fill backwards, not both: it ends\n\t   at how the element looks anyway, and WebKit can hold a stepped one a step short\n\t   of its end. Each render morphs the page rather than replacing\n\t   it, so that only plays for what's really new. A pill or card that's gone stays,\n\t   with data-leaving, until its animations end, then goes. A theme's exit should\n\t   end with \"collapse\", which closes up the space it leaves so what follows slides\n\t   into place; without one, it just collapses. */\n\t* { box-sizing: border-box; }\n\thtml, body { margin: 0; height: 100%; background: var(--bar); overflow: hidden; }\n\t/* The bar stays put against the window's edges: no rubber-band bounce. */\n\thtml { overscroll-behavior: none; }\n\tbody { -webkit-user-select: none; cursor: default; }\n\n\t/* The bar fills the window: status pills on the left, then the scrolling row of cards.\n\t   A theme sets its padding with --pad-top, --pad-x and --pad-bottom, not padding, as\n\t   the pills use them too. --frame-top and --frame-bottom are how much of the top and\n\t   bottom padding is the bar's frame, such as a bevel drawn with an inset shadow,\n\t   which the pills stop at. */\n\t#app { --pad-top: 8px; --pad-x: 8px; --pad-bottom: 8px; --frame-top: 0px; --frame-bottom: 0px;\n\t       position: relative; display: flex; height: 100%; gap: 8px;\n\t       padding: var(--pad-top) var(--pad-x) var(--pad-bottom); }\n\n\t/* Status pills stack in one column that scrolls vertically when they don't fit. The\n\t   column runs through the bar's padding to its frame, padded the same inside, so the\n\t   pills rest inside the padding but scroll out to the frame, not cut off short of it.\n\t   A theme can pad it sideways. */\n\t.pills { flex: none; display: flex; flex-direction: column; gap: 4px; max-width: 50%;\n\t         margin: calc(var(--frame-top) - var(--pad-top)) 0 calc(var(--frame-bottom) - var(--pad-bottom));\n\t         padding-block: calc(var(--pad-top) - var(--frame-top)) calc(var(--pad-bottom) - var(--frame-bottom));\n\t         overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }\n\t.pills::-webkit-scrollbar { display: none; }\n\t.pill { position: relative; flex: none; display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px;\n\t        white-space: nowrap; }\n\t.pill .dot { flex: none; }\n\t.pill.opens .label { cursor: pointer; }\n\t/* A pill with a command is a button: clicking it runs the command. */\n\t.pill.runs { cursor: pointer; }\n\n\tul { flex: 1; min-width: 0; list-style: none; margin: 0; padding: 0; display: flex; gap: 8px;\n\t     overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }\n\tul::-webkit-scrollbar { display: none; }\n\tli { position: relative; flex: none; width: 280px; height: 100%; display: flex; flex-direction: column; overflow: hidden; }\n\t/* A card with a report or a url opens it when clicked. */\n\tli.opens { cursor: pointer; }\n\t/* Title, description, then the meta line pinned to the bottom: source and age on the\n\t   left, tags on the right. Title and description clamp; the description gives way\n\t   first if the card runs out of height. If the tags don't fit, they're the ones cut. */\n\t.tags { display: flex; justify-content: flex-end; gap: 4px; overflow: hidden; min-width: 0; margin-left: auto; }\n\t/* Only the title shares the top line with ×, so only it keeps clear of it. */\n\t.title { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; -webkit-line-clamp: 2; flex: none;\n\t         margin-right: 16px; }\n\t.description { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; -webkit-line-clamp: 2;\n\t               min-height: 0; flex: 0 1 auto; }\n\t.meta .when { flex: none; }\n\t.meta { display: flex; flex-wrap: nowrap; align-items: center; gap: 4px; margin-top: auto; padding-top: 3px;\n\t        white-space: nowrap; overflow: hidden; }\n\t.tag { display: inline-block; flex: none; }\n\n\t.dismiss { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border: 0; padding: 0;\n\t           background: none; color: inherit; font: inherit; cursor: pointer; }\n\n\t.empty { flex: 1; display: flex; align-items: center; }\n\t/* The column and the row are always there, so the last of them can leave; empty,\n\t   they're hidden, and \"No events.\" shows once the last card has gone. */\n\t.pills:empty, ul:empty { display: none; }\n\tul:not(:empty) ~ .empty { display: none; }\n\n\t/* --collapse-x and --collapse-y are set on a leaving element to minus the room it\n\t   takes in its row or column, gap included. */\n\t[data-leaving] { pointer-events: none; animation: collapse .2s ease-in-out both; }\n\t@keyframes collapse { to { margin-right: var(--collapse-x, 0); margin-bottom: var(--collapse-y, 0); } }\n\t@keyframes blink { 50% { opacity: 0; } }\n\t\t\t</style>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -187,7 +187,7 @@ func pill(p Pill, now time.Time, fresh map[string]int) templ.Component {
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(p.ElementID())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 218, Col: 20}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 229, Col: 20}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -218,7 +218,7 @@ func pill(p Pill, now time.Time, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(templ.SafeCSS("--pill: " + cssColor(p.ColorAt(now)) + "; " + entering(i)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 222, Col: 84}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 233, Col: 84}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -236,7 +236,7 @@ func pill(p Pill, now time.Time, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(templ.SafeCSS("--pill: " + cssColor(p.ColorAt(now))))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 224, Col: 63}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 235, Col: 63}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -254,7 +254,7 @@ func pill(p Pill, now time.Time, fresh map[string]int) templ.Component {
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(p.ColorAt(now))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 226, Col: 29}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 237, Col: 29}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
@@ -272,7 +272,7 @@ func pill(p Pill, now time.Time, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(hint)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 228, Col: 15}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 239, Col: 15}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -291,7 +291,7 @@ func pill(p Pill, now time.Time, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var13 string
 			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(p.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 232, Col: 17}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 243, Col: 17}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -314,7 +314,7 @@ func pill(p Pill, now time.Time, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var14 string
 			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(p.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 237, Col: 56}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 248, Col: 56}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 			if templ_7745c5c3_Err != nil {
@@ -327,7 +327,7 @@ func pill(p Pill, now time.Time, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 237, Col: 68}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 248, Col: 68}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 			if templ_7745c5c3_Err != nil {
@@ -345,7 +345,7 @@ func pill(p Pill, now time.Time, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var16 string
 			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(p.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 239, Col: 32}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 250, Col: 32}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 			if templ_7745c5c3_Err != nil {
@@ -399,7 +399,7 @@ func card(c Card, now time.Time, fresh map[string]int) templ.Component {
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(c.ElementID())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 248, Col: 20}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 259, Col: 20}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
@@ -430,7 +430,7 @@ func card(c Card, now time.Time, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(c.Hint)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 251, Col: 17}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 262, Col: 17}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {
@@ -449,7 +449,7 @@ func card(c Card, now time.Time, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var22 string
 			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(c.ID)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 255, Col: 17}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 266, Col: 17}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 			if templ_7745c5c3_Err != nil {
@@ -468,7 +468,7 @@ func card(c Card, now time.Time, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var23 string
 			templ_7745c5c3_Var23, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(templ.SafeCSS(entering(i)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 259, Col: 37}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 270, Col: 37}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 			if templ_7745c5c3_Err != nil {
@@ -486,7 +486,7 @@ func card(c Card, now time.Time, fresh map[string]int) templ.Component {
 		var templ_7745c5c3_Var24 string
 		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(c.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 262, Col: 78}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 273, Col: 78}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 		if templ_7745c5c3_Err != nil {
@@ -499,7 +499,7 @@ func card(c Card, now time.Time, fresh map[string]int) templ.Component {
 		var templ_7745c5c3_Var25 string
 		templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(c.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 263, Col: 31}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 274, Col: 31}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 		if templ_7745c5c3_Err != nil {
@@ -517,7 +517,7 @@ func card(c Card, now time.Time, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var26 string
 			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(c.Description)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 265, Col: 43}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 276, Col: 43}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 			if templ_7745c5c3_Err != nil {
@@ -535,7 +535,7 @@ func card(c Card, now time.Time, fresh map[string]int) templ.Component {
 		var templ_7745c5c3_Var27 string
 		templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(c.Source)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 268, Col: 32}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 279, Col: 32}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 		if templ_7745c5c3_Err != nil {
@@ -548,7 +548,7 @@ func card(c Card, now time.Time, fresh map[string]int) templ.Component {
 		var templ_7745c5c3_Var28 string
 		templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(ago(c.Received, now))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 268, Col: 60}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 279, Col: 60}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 		if templ_7745c5c3_Err != nil {
@@ -571,7 +571,7 @@ func card(c Card, now time.Time, fresh map[string]int) templ.Component {
 				var templ_7745c5c3_Var29 string
 				templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.JoinStringErrs(tag)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 272, Col: 29}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 283, Col: 29}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var29))
 				if templ_7745c5c3_Err != nil {

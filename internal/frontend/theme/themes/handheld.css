@@ -5,7 +5,7 @@
 :root { --g0: #0f380f; --g1: #306230; --g2: #8bac0f; --g3: #9bbc0f; --bar: var(--g3);
         --c-green: var(--g0); --c-yellow: var(--g0); --c-red: var(--g0); --c-blue: var(--g0); --c-gray: var(--g0); }
 body { color: var(--g0); font: 10px/1.3 "Silkscreen", ui-monospace, monospace; }
-#app { background: var(--g3); border-top: 8px solid #545468; padding: 8px; gap: 10px; }
+#app { background: var(--g3); border-top: 8px solid #545468; gap: 10px; }
 body.top #app { border-top: 0; border-bottom: 8px solid #545468; }
 /* The LCD's pixel grid. */
 #app::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 5; background-size: 3px 3px;

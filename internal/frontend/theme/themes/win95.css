@@ -5,8 +5,8 @@
         --sunken: inset -1px -1px #fff, inset 1px 1px #0a0a0a, inset -2px -2px #dfdfdf, inset 2px 2px #808080;
         --field: inset -1px -1px #fff, inset 1px 1px #808080; }
 body { color: #000; font: 11px/1.3 Tahoma, Verdana, sans-serif; }
-#app { background: #c0c0c0; box-shadow: inset 0 1px #dfdfdf, inset 0 2px #fff; padding: 6px 4px 4px; gap: 5px; }
-body.top #app { box-shadow: inset 0 -1px #0a0a0a, inset 0 -2px #808080; }
+#app { background: #c0c0c0; box-shadow: inset 0 1px #dfdfdf, inset 0 2px #fff; --pad-top: 6px; --pad-x: 4px; --pad-bottom: 4px; --frame-top: 2px; gap: 5px; }
+body.top #app { box-shadow: inset 0 -1px #0a0a0a, inset 0 -2px #808080; --frame-top: 0px; --frame-bottom: 2px; }
 
 .pills { gap: 3px; }
 /* A pill is a grey button with a chip in its colour, bevelled like a tiny button. */

@@ -1,0 +1,47 @@
+/* aqua: the report as a Mac OS X window: pinstripes, gel traffic lights that show
+   their symbols under the mouse, list-view tables and Aqua's blue scroll bars. */
+:root { --page: #ececec; --titlebar: 22px; --c-green: #3fbf3f; --c-yellow: #f5b800; --c-red: #e8392f; --c-blue: #3a8ee6; --c-gray: #9a9a9a;
+        --lucida: "Lucida Grande", "Helvetica Neue", sans-serif; }
+html { background: repeating-linear-gradient(#f4f4f4 0 2px, #e9e9e9 2px 4px) #ececec; }
+body { color: #000; font: 13px/1.45 var(--lucida); }
+.titlebar { padding: 0 70px; border-bottom: 1px solid #8f8f8f; color: #222; text-shadow: 0 1px #fff; font: 13px var(--lucida); line-height: var(--titlebar);
+            background: linear-gradient(rgba(255,255,255,.65), rgba(255,255,255,0)), repeating-linear-gradient(#ececec 0 1px, #dcdcdc 1px 2px); }
+/* A gel bead, in --gel: the traffic lights and a note's mark. */
+.titlebar button, .note::before {
+  background: radial-gradient(ellipse 60% 40% at 50% 25%, rgba(255,255,255,.95), rgba(255,255,255,0)),
+              radial-gradient(circle at 50% 90%, color-mix(in srgb, var(--gel) 40%, #fff), var(--gel) 65%, color-mix(in srgb, var(--gel) 70%, #000));
+  box-shadow: inset 0 0 0 .5px rgba(0,0,0,.45), 0 1px 1px rgba(0,0,0,.15); border-radius: 50%; }
+.titlebar button { display: block; position: absolute; top: 4px; width: 13px; height: 13px;
+                   color: rgba(0,0,0,.55); font: bold 10px/13px var(--lucida); text-align: center; text-shadow: none; }
+.titlebar button:active { filter: brightness(.7); }
+.titlebar .close { left: 8px; --gel: #e8392f; }
+.titlebar .minimise { left: 28px; --gel: #f5b800; }
+.titlebar .zoom { left: 48px; --gel: #3fbf3f; }
+.titlebar:hover .close::before { content: "×"; }
+.titlebar:hover .minimise::before { content: "–"; }
+.titlebar:hover .zoom::before { content: "+"; }
+/* The window has no macOS frame, so the page draws its outline. */
+html::after { content: ""; position: fixed; z-index: 2; inset: 0; pointer-events: none; border: 1px solid #6f6f6f; }
+main { inset: var(--titlebar) 1px 1px; }
+/* Scroll bars: a blue gel thumb in a white channel. */
+::-webkit-scrollbar { width: 15px; height: 15px; }
+::-webkit-scrollbar-track:vertical { background: linear-gradient(90deg, #cfcfcf, #f4f4f4 35%, #fff 60%, #e4e4e4); }
+::-webkit-scrollbar-track:horizontal { background: linear-gradient(#cfcfcf, #f4f4f4 35%, #fff 60%, #e4e4e4); }
+::-webkit-scrollbar-thumb { border: 1px solid #2f63a8; border-radius: 8px; }
+::-webkit-scrollbar-thumb:vertical { background: linear-gradient(90deg, #3c7fd6, #8fc2f7 35%, #c3e1ff 50%, #6aa8ef 70%, #2e6fc8); }
+::-webkit-scrollbar-thumb:horizontal { background: linear-gradient(#8fc2f7, #c3e1ff 35%, #6aa8ef 55%, #3c7fd6); }
+::-webkit-scrollbar-corner { background: #ececec; }
+h2 { font: bold 13px var(--lucida); padding-bottom: 3px; border-bottom: 1px solid #bdbdbd; }
+/* Fields in a group box. */
+dl { padding: 8px 12px; border: 1px solid #c4c4c4; border-radius: 6px; background: rgba(0,0,0,.035); }
+dt { color: #444; font-weight: bold; text-align: right; }
+.table { border: 1px solid #9a9a9a; background: #fff; }
+th { padding: 2px 10px; border-right: 1px solid #b5b5b5; border-bottom: 1px solid #9a9a9a; font: 11px var(--lucida);
+     background: linear-gradient(#fdfdfd, #ececec 50%, #dcdcdc 51%, #f0f0f0); }
+td { padding: 2px 10px; }
+tbody tr:nth-child(even) td { background: #edf3fe; }
+pre { padding: 8px 10px; border: 1px solid #9a9a9a; background: #fff; box-shadow: inset 0 1px 2px rgba(0,0,0,.2); font: 11px/1.45 Monaco, Menlo, monospace; }
+.note { position: relative; padding: 10px 12px 10px 36px; border: 1px solid #b3b3b3; border-radius: 8px;
+        background: rgba(255,255,255,.75); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+.note::before { content: ""; position: absolute; left: 12px; top: 13px; width: 14px; height: 14px; --gel: var(--note); }
+a { color: #1d5fd1; }

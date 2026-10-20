@@ -43,11 +43,22 @@ templ BarPage(themeCSS string, edge string) {
 	html { overscroll-behavior: none; }
 	body { -webkit-user-select: none; cursor: default; }
 
-	/* The bar fills the window: status pills on the left, then the scrolling row of cards. */
-	#app { position: relative; display: flex; height: 100%; gap: 8px; padding: 8px; }
+	/* The bar fills the window: status pills on the left, then the scrolling row of cards.
+	   A theme sets its padding with --pad-top, --pad-x and --pad-bottom, not padding, as
+	   the pills use them too. --frame-top and --frame-bottom are how much of the top and
+	   bottom padding is the bar's frame, such as a bevel drawn with an inset shadow,
+	   which the pills stop at. */
+	#app { --pad-top: 8px; --pad-x: 8px; --pad-bottom: 8px; --frame-top: 0px; --frame-bottom: 0px;
+	       position: relative; display: flex; height: 100%; gap: 8px;
+	       padding: var(--pad-top) var(--pad-x) var(--pad-bottom); }
 
-	/* Status pills stack in one column that scrolls vertically when they don't fit. */
+	/* Status pills stack in one column that scrolls vertically when they don't fit. The
+	   column runs through the bar's padding to its frame, padded the same inside, so the
+	   pills rest inside the padding but scroll out to the frame, not cut off short of it.
+	   A theme can pad it sideways. */
 	.pills { flex: none; display: flex; flex-direction: column; gap: 4px; max-width: 50%;
+	         margin: calc(var(--frame-top) - var(--pad-top)) 0 calc(var(--frame-bottom) - var(--pad-bottom));
+	         padding-block: calc(var(--pad-top) - var(--frame-top)) calc(var(--pad-bottom) - var(--frame-bottom));
 	         overflow-x: hidden; overflow-y: auto; scrollbar-width: none; }
 	.pills::-webkit-scrollbar { display: none; }
 	.pill { position: relative; flex: none; display: flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px;

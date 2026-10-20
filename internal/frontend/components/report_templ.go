@@ -39,7 +39,7 @@ func ReportPage(themeCSS string, title string, blocks []templ.Component) templ.C
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><style>\n\t/* Layout only. How the report looks comes from its theme's report stylesheet,\n\t   added after this. A theme sets --page, an opaque colour behind everything, and\n\t   --c-green, --c-yellow, --c-red, --c-blue and --c-gray for notes. A note has its\n\t   colour in --note and data-color.\n\n\t   The page fills the window, title bar included: macOS draws only the close,\n\t   minimise and zoom buttons, at the top left. .titlebar is the page's own title\n\t   bar under them, --titlebar high and kept clear of them, with the title in a\n\t   <span>; a theme gives it a background and styles the title. Dragging it moves the\n\t   window, and double-clicking it zooms, as a real one would.\n\n\t   A theme can draw the whole window instead: with Frameless in theme.Frames, the\n\t   window has no macOS frame (square corners, no buttons), and the theme shows the\n\t   title bar's .close, .minimise and .zoom buttons, hidden here, and any border.\n\n\t   The page itself never scrolls: macOS's rubber-band bounce would pull the title\n\t   bar and a drawn border away from the window's edges. <main> scrolls instead, in\n\t   the space under the title bar; a theme that draws a border sets its inset to keep\n\t   inside it, and can style its scroll bar with main::-webkit-scrollbar. */\n\t:root { --titlebar: 28px; }\n\t* { box-sizing: border-box; }\n\thtml { background: var(--page); }\n\thtml, body { height: 100%; overflow: hidden; }\n\tbody { margin: 0; overflow-wrap: anywhere; }\n\tmain { position: absolute; inset: var(--titlebar) 0 0; overflow-x: hidden; overflow-y: auto; padding: 18px 24px 28px; }\n\tmain:focus { outline: none; }\n\t.titlebar { position: fixed; z-index: 1; top: 0; left: 0; right: 0; height: var(--titlebar); padding: 0 78px;\n\t            line-height: var(--titlebar); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;\n\t            -webkit-user-select: none; cursor: default; }\n\t.titlebar button { display: none; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: default; }\n\tmain > * { margin: 0; }\n\tmain > * + * { margin-top: 12px; }\n\tmain > h2:first-child { margin-top: 0 !important; }\n\th2 { font-size: 1.15em; margin-top: 20px !important; }\n\tp { white-space: pre-wrap; }\n\tdl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; }\n\t.field { display: contents; }\n\tdt, dd { margin: 0; }\n\t.table { overflow-x: auto; }\n\ttable { border-collapse: collapse; min-width: 100%; }\n\tth, td { text-align: left; vertical-align: top; }\n\tul, ol { padding-left: 1.5em; }\n\tpre { overflow-x: auto; white-space: pre; overflow-wrap: normal; }\n\t.note { white-space: pre-wrap; }\n\t\t\t</style>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><style>\n\t/* Layout only. How the report looks comes from its theme's report stylesheet,\n\t   added after this. A theme sets --page, an opaque colour behind everything, and\n\t   --c-green, --c-yellow, --c-red, --c-blue and --c-gray for notes. A note has its\n\t   colour in --note and data-color.\n\n\t   The page fills the window, title bar included: macOS draws only the close,\n\t   minimise and zoom buttons, at the top left. .titlebar is the page's own title\n\t   bar under them, --titlebar high and kept clear of them, with the title in a\n\t   <span>; a theme gives it a background and styles the title. Dragging it moves the\n\t   window, and double-clicking it zooms, as a real one would.\n\n\t   A theme can draw the whole window instead: with Frameless in theme.Frames, the\n\t   window has no macOS frame (square corners, no buttons), and the theme shows the\n\t   title bar's .close, .minimise and .zoom buttons, hidden here, and any border.\n\n\t   The page itself never scrolls: macOS's rubber-band bounce would pull the title\n\t   bar and a drawn border away from the window's edges. <main> scrolls instead, in\n\t   the space under the title bar; a theme that draws a border sets its inset to keep\n\t   inside it, and can style its scroll bar with main::-webkit-scrollbar.\n\n\t   The blocks are in an <article> in <main>, at least as tall as it and padded, so a\n\t   background that scrolls with them, such as ruled lines, goes on the <article>.\n\t   One on <main> with background-attachment: local drifts against them as it\n\t   scrolls in WebKit. */\n\t:root { --titlebar: 28px; }\n\t* { box-sizing: border-box; }\n\thtml { background: var(--page); }\n\thtml, body { height: 100%; overflow: hidden; }\n\tbody { margin: 0; overflow-wrap: anywhere; }\n\tmain { position: absolute; inset: var(--titlebar) 0 0; overflow-x: hidden; overflow-y: auto; }\n\tmain:focus { outline: none; }\n\t.titlebar { position: fixed; z-index: 1; top: 0; left: 0; right: 0; height: var(--titlebar); padding: 0 78px;\n\t            line-height: var(--titlebar); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;\n\t            -webkit-user-select: none; cursor: default; }\n\t.titlebar button { display: none; margin: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: default; }\n\tarticle { min-height: 100%; padding: 18px 24px 28px; }\n\tarticle > * { margin: 0; }\n\tarticle > * + * { margin-top: 12px; }\n\tarticle > h2:first-child { margin-top: 0 !important; }\n\th2 { font-size: 1.15em; margin-top: 20px !important; }\n\tp { white-space: pre-wrap; }\n\tdl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; }\n\t.field { display: contents; }\n\tdt, dd { margin: 0; }\n\t.table { overflow-x: auto; }\n\ttable { border-collapse: collapse; min-width: 100%; }\n\tth, td { text-align: left; vertical-align: top; }\n\tul, ol { padding-left: 1.5em; }\n\tpre { overflow-x: auto; white-space: pre; overflow-wrap: normal; }\n\t.note { white-space: pre-wrap; }\n\t\t\t</style>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -54,13 +54,13 @@ func ReportPage(themeCSS string, title string, blocks []templ.Component) templ.C
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 67, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 73, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</span><button class=\"minimise\" title=\"Minimise\" aria-label=\"Minimise\"></button><button class=\"zoom\" title=\"Zoom\" aria-label=\"Zoom\"></button><button class=\"close\" title=\"Close\" aria-label=\"Close\"></button></header><main tabindex=\"-1\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</span><button class=\"minimise\" title=\"Minimise\" aria-label=\"Minimise\"></button><button class=\"zoom\" title=\"Zoom\" aria-label=\"Zoom\"></button><button class=\"close\" title=\"Close\" aria-label=\"Close\"></button></header><main tabindex=\"-1\"><article>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -70,7 +70,7 @@ func ReportPage(themeCSS string, title string, blocks []templ.Component) templ.C
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</main><script>\n\tconst titlebar = document.querySelector(\".titlebar\");\n\tconst frame = action => window.webkit?.messageHandlers?.frame?.postMessage(action);\n\ttitlebar.addEventListener(\"mousedown\", e => {\n\t  if (e.button === 0 && !e.target.closest(\"button\")) frame(\"drag\");\n\t});\n\tfor (const action of [\"close\", \"minimise\", \"zoom\"]) {\n\t  titlebar.querySelector(\".\" + action).addEventListener(\"click\", () => frame(action));\n\t}\n\t// The arrow keys, space and page up and down scroll <main> from the start, not\n\t// only once it's been clicked.\n\tdocument.querySelector(\"main\").focus({ preventScroll: true });\n\t\t\t</script></body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</article></main><script>\n\tconst titlebar = document.querySelector(\".titlebar\");\n\tconst frame = action => window.webkit?.messageHandlers?.frame?.postMessage(action);\n\ttitlebar.addEventListener(\"mousedown\", e => {\n\t  if (e.button === 0 && !e.target.closest(\"button\")) frame(\"drag\");\n\t});\n\tfor (const action of [\"close\", \"minimise\", \"zoom\"]) {\n\t  titlebar.querySelector(\".\" + action).addEventListener(\"click\", () => frame(action));\n\t}\n\t// The arrow keys, space and page up and down scroll <main> from the start, not\n\t// only once it's been clicked.\n\tdocument.querySelector(\"main\").focus({ preventScroll: true });\n\t\t\t</script></body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -107,7 +107,7 @@ func Heading(text string) templ.Component {
 		var templ_7745c5c3_Var4 string
 		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(text)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 92, Col: 11}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 100, Col: 11}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 		if templ_7745c5c3_Err != nil {
@@ -150,7 +150,7 @@ func Paragraph(text string) templ.Component {
 		var templ_7745c5c3_Var6 string
 		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(text)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 97, Col: 10}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 105, Col: 10}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 		if templ_7745c5c3_Err != nil {
@@ -204,7 +204,7 @@ func Fields(items []Field) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(item.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 110, Col: 38}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 118, Col: 38}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -217,7 +217,7 @@ func Fields(items []Field) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(item.Value)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 110, Col: 61}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 118, Col: 61}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -271,7 +271,7 @@ func Table(columns []string, rows [][]string) templ.Component {
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(column)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 123, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 131, Col: 18}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
@@ -299,7 +299,7 @@ func Table(columns []string, rows [][]string) templ.Component {
 				var templ_7745c5c3_Var12 string
 				templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(cell(row, i))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 131, Col: 25}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 139, Col: 25}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 				if templ_7745c5c3_Err != nil {
@@ -365,7 +365,7 @@ func List(items []string, ordered bool) templ.Component {
 				var templ_7745c5c3_Var14 string
 				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(item)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 152, Col: 14}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 160, Col: 14}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 				if templ_7745c5c3_Err != nil {
@@ -393,7 +393,7 @@ func List(items []string, ordered bool) templ.Component {
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(item)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 158, Col: 14}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 166, Col: 14}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -443,7 +443,7 @@ func Code(text string) templ.Component {
 		var templ_7745c5c3_Var17 string
 		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(text)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 167, Col: 18}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 175, Col: 18}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 		if templ_7745c5c3_Err != nil {
@@ -486,7 +486,7 @@ func Note(text string, color string) templ.Component {
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(noteColor(color))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 172, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 180, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
@@ -499,7 +499,7 @@ func Note(text string, color string) templ.Component {
 		var templ_7745c5c3_Var20 string
 		templ_7745c5c3_Var20, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(templ.SafeCSS("--note: " + cssColor(color)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 172, Col: 102}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 180, Col: 102}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 		if templ_7745c5c3_Err != nil {
@@ -512,7 +512,7 @@ func Note(text string, color string) templ.Component {
 		var templ_7745c5c3_Var21 string
 		templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(text)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 172, Col: 111}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 180, Col: 111}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 		if templ_7745c5c3_Err != nil {
@@ -564,7 +564,7 @@ func Link(text string, url string) templ.Component {
 		var templ_7745c5c3_Var23 templ.SafeURL
 		templ_7745c5c3_Var23, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(url))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 186, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 194, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 		if templ_7745c5c3_Err != nil {
@@ -577,7 +577,7 @@ func Link(text string, url string) templ.Component {
 		var templ_7745c5c3_Var24 string
 		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.JoinStringErrs(url)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 186, Col: 55}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 194, Col: 55}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var24))
 		if templ_7745c5c3_Err != nil {
@@ -590,7 +590,7 @@ func Link(text string, url string) templ.Component {
 		var templ_7745c5c3_Var25 string
 		templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(text)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 186, Col: 64}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 194, Col: 64}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 		if templ_7745c5c3_Err != nil {

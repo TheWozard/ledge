@@ -410,7 +410,8 @@ func TestEnterAndLeave(t *testing.T) {
 				}
 			}
 			waitFor(t, `document.getElementById("card-x") === null && document.getElementById("pill-a") === null`, "true")
-			if got := eval(t, `document.getElementById("card-y").getBoundingClientRect().left === document.getElementById("cards").getBoundingClientRect().left + parseFloat(getComputedStyle(document.getElementById("cards")).paddingLeft)`); got != "true" {
+			// By layout, not on screen, as a theme can tilt or move its cards.
+			if got := eval(t, `document.getElementById("card-y").offsetLeft === document.getElementById("cards").offsetLeft + parseFloat(getComputedStyle(document.getElementById("cards")).paddingLeft)`); got != "true" {
 				t.Error("card y didn't close up into card x's place")
 			}
 
@@ -524,7 +525,7 @@ func TestReportWindow(t *testing.T) {
 	w := showReport(t, "report", "A report", reportBlocks)
 	waitIn(t, w, `document.querySelector(".titlebar span")?.textContent`, `"A report"`)
 	for js, want := range map[string]string{
-		`[...document.querySelectorAll("main > *")].map(e => e.tagName).join(" ")`:               `"H2 P DL DIV OL PRE DIV P"`,
+		`[...document.querySelectorAll("main > article > *")].map(e => e.tagName).join(" ")`:               `"H2 P DL DIV OL PRE DIV P"`,
 		`document.querySelector("p").textContent`:                                                `"<b>not bold</b>\nsecond line"`,
 		`document.querySelector("p b") === null`:                                                 "true",
 		`[...document.querySelectorAll("dd")].map(e => e.textContent).join()`:                    `"main,2"`,
@@ -589,7 +590,7 @@ func TestReportScrolls(t *testing.T) {
 			const main = document.querySelector("main"), bar = document.querySelector(".titlebar");
 			const top = bar.getBoundingClientRect().top;
 			main.scrollTop = main.scrollHeight;
-			const last = main.lastElementChild.getBoundingClientRect().bottom, end = main.getBoundingClientRect().bottom;
+			const last = main.querySelector("article").lastElementChild.getBoundingClientRect().bottom, end = main.getBoundingClientRect().bottom;
 			return [main.scrollTop > 0, document.scrollingElement.scrollTop === 0,
 			        bar.getBoundingClientRect().top === top, end - last >= 20,
 			        main.getBoundingClientRect().top >= bar.getBoundingClientRect().bottom].join();

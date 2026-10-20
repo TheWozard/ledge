@@ -92,15 +92,18 @@ Neither window can navigate: a report's clicked http(s) link goes to `OpenURL`.
 
 ## Themes
 
-`default`, `platinum`, `win95`, `handheld`, `synthwave` and `hifi`. A theme is two
+`default`, `platinum`, `win95`, `handheld`, `synthwave`, `hifi`, `splitflap`, `stickies`,
+`aqua` and `blueprint`. A theme is two
 stylesheets in [theme/themes/](theme/themes/): `<name>.css` on top of the bar's layout,
 and `<name>.report.css` on top of the report window's. The comments at the top of the
 layout styles in [bar.templ](components/bar.templ) and
 [report.templ](components/report.templ) say what a theme can hook into: the colour
-variables it sets, a pill's `data-color`, a new pill's or card's `data-new` and a gone
+variables it sets, the bar's padding (`--pad-top`, `--pad-x` and `--pad-bottom`, which
+the pills scroll through to the bar's edges), a pill's `data-color`, a new pill's or card's `data-new` and a gone
 one's `data-leaving` (for enter and exit animations, the exit ending with the layout's
 `collapse` so the rest close up), the report window's
-`.titlebar` and its buttons, and the `main` that scrolls under it. `theme.Frames` says whether a theme's report window is
+`.titlebar` and its buttons, the `main` that scrolls under it, and the `article` in it
+that holds the blocks (for a background that scrolls with them). `theme.Frames` says whether a theme's report window is
 light or dark, and whether the theme draws the whole window (square corners, its own
 buttons and border).
 

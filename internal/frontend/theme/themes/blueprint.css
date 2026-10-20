@@ -1,0 +1,72 @@
+/* blueprint: white lines on blueprint blue, over a drafting grid, with a ruler along the
+   bar's edge. Priority sets a card's line: redlined with a revision mark, heavy, fine,
+   or dashed for one not yet drawn up properly. A card's outline is drawn round
+   clockwise as if by a plotter's pen and then filled in, and to leave, it's emptied and
+   its outline erased back; a pill is inked from left to right, and erased back. */
+@property --sweep { syntax: "<angle>"; inherits: false; initial-value: 360deg; }
+:root { --bar: #1a4a85; --ink: #eaf2ff; --c-green: #8ff0a4; --c-yellow: #ffe27a; --c-red: #ff8f87; --c-blue: #9fd3ff; --c-gray: #9fb4cc;
+        --draft: "Avenir Next Condensed", "DIN Condensed", "Helvetica Neue", sans-serif; }
+body { color: var(--ink); font: 500 12px/1.25 var(--draft); }
+#app { background: linear-gradient(rgba(255,255,255,.16) 1px, transparent 1px) 0 0 / 50px 50px,
+                   linear-gradient(90deg, rgba(255,255,255,.16) 1px, transparent 1px) 0 0 / 50px 50px,
+                   linear-gradient(rgba(255,255,255,.06) 1px, transparent 1px) 0 0 / 10px 10px,
+                   linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px) 0 0 / 10px 10px, #1a4a85;
+       border-top: 1px solid rgba(234,242,255,.8); --pad-top: 12px; --pad-x: 12px; --frame-top: 7px; gap: 14px; }
+body.top #app { border-top: 0; border-bottom: 1px solid rgba(234,242,255,.8); --pad-top: 8px; --pad-bottom: 12px; --frame-top: 0px; --frame-bottom: 7px; }
+/* The ruler: a tick every 10px, a longer one every 50px. */
+#app::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 7px; pointer-events: none;
+               background: repeating-linear-gradient(90deg, rgba(234,242,255,.7) 0 1px, transparent 1px 50px),
+                           repeating-linear-gradient(90deg, rgba(234,242,255,.5) 0 1px, transparent 1px 10px) 0 0 / 100% 4px no-repeat; }
+body.top #app::before { top: auto; bottom: 0; scale: 1 -1; }
+
+.pills { gap: 5px; }
+.pill { height: 20px; padding: 0 9px 0 5px; gap: 7px; border: 1px solid rgba(234,242,255,.75); background: rgba(16,52,98,.85);
+        font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.pill .dot { width: 9px; height: 9px; border-radius: 50%; border: 1px solid var(--ink); background: var(--pill); }
+.pill.opens .label:hover { text-decoration: underline; }
+.pill.runs:hover { background: rgba(234,242,255,.15); }
+.pill.ran { animation: ink .4s; }
+@keyframes ink { from { background: var(--ink); color: #1a4a85; } }
+
+ul { gap: 14px; padding: 1px; }
+li { --line: 1px dashed rgba(234,242,255,.8); width: 270px; padding: 6px 10px 4px; background-color: rgba(16,52,98,.85); }
+li.low { --line: 1px solid var(--ink); }
+li.medium { --line: 2px solid var(--ink); }
+li.high { --line: 2px solid var(--c-red); }
+li.opens:hover { background-color: rgba(34,82,140,.9); }
+/* The outline, drawn as far round as --sweep. */
+li::before { content: ""; position: absolute; inset: 0; pointer-events: none; border: var(--line);
+             -webkit-mask: conic-gradient(#000 var(--sweep), transparent 0); mask: conic-gradient(#000 var(--sweep), transparent 0); }
+/* A high card's revision triangle. */
+li.high::after { content: "!"; position: absolute; top: 7px; right: 26px; width: 14px; height: 12px; pointer-events: none;
+                 clip-path: polygon(50% 0, 100% 100%, 0 100%); background: var(--c-red); color: #1a4a85;
+                 font: 700 9px/14px var(--draft); text-align: center; }
+.title { font-weight: 600; font-size: 15px; line-height: 1.15; text-transform: uppercase; letter-spacing: .05em; }
+li.high .title { margin-right: 40px; }
+.description { margin-top: 2px; color: rgba(234,242,255,.78); }
+/* The meta line is the drawing's title block. */
+.meta { margin: auto -10px -4px; padding: 2px 10px; border-top: 1px solid rgba(234,242,255,.45);
+        color: rgba(234,242,255,.75); font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; }
+.tag { padding: 0 4px; border: 1px solid rgba(234,242,255,.6); line-height: 12px; }
+.dismiss { top: 4px; color: var(--ink); font-size: 15px; }
+.dismiss:hover { color: var(--c-yellow); }
+
+.empty { color: rgba(234,242,255,.7); font-size: 13px; text-transform: uppercase; letter-spacing: .12em; }
+
+/* Entering and leaving: see above. */
+li[data-new]::before { animation: draw .5s ease-in-out backwards; animation-delay: calc(var(--i) * 90ms); }
+li[data-new] { animation: fill .25s ease-out backwards; animation-delay: calc(var(--i) * 90ms + .4s); }
+li[data-new] > * { animation: fade .25s ease-out backwards; animation-delay: calc(var(--i) * 90ms + .45s); }
+li[data-leaving] { animation: unfill .15s ease-in both, collapse .2s .55s ease-in-out both; }
+li[data-leaving] > * { animation: unfade .15s ease-in both; }
+li[data-leaving]::before { animation: erase .4s .15s ease-in-out both; }
+.pill[data-new] { animation: pen .35s ease-out backwards; animation-delay: calc(var(--i) * 60ms); }
+.pill[data-leaving] { animation: unpen .3s ease-in both, collapse .2s .25s ease-in-out both; }
+@keyframes draw { from { --sweep: 0deg; } }
+@keyframes erase { to { --sweep: 0deg; } }
+@keyframes fill { from { background-color: transparent; } }
+@keyframes unfill { to { background-color: transparent; } }
+@keyframes fade { from { opacity: 0; } }
+@keyframes unfade { to { opacity: 0; } }
+@keyframes pen { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
+@keyframes unpen { from { clip-path: inset(0); } to { clip-path: inset(0 100% 0 0); } }

@@ -17,7 +17,7 @@ var files embed.FS
 
 // Names is the themes, "default" first. Each has two stylesheets in themes/:
 // <name>.css for the bar and <name>.report.css for the report window.
-var Names = []string{"default", "platinum", "win95", "handheld", "synthwave", "hifi"}
+var Names = []string{"default", "platinum", "win95", "handheld", "synthwave", "hifi", "splitflap", "stickies", "aqua", "blueprint"}
 
 // Default is the theme to use when none is chosen.
 const Default = "default"
@@ -48,6 +48,10 @@ var Frames = map[string]Frame{
 	"handheld":  {Appearance: "light"},
 	"synthwave": {Appearance: "dark"},
 	"hifi":      {Appearance: "light"},
+	"splitflap": {Appearance: "dark"},
+	"stickies":  {Appearance: "light"},
+	"aqua":      {Appearance: "light", Frameless: true},
+	"blueprint": {Appearance: "dark"},
 }
 
 // fontURL is how a stylesheet names one of themes/fonts: url(fonts/<file>), its url
