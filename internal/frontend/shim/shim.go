@@ -32,46 +32,47 @@ func init() {
 // Rect is a window frame in screen points, with the origin at the bottom left.
 type Rect struct{ X, Y, Width, Height float64 }
 
-// Handlers for what the native side reports. Each is called on the main thread, so
-// it must not block; hand work to a goroutine.
-var (
-	handlersMu       sync.Mutex
-	onMessage        func(window int, message []byte)
-	onScreensChanged func()
-	onNavigate       func(window int, url string, clicked bool) bool
-	onWindowClosed   func(window int)
-)
+// handlers is what's called with what the native side reports, each set by its On
+// function. Each is called on the main thread, so it must not block; hand work to a
+// goroutine.
+var handlers struct {
+	sync.Mutex
+	message        func(window int, message []byte)
+	screensChanged func()
+	navigate       func(window int, url string, clicked bool) bool
+	windowClosed   func(window int)
+}
+
+// setHandler sets one of handlers.
+func setHandler[T any](handler *T, to T) {
+	handlers.Lock()
+	defer handlers.Unlock()
+	*handler = to
+}
+
+// getHandler is one of handlers, as it's set now.
+func getHandler[T any](handler *T) T {
+	handlers.Lock()
+	defer handlers.Unlock()
+	return *handler
+}
 
 // OnMessage sets what's called with each JSON message a page posts.
-func OnMessage(handle func(window int, message []byte)) {
-	handlersMu.Lock()
-	defer handlersMu.Unlock()
-	onMessage = handle
-}
+func OnMessage(handle func(window int, message []byte)) { setHandler(&handlers.message, handle) }
 
 // OnScreensChanged sets what's called when screens are added, removed or rearranged.
-func OnScreensChanged(handle func()) {
-	handlersMu.Lock()
-	defer handlersMu.Unlock()
-	onScreensChanged = handle
-}
+func OnScreensChanged(handle func()) { setHandler(&handlers.screensChanged, handle) }
 
 // OnNavigate sets what decides whether a window may go to url; clicked is true for
 // a link the user clicked. Without one, only about:blank (a page loaded with LoadHTML)
 // is allowed.
 func OnNavigate(decide func(window int, url string, clicked bool) bool) {
-	handlersMu.Lock()
-	defer handlersMu.Unlock()
-	onNavigate = decide
+	setHandler(&handlers.navigate, decide)
 }
 
 // OnWindowClosed sets what's called when a titled window closes. It's then gone: the
 // shim forgets it, and CreateWindow makes a new one.
-func OnWindowClosed(handle func(window int)) {
-	handlersMu.Lock()
-	defer handlersMu.Unlock()
-	onWindowClosed = handle
-}
+func OnWindowClosed(handle func(window int)) { setHandler(&handlers.windowClosed, handle) }
 
 // Init sets up the app. Call it once, before creating windows.
 func Init() { C.ledgeInit() }
@@ -87,8 +88,7 @@ func CreateBar(id int) { C.ledgeCreateBar(C.int(id)) }
 
 // PlaceBar puts the bar along the top or bottom of a screen and returns its frame.
 func PlaceBar(id, screen int, top bool, height float64) Rect {
-	r := C.ledgePlaceBar(C.int(id), C.int(screen), cBool(top), C.double(height))
-	return Rect{float64(r.x), float64(r.y), float64(r.width), float64(r.height)}
+	return goRect(C.ledgePlaceBar(C.int(id), C.int(screen), cBool(top), C.double(height)))
 }
 
 // CreateWindow creates window id as a titled window, if it doesn't exist yet, down
@@ -117,23 +117,25 @@ func SetFrameless(id int, frameless bool) {
 func WindowVisible(id int) bool { return C.ledgeWindowVisible(C.int(id)) != 0 }
 
 // WindowFrame is the window's frame, or the zero Rect if there's no such window.
-func WindowFrame(id int) Rect {
-	r := C.ledgeWindowFrame(C.int(id))
-	return Rect{float64(r.x), float64(r.y), float64(r.width), float64(r.height)}
-}
+func WindowFrame(id int) Rect { return goRect(C.ledgeWindowFrame(C.int(id))) }
 
 // SetLevel sets which windows the window stays above: "top" for everything, the Dock
 // included; "floating" for other apps' windows but not the Dock; anything else for
 // none, as an ordinary window.
-func SetLevel(id int, level string) {
-	C.ledgeSetLevel(C.int(id), C.int(map[string]int{"floating": 1, "top": 2}[level]))
-}
+func SetLevel(id int, level string) { C.ledgeSetLevel(C.int(id), levels[level]) }
+
+// levels is each level SetLevel takes by name; any other is LedgeLevelNormal.
+var levels = map[string]C.LedgeLevel{"floating": C.LedgeLevelFloating, "top": C.LedgeLevelTop}
 
 // SetAppearance makes the window's frame and controls (its close, minimise and zoom
 // buttons, scroll bars) "light", "dark", or anything else to follow the system.
 func SetAppearance(id int, appearance string) {
-	C.ledgeSetAppearance(C.int(id), C.int(map[string]int{"light": 1, "dark": 2}[appearance]))
+	C.ledgeSetAppearance(C.int(id), appearances[appearance])
 }
+
+// appearances is each appearance SetAppearance takes by name; any other is
+// LedgeAppearanceSystem.
+var appearances = map[string]C.LedgeAppearance{"light": C.LedgeAppearanceLight, "dark": C.LedgeAppearanceDark}
 
 // SetTitle sets the window's title.
 func SetTitle(id int, title string) {
@@ -182,6 +184,11 @@ func cText(s string) string {
 	return strings.ToValidUTF8(strings.ReplaceAll(s, "\x00", ""), "\uFFFD")
 }
 
+// goRect is a frame from the native side as a Rect.
+func goRect(r C.LedgeRect) Rect {
+	return Rect{float64(r.x), float64(r.y), float64(r.width), float64(r.height)}
+}
+
 func cBool(b bool) C.int {
 	if b {
 		return 1
@@ -191,39 +198,28 @@ func cBool(b bool) C.int {
 
 //export goLedgeMessage
 func goLedgeMessage(window C.int, message *C.char) {
-	handlersMu.Lock()
-	handle := onMessage
-	handlersMu.Unlock()
-	if handle != nil {
+	if handle := getHandler(&handlers.message); handle != nil {
 		handle(int(window), []byte(C.GoString(message)))
 	}
 }
 
 //export goLedgeScreensChanged
 func goLedgeScreensChanged() {
-	handlersMu.Lock()
-	handle := onScreensChanged
-	handlersMu.Unlock()
-	if handle != nil {
+	if handle := getHandler(&handlers.screensChanged); handle != nil {
 		handle()
 	}
 }
 
 //export goLedgeWindowClosed
 func goLedgeWindowClosed(window C.int) {
-	handlersMu.Lock()
-	handle := onWindowClosed
-	handlersMu.Unlock()
-	if handle != nil {
+	if handle := getHandler(&handlers.windowClosed); handle != nil {
 		handle(int(window))
 	}
 }
 
 //export goLedgeNavigate
 func goLedgeNavigate(window C.int, url *C.char, clicked C.int) C.int {
-	handlersMu.Lock()
-	decide := onNavigate
-	handlersMu.Unlock()
+	decide := getHandler(&handlers.navigate)
 	target := C.GoString(url)
 	if decide == nil {
 		return cBool(target == "about:blank")

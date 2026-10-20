@@ -6,6 +6,12 @@
 
 typedef struct { double x, y, width, height; } LedgeRect;
 
+// Which windows a window stays above: none (an ordinary window), other apps' windows
+// but not the Dock, or everything, the Dock included.
+typedef enum { LedgeLevelNormal, LedgeLevelFloating, LedgeLevelTop } LedgeLevel;
+// How a window's frame and controls look: as the system does, light or dark.
+typedef enum { LedgeAppearanceSystem, LedgeAppearanceLight, LedgeAppearanceDark } LedgeAppearance;
+
 // ledgeInit makes this an accessory app (no Dock icon or menu bar), gives it a menu
 // of key equivalents only (copy, select all, close window), and starts reporting
 // screen changes.
@@ -39,12 +45,10 @@ void ledgeSetFrameless(int window, int frameless);
 int ledgeWindowVisible(int window);
 // ledgeWindowFrame is a window's frame, or all zeros if there's no such window.
 LedgeRect ledgeWindowFrame(int window);
-// ledgeSetLevel puts a window above everything, the Dock included (2), above other
-// apps' windows but under the Dock (1), or at the normal level (0).
-void ledgeSetLevel(int window, int level);
-// ledgeSetAppearance makes a window's frame and controls light (1), dark (2), or follow
-// the system (0).
-void ledgeSetAppearance(int window, int appearance);
+// ledgeSetLevel sets which windows a window stays above.
+void ledgeSetLevel(int window, LedgeLevel level);
+// ledgeSetAppearance sets how a window's frame and controls look.
+void ledgeSetAppearance(int window, LedgeAppearance appearance);
 
 // Every navigation in every window asks goLedgeNavigate, which says whether to allow
 // it. One that would open a new window goes nowhere.

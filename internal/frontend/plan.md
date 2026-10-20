@@ -114,13 +114,13 @@ Verify: `just test`, then ask for `just preview` and `just inspect` to be run.
 
 ## 6. `shim/`
 
-- [ ] C enums in `shim.h` for level and appearance
+- [x] C enums in `shim.h` for level and appearance
   (`LedgeLevelNormal/Floating/Top`, `LedgeAppearanceSystem/Light/Dark`), used by
   `SetLevel` / `SetAppearance` in place of the `map[string]int` literals.
-- [ ] `goRect(C.LedgeRect) Rect` for `PlaceBar` and `WindowFrame`.
-- [ ] One `handlers` struct with a getter in place of the four lock/copy/unlock
+- [x] `goRect(C.LedgeRect) Rect` for `PlaceBar` and `WindowFrame`.
+- [x] One `handlers` struct, with generic `setHandler` / `getHandler`, in place of the four lock/copy/unlock
   blocks in the `goLedge*` exports.
-- [ ] Optional: split `shim.m` into `window.m`, `delegate.m` and `api.m` with a
+- [ ] Skipped for now (optional): split `shim.m` into `window.m`, `delegate.m` and `api.m` with a
   private header for the shared dictionaries. It's fine as it is at 427 lines.
 
 Verify: `go test ./shim`, then `just gui`.

@@ -344,15 +344,26 @@ LedgeRect ledgeWindowFrame(int window) {
     return (LedgeRect){frame.origin.x, frame.origin.y, frame.size.width, frame.size.height};
 }
 
-void ledgeSetLevel(int window, int level) {
+void ledgeSetLevel(int window, LedgeLevel level) {
+    NSWindowLevel to = NSNormalWindowLevel;
+    switch (level) {
+    case LedgeLevelTop: to = NSStatusWindowLevel; break;
+    case LedgeLevelFloating: to = NSFloatingWindowLevel; break;
+    case LedgeLevelNormal: break;
+    }
     onMain(^{
-        windows[@(window)].level = level == 2 ? NSStatusWindowLevel : level == 1 ? NSFloatingWindowLevel : NSNormalWindowLevel;
+        windows[@(window)].level = to;
     });
 }
 
-void ledgeSetAppearance(int window, int appearance) {
+void ledgeSetAppearance(int window, LedgeAppearance appearance) {
+    NSAppearanceName name = nil;
+    switch (appearance) {
+    case LedgeAppearanceLight: name = NSAppearanceNameAqua; break;
+    case LedgeAppearanceDark: name = NSAppearanceNameDarkAqua; break;
+    case LedgeAppearanceSystem: break;
+    }
     onMain(^{
-        NSAppearanceName name = appearance == 1 ? NSAppearanceNameAqua : appearance == 2 ? NSAppearanceNameDarkAqua : nil;
         windows[@(window)].appearance = name ? [NSAppearance appearanceNamed:name] : nil;
     });
 }
