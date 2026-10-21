@@ -14,8 +14,8 @@ import (
 	"github.com/TheWozard/ledge-frontend/components"
 )
 
-// sample is what the preview shows: basic cards, timers, progress and stat cards,
-// whose Clicks open a report, run nothing but a log line, or dismiss the card, and the
+// sample is what the preview shows: basic cards, timers, progress, stat and checks
+// cards, whose Clicks open a report, run nothing but a log line, or dismiss the card, and the
 // long report. Opening, dismissing and advance go through open and changed, which the
 // windows or the browser set before showing it.
 type sample struct {
@@ -24,6 +24,7 @@ type sample struct {
 	timers   []components.Timer
 	progress []components.Progress
 	stats    []components.Stat
+	checks   []components.Checks
 	long     []templ.Component
 
 	open    func(id string) // shows id's report
@@ -128,6 +129,17 @@ func newSample(now time.Time) *sample {
 	for i, st := range s.stats {
 		s.stats[i].Dismiss = s.dismisses(st.ID)
 	}
+	s.checks = []components.Checks{
+		{Basic: components.Basic{ID: "ci", Title: "Lorem CI", Description: "On main, 465882e", Color: "#e0362c", Click: s.opens("ci"),
+			Actions: []components.Action{{ID: "rerun", Title: "Rerun test", Color: "yellow", Click: s.runs("rerun")}}},
+			Checks: []components.Check{
+				{Name: "build", State: "passed"}, {Name: "test", State: "failed"}, {Name: "lint", State: "running"},
+				{Name: "deploy", State: "pending"}, {Name: "docs", State: "skipped"},
+			}},
+	}
+	for i, c := range s.checks {
+		s.checks[i].Dismiss = s.dismisses(c.ID)
+	}
 	s.long = longReport(now)
 	return s
 }
@@ -207,6 +219,7 @@ func (s *sample) dismisses(id string) components.Click {
 		s.timers = slices.DeleteFunc(s.timers, func(t components.Timer) bool { return t.ID == id })
 		s.progress = slices.DeleteFunc(s.progress, func(p components.Progress) bool { return p.ID == id })
 		s.stats = slices.DeleteFunc(s.stats, func(st components.Stat) bool { return st.ID == id })
+		s.checks = slices.DeleteFunc(s.checks, func(c components.Checks) bool { return c.ID == id })
 		s.mu.Unlock()
 		s.changed()
 	}
@@ -217,7 +230,7 @@ func (s *sample) shown() []components.Card {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return slices.Concat(components.Cards(s.timers), components.Cards(s.progress), components.Cards(s.stats),
-		components.Cards(s.cards))
+		components.Cards(s.checks), components.Cards(s.cards))
 }
 
 // advance moves the deploy along every second, starting again once it's done, adds
@@ -260,6 +273,14 @@ func (s *sample) report(id string) (string, []templ.Component) {
 		return p.Title, []templ.Component{components.Heading(p.Title), components.Fields([]components.Field{
 			{Label: "Done", Value: fmt.Sprintf("%.0f%%", p.Value*100)},
 		})}
+	}
+	if i := slices.IndexFunc(s.checks, func(c components.Checks) bool { return c.ID == id }); i >= 0 {
+		c := s.checks[i]
+		var rows [][]string
+		for _, check := range c.Checks {
+			rows = append(rows, []string{check.Name, check.State})
+		}
+		return c.Title, []templ.Component{components.Heading(c.Title), components.Table([]string{"Check", "State"}, rows)}
 	}
 	if i := slices.IndexFunc(s.stats, func(st components.Stat) bool { return st.ID == id }); i >= 0 {
 		st := s.stats[i]

@@ -70,7 +70,7 @@ card of its own. `Frame()` is what the bar draws the same for every kind: the ca
 id, its `Kind` (a class on it, for a theme to style it by), colour, width,
 `Click`,
 `Dismiss` and actions. `Body()` is a templ component for what's inside the frame, above
-the actions. There are four built-in kinds:
+the actions. There are five built-in kinds:
 
 - `components.Basic` (`basic`): a title and a description.
 - `components.Timer` (`timer`): a `Basic` card that keeps time, shown under its title
@@ -96,6 +96,12 @@ the actions. There are four built-in kinds:
   its `ChangeColor`, and its description beside those. Its `History`, oldest first,
   is drawn behind the whole card as a sparkline, an inline SVG `polyline` a theme
   strokes and insets, so it's there whatever else the card has, such as actions.
+
+- `components.Checks` (`checks`): a `Basic` card showing how a set of `Check`s went,
+  such as a CI run's jobs: its title, then each check's mark and name in a
+  `.check-list`, wrapping, then its description. A check's `State` is `passed`,
+  `failed`, `running`, `pending` or `skipped`, in its `data-state` for a theme to
+  colour it. An action can do something about one, such as rerunning a failed job.
 
 Any kind can end: a frame with `Ends` and `Complete` has `Complete` called once when
 `Ends` passes, if the card's still on the bar, however many renders show it.

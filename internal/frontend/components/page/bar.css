@@ -165,6 +165,21 @@ li.stat:has(.description) {
   fill: none;
   vector-effect: non-scaling-stroke;
 }
+/* A checks card's .check-list follows its title: each check its mark and name,
+   wrapping onto as many lines as they need, and scrolling if they don't fit. Each
+   has its state in data-state: passed, failed, running, pending or skipped. (Not
+   .checks, which is the card's own kind.) */
+.check-list {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  min-height: 0;
+  overflow-y: auto;
+}
+.check {
+  white-space: nowrap;
+}
 
 /* A card's actions sit in one row at its bottom, inside the card's padding,
    and scroll sideways if they don't fit. A theme spaces them from the description

@@ -171,6 +171,41 @@ li.clickable:hover {
   stroke-linejoin: round;
 }
 
+/* A checks card's checks are inset like its text, each mark in its state's
+   colour; a running one pulses. */
+.check-list {
+  gap: 2px 10px;
+  padding: 0 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.check-mark {
+  margin-right: 3px;
+  font-weight: 700;
+}
+
+.check[data-state="passed"] .check-mark {
+  color: var(--c-green);
+}
+
+.check[data-state="failed"] {
+  font-weight: 600;
+}
+
+.check[data-state="failed"] .check-mark {
+  color: var(--c-red);
+}
+
+.check[data-state="running"] .check-mark {
+  color: var(--c-yellow);
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+.check[data-state="pending"] .check-mark,
+.check[data-state="skipped"] {
+  color: var(--muted);
+}
+
 .dismiss {
   top: 4px;
   right: 8px;
@@ -244,7 +279,8 @@ li[data-leaving],
 /* With reduced motion, nothing moves: what leaves just closes up. */
 @media (prefers-reduced-motion: reduce) {
   li[data-new],
-  .action[data-new] {
+  .action[data-new],
+  .check[data-state="running"] .check-mark {
     animation: none;
   }
 
