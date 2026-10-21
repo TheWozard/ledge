@@ -156,10 +156,9 @@ func (s *browserServer) page(w http.ResponseWriter, render func(theme.Theme) tem
 	fmt.Fprint(w, strings.Replace(buf.String(), "<head>", "<head>"+stub, 1))
 }
 
-// content is the bar's content: the sample's cards, in the bar's order.
+// content is the bar's content: the sample's cards.
 func (s *browserServer) content() string {
 	shown := s.sample.shown()
-	components.SortByPriority(shown)
 	var buf bytes.Buffer
 	if err := components.BarContent(shown, map[string]int{}).Render(context.Background(), &buf); err != nil {
 		log.Print(err)

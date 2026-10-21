@@ -16,7 +16,7 @@ func TestComplete(t *testing.T) {
 	var mu sync.Mutex
 	counts := map[string]int{}
 	timer := func(id string, end time.Time) components.Timer {
-		return components.Timer{ID: id, Title: id, Start: time.Now(), End: end,
+		return components.Timer{Basic: components.Basic{ID: id, Title: id}, Start: time.Now(), End: end,
 			Complete: func() { mu.Lock(); counts[id]++; mu.Unlock() }}
 	}
 	count := func(id string) int { mu.Lock(); defer mu.Unlock(); return counts[id] }

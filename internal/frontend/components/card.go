@@ -1,10 +1,8 @@
 package components
 
 import (
-	"cmp"
 	"fmt"
 	"regexp"
-	"slices"
 	"strings"
 	"time"
 
@@ -12,7 +10,7 @@ import (
 )
 
 // Card is something on the bar, of any kind. The bar draws every card's frame the
-// same way, from its Frame: its place in the order, its colour, its ×, what clicking
+// same way, from its Frame: its colour, its ×, what clicking
 // it does, its actions along its bottom, and its arrival and leaving. What's inside
 // the frame is the card's Body, which is up to its kind. Basic is the built-in kind.
 //
@@ -28,13 +26,12 @@ type Card interface {
 
 // Frame is what the bar draws of every card, whatever its kind.
 type Frame struct {
-	ID       string // the app's, the same from one Render to the next, and unique across the bar
-	Kind     string // a class on the card, for a theme to style its kind: lower case letters, digits and -
-	Priority int    // for the order: higher first; see SortByPriority
-	Color    string // the card's own colour, #rrggbb, or "" for none
-	Width    int    // the card's width in pixels, or 0 for its theme's for its kind
-	Click    Click  // clicking the card, anywhere but × and a clickable action
-	Dismiss  Click  // clicking the card's ×, which shows only if this is set
+	ID      string // the app's, the same from one Render to the next, and unique across the bar
+	Kind    string // a class on the card, for a theme to style its kind: lower case letters, digits and -
+	Color   string // the card's own colour, #rrggbb, or "" for none
+	Width   int    // the card's width in pixels, or 0 for its theme's for its kind
+	Click   Click  // clicking the card, anywhere but × and a clickable action
+	Dismiss Click  // clicking the card's ×, which shows only if this is set
 	// Actions are shown at the card's bottom, in order. Each is clicked on its
 	// own, apart from the card.
 	Actions []Action
@@ -51,12 +48,6 @@ func Cards[T Card](cards []T) []Card {
 		all[i] = c
 	}
 	return all
-}
-
-// SortByPriority puts cards in the bar's order: highest priority first, and those of
-// the same priority in the order they're in.
-func SortByPriority(cards []Card) {
-	slices.SortStableFunc(cards, func(a, b Card) int { return cmp.Compare(b.Frame().Priority, a.Frame().Priority) })
 }
 
 // ElementID is the card's id on the page, and its key in BarContent's fresh.

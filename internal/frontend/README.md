@@ -30,7 +30,7 @@ func main() {
 			components.Note("Two jobs failed.", "red"),
 			components.Table([]string{"Job", "State"}, [][]string{{"build", "failed"}}),
 		}
-		bar.Render([]components.Card{components.Basic{ID: "ci", Title: "CI failed", Priority: 1, Color: "#e0362c",
+		bar.Render([]components.Card{components.Basic{ID: "ci", Title: "CI failed", Color: "#e0362c",
 			Click:   func() { bar.ShowReport("ci", "CI failed", report) },
 			Dismiss: func() { /* forget it, then bar.Render again */ },
 			Actions: []components.Action{{ID: "rerun", Title: "Rerun", Color: "yellow",
@@ -67,15 +67,22 @@ only when the app calls `Render`.
 
 A card is any `components.Card`, an interface of two methods, so an app can have kinds of
 card of its own. `Frame()` is what the bar draws the same for every kind: the card's
-id, its `Kind` (a class on it, for a theme to style it by), priority, colour, width,
+id, its `Kind` (a class on it, for a theme to style it by), colour, width,
 `Click`,
 `Dismiss` and actions. `Body()` is a templ component for what's inside the frame, above
 the actions. There are two built-in kinds:
 
 - `components.Basic` (`basic`): a title and a description.
-- `components.Timer` (`timer`): a title and the time left from `Start` to `End`. The page
-  counts it down itself, setting `--progress` (0 to 1) on the card for a theme to fill
-  it, and `data-done` once it's up. Its `Complete` is called when `End` passes.
+- `components.Timer` (`timer`): a `Basic` card that keeps time, shown under its title
+  with its description beside it: `Timer{Basic: components.Basic{...}, End: meeting}`. The page keeps
+  its time itself, from whichever of `Start` and `End` it has:
+  - both: it counts down to `End`, setting `--progress` (0 to 1 from `Start` to `End`)
+    on the card for a theme to fill it;
+  - only `End`, for something coming up such as a meeting: it counts down, unfilled;
+  - only `Start`, for something going on such as an incident: it counts up.
+
+  One with an `End` has `data-done` once it's up, and its `Complete` is called when
+  `End` passes.
 
 Any kind can end: a frame with `Ends` and `Complete` has `Complete` called once when
 `Ends` passes, if the card's still on the bar, however many renders show it.
@@ -162,7 +169,8 @@ theme can hook into: the colour variables it sets, the bar's padding (`--pad-top
 `--pad-x` and `--pad-bottom`, which the row of cards scrolls through to the window's
 edges), the row's own sideways padding (`--row-pad-x`), a card's kind as a class (such
 as `basic`) and its `data-color` and `--card-color`, its width as `--card-width` (300px, or
-100px for a timer, set on `li.timer`; a card's own `Width` overrides it), an action's `data-color`
+100px for a timer, 200px with a description, set on `li.timer` and
+`li.timer:has(.description)`; a card's own `Width` overrides it), an action's `data-color`
 and `--action`, a new card's or action's `data-new` and a gone one's
 `data-leaving`
 (for enter and exit animations, the exit ending with the layout's `collapse` so the rest

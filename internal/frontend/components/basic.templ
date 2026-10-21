@@ -6,7 +6,6 @@ type Basic struct {
 	ID          string
 	Title       string
 	Description string
-	Priority    int
 	Color       string
 	Width       int
 	Click       Click
@@ -16,7 +15,7 @@ type Basic struct {
 
 // Frame is the card's frame, from its fields of the same names.
 func (b Basic) Frame() Frame {
-	return Frame{ID: b.ID, Kind: "basic", Priority: b.Priority, Color: b.Color, Width: b.Width, Click: b.Click, Dismiss: b.Dismiss,
+	return Frame{ID: b.ID, Kind: "basic", Color: b.Color, Width: b.Width, Click: b.Click, Dismiss: b.Dismiss,
 		Actions: b.Actions}
 }
 

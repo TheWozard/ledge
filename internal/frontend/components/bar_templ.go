@@ -93,11 +93,11 @@ func BarPage(themeCSS string, edge string) templ.Component {
 	})
 }
 
-// BarContent is what the bar shows: cards in a row, in the order given (see
-// SortByPriority), each with its actions. fresh gives each card and action new since
-// the bar last showed, by ElementID, its place among the new ones of its kind (card
-// or action), for the theme's entrance animation. The row is there even when empty,
-// so the last card can animate out.
+// BarContent is what the bar shows: cards in a row, in the order given, each with its
+// actions. fresh gives each card and action new since the bar last showed, by
+// ElementID, its place among the new ones of its kind (card or action), for the
+// theme's entrance animation. The row is there even when empty, so the last card can
+// animate out.
 func BarContent(cards []Card, fresh map[string]int) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context

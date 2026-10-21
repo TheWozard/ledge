@@ -14,46 +14,61 @@ import (
 	"time"
 )
 
-// Timer is a kind of card that counts down from Start to End: a title, and the time
-// left under it. Its kind is "timer". The page counts it down itself, and sets
-// --progress on the card, from 0 at Start to 1 at End, for a theme to show how far
-// along it is; once it's up, the card has data-done. Complete is called when End
-// passes.
+// Timer is a Basic card that keeps time: its title, its time under that, then its
+// description and actions. Its kind is "timer". The page keeps its time itself, and
+// what it keeps depends on which of Start and End it has:
+//
+//   - Both: it counts down to End, and sets --progress on the card, from 0 at Start
+//     to 1 at End, for a theme to show how far along it is.
+//   - Only End, for something coming up such as a meeting: it counts down, unfilled.
+//   - Only Start, for something going on such as an incident: it counts up from Start.
+//
+// One with an End has data-done once it's up, and Complete is called when End passes.
 type Timer struct {
-	ID       string
-	Title    string
-	Start    time.Time
-	End      time.Time
-	Priority int
-	Color    string
-	Click    Click
-	Dismiss  Click
+	Basic
+	Start    time.Time // or the zero Time, for none
+	End      time.Time // or the zero Time, for none
 	Complete Click
 }
 
-// Frame is the timer's frame, from its fields of the same names; it ends at End.
+// Frame is the frame of the timer's Basic card, of the kind "timer"; it ends at End,
+// if it has one.
 func (t Timer) Frame() Frame {
-	return Frame{ID: t.ID, Kind: "timer", Priority: t.Priority, Color: t.Color, Click: t.Click, Dismiss: t.Dismiss,
-		Ends: t.End, Complete: t.Complete}
+	f := t.Basic.Frame()
+	f.Kind, f.Ends, f.Complete = "timer", t.End, t.Complete
+	return f
 }
 
-// Body is the timer's title and the time it has left, as of now; the page keeps that
-// up to date.
-func (t Timer) Body() templ.Component { return timerBody(t, timeLeft(time.Until(t.End))) }
+// Body is the timer's title and its time as of now, and its description; the page
+// keeps the time up to date.
+func (t Timer) Body() templ.Component {
+	if t.End.IsZero() && !t.Start.IsZero() {
+		return timerBody(t, timeSince(time.Since(t.Start)))
+	}
+	return timerBody(t, timeLeft(time.Until(t.End)))
+}
 
-// timeLeft is d as the page shows a timer's time left, rounded up to the second:
-// "4:05", or "1:02:03" from an hour. Nothing is left once it's up.
-func timeLeft(d time.Duration) string {
-	seconds := int(math.Ceil(max(d, 0).Seconds()))
+// timeLeft is d as the page shows the time left to a timer's end, rounded up to the
+// second, so it's never up early. Nothing is left once it's up.
+func timeLeft(d time.Duration) string { return clock(int(math.Ceil(max(d, 0).Seconds()))) }
+
+// timeSince is d as the page shows the time since a timer without an end started,
+// rounded down to the second, so it never counts a second early.
+func timeSince(d time.Duration) string { return clock(int(max(d, 0) / time.Second)) }
+
+// clock is seconds as the page shows a timer's time: "4:05", or "1:02:03" from an
+// hour.
+func clock(seconds int) string {
 	if seconds >= 3600 {
 		return fmt.Sprintf("%d:%02d:%02d", seconds/3600, seconds/60%60, seconds%60)
 	}
 	return fmt.Sprintf("%d:%02d", seconds/60, seconds%60)
 }
 
-// timerBody is a Timer's body: its title, and left, the time it has left as of when
-// it's rendered. The page counts it down from its start and end, in milliseconds.
-func timerBody(t Timer, left string) templ.Component {
+// timerBody is a Timer's body: its title, then a row of shown, its time as of when it's
+// rendered, and its description beside it. The page keeps the time from its start and
+// end, in milliseconds, whichever it has.
+func timerBody(t Timer, shown string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -81,52 +96,91 @@ func timerBody(t Timer, left string) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(t.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/timer.templ`, Line: 49, Col: 30}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/timer.templ`, Line: 64, Col: 30}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</span><div class=\"time-left\" data-start=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</span><div class=\"timer-body\"><div class=\"time-left\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var3 string
-		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(t.Start.UnixMilli()))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/timer.templ`, Line: 50, Col: 68}
+		if !t.Start.IsZero() {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, " data-start=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var3 string
+			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(t.Start.UnixMilli()))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/timer.templ`, Line: 69, Col: 48}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
+		if !t.End.IsZero() {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, " data-end=\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var4 string
+			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(t.End.UnixMilli()))
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/timer.templ`, Line: 72, Col: 44}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\"")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\" data-end=\"")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		var templ_7745c5c3_Var4 string
-		templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprint(t.End.UnixMilli()))
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/timer.templ`, Line: 50, Col: 111}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, ">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var5 string
-		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(left)
+		templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(shown)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/timer.templ`, Line: 50, Col: 120}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/timer.templ`, Line: 74, Col: 10}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "</div>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if t.Description != "" {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "<div class=\"description\">")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			var templ_7745c5c3_Var6 string
+			templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(t.Description)
+			if templ_7745c5c3_Err != nil {
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/timer.templ`, Line: 76, Col: 43}
+			}
+			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

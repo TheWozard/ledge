@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -42,8 +41,8 @@ const lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do e
 func newSample(now time.Time) *sample {
 	s := &sample{}
 	s.cards = []components.Basic{
-		{ID: "lorem", Title: "Lorem ipsum dolor sit amet", Description: lorem, Priority: 4, Color: "#14b8a6"},
-		{ID: "lorem-actions", Title: "Lorem ipsum with actions", Description: lorem, Priority: 4, Color: "#ec4899", Width: 420, Click: s.opens("lorem-actions"),
+		{ID: "lorem", Title: "Lorem ipsum dolor sit amet", Description: lorem, Color: "#14b8a6"},
+		{ID: "lorem-actions", Title: "Lorem ipsum with actions", Description: lorem, Color: "#ec4899", Width: 420, Click: s.opens("lorem-actions"),
 			Actions: []components.Action{
 				{ID: "lorem-1", Title: "Lorem", Color: "green", Click: s.runs("lorem-1")},
 				{ID: "lorem-2", Title: "Ipsum", Color: "yellow", Click: s.opens("lorem-2")},
@@ -54,31 +53,31 @@ func newSample(now time.Time) *sample {
 				{ID: "lorem-7", Title: "Elit", Color: "#ec4899", Click: s.opens("lorem-7")},
 				{ID: "lorem-8", Title: "Sed do eiusmod", Color: "#8b5cf6", Click: s.runs("lorem-8")},
 			}},
-		{ID: longID, Title: "Lorem ipsum dolor", Description: "Consectetur adipiscing elit, sed do eiusmod.", Priority: 3, Color: "#e0362c",
+		{ID: longID, Title: "Lorem ipsum dolor", Description: "Consectetur adipiscing elit, sed do eiusmod.", Color: "#e0362c",
 			Click: s.opens(longID),
 			Actions: []components.Action{
 				{ID: "tempor", Title: "Tempor", Color: "yellow", Click: s.runs("tempor")},
 				{ID: "incididunt", Title: "Incididunt", Color: "gray", Click: s.opens("incididunt")},
 			}},
-		{ID: "magna", Title: "Magna aliqua", Description: "Ad minim veniam, quis nostrud.", Priority: 2, Color: "#e08a00", Click: s.opens("magna"),
-			Actions: []components.Action{{ID: "exercitation", Title: "Exercitation", Color: "green", Click: s.runs("exercitation")}}},
-		{ID: "ullamco", Title: "Ullamco laboris", Priority: 1, Color: "#2f9e5b",
-			Actions: []components.Action{{ID: "nisi", Title: "Nisi ut aliquip", Color: "#c060ff"}}},
-		{ID: "long", Title: "Ex ea commodo", Description: strings.Repeat("Consequat duis aute irure dolor in reprehenderit. ", 12)},
 		{ID: "voluptate", Title: "In voluptate velit esse cillum dolore eu fugiat nulla", Description: "Excepteur sint occaecat cupidatat non proident, sunt in culpa.",
-			Priority: 3, Color: "#e0362c", Click: s.opens("voluptate"),
+			Color: "#e0362c", Click: s.opens("voluptate"),
 			Actions: []components.Action{
 				{ID: "officia", Title: "Officia", Color: "red", Click: s.runs("officia")},
 				{ID: "deserunt", Title: "Deserunt", Color: "blue", Click: s.opens("deserunt")},
 				{ID: "mollit", Title: "Mollit anim", Color: "yellow", Click: s.runs("mollit")},
 			}},
-		{ID: "laborum", Title: "Id est laborum", Priority: 1, Color: "#2f9e5b", Click: s.opens("laborum")},
-		{ID: "perspiciatis", Title: "Sed ut perspiciatis", Description: "Unde omnis iste natus error sit voluptatem.", Priority: 2, Color: "#e08a00",
+		{ID: "magna", Title: "Magna aliqua", Description: "Ad minim veniam, quis nostrud.", Color: "#e08a00", Click: s.opens("magna"),
+			Actions: []components.Action{{ID: "exercitation", Title: "Exercitation", Color: "green", Click: s.runs("exercitation")}}},
+		{ID: "perspiciatis", Title: "Sed ut perspiciatis", Description: "Unde omnis iste natus error sit voluptatem.", Color: "#e08a00",
 			Actions: []components.Action{{ID: "accusantium", Title: "Accusantium", Color: "green", Click: s.runs("accusantium")}}},
-		{ID: "doloremque", Title: "Doloremque laudantium", Description: "Totam rem aperiam, eaque ipsa quae ab illo.", Click: s.opens("doloremque")},
-		{ID: "inventore", Title: "Inventore veritatis", Priority: 1, Color: "#2f9e5b"},
-		{ID: "quasi", Title: "Quasi architecto", Description: "Beatae vitae dicta sunt explicabo.", Priority: 2, Color: "#e08a00",
+		{ID: "quasi", Title: "Quasi architecto", Description: "Beatae vitae dicta sunt explicabo.", Color: "#e08a00",
 			Actions: []components.Action{{ID: "nemo", Title: "Nemo enim", Color: "gray", Click: s.runs("nemo")}}},
+		{ID: "ullamco", Title: "Ullamco laboris", Color: "#2f9e5b",
+			Actions: []components.Action{{ID: "nisi", Title: "Nisi ut aliquip", Color: "#c060ff"}}},
+		{ID: "laborum", Title: "Id est laborum", Color: "#2f9e5b", Click: s.opens("laborum")},
+		{ID: "inventore", Title: "Inventore veritatis", Color: "#2f9e5b"},
+		{ID: "long", Title: "Ex ea commodo", Description: strings.Repeat("Consequat duis aute irure dolor in reprehenderit. ", 12)},
+		{ID: "doloremque", Title: "Doloremque laudantium", Description: "Totam rem aperiam, eaque ipsa quae ab illo.", Click: s.opens("doloremque")},
 		{ID: "aspernatur", Title: "Aut odit aut fugit", Color: "#3b82f6", Click: s.opens("aspernatur"),
 			Actions: []components.Action{{ID: "consequuntur", Title: "Consequuntur", Color: "green", Click: s.opens("consequuntur")}}},
 		{ID: "neque", Title: "Neque porro quisquam"},
@@ -89,10 +88,23 @@ func newSample(now time.Time) *sample {
 		s.cards[i].Dismiss = s.dismisses(c.ID)
 	}
 	s.timers = []components.Timer{
-		{ID: "timer", Title: "Lorem ipsum timer", Start: now.Add(-40 * time.Second), End: now.Add(80 * time.Second), Priority: 5, Color: "#3b82f6",
-			Click: s.opens("timer"), Dismiss: s.dismisses("timer"), Complete: s.completes("timer")},
-		{ID: "timer-short", Title: "Dolor sit amet", Start: now, End: now.Add(25 * time.Second), Priority: 5,
-			Click: s.opens("timer-short"), Dismiss: s.dismisses("timer-short"), Complete: s.completes("timer-short")},
+		{Basic: components.Basic{ID: "timer", Title: "Lorem ipsum timer", Color: "#3b82f6", Click: s.opens("timer")},
+			Start: now.Add(-40 * time.Second), End: now.Add(80 * time.Second), Complete: s.completes("timer")},
+		{Basic: components.Basic{ID: "timer-short", Title: "Dolor sit amet", Click: s.opens("timer-short")},
+			Start: now, End: now.Add(25 * time.Second), Complete: s.completes("timer-short")},
+		// Something coming up: no start, so no fill, just the countdown.
+		{Basic: components.Basic{ID: "standup", Title: "Lorem standup", Description: now.Add(12*time.Minute).Format(time.Kitchen) + " · Room 4",
+			Color: "#8b5cf6", Click: s.opens("standup"),
+			Actions: []components.Action{{ID: "join", Title: "Join", Color: "blue", Click: s.runs("join")}}},
+			End: now.Add(12 * time.Minute), Complete: s.completes("standup")},
+		// Something going on: no end, so it counts up from its start.
+		{Basic: components.Basic{ID: "incident", Title: "Lorem incident", Description: "Open since " + now.Add(-7*time.Minute).Format(time.Kitchen),
+			Color: "#e0362c", Click: s.opens("incident"),
+			Actions: []components.Action{{ID: "ack", Title: "Ack", Color: "yellow", Click: s.runs("ack")}}},
+			Start: now.Add(-7 * time.Minute)},
+	}
+	for i, t := range s.timers {
+		s.timers[i].Dismiss = s.dismisses(t.ID)
 	}
 	s.long = longReport(now)
 	return s
@@ -202,9 +214,6 @@ func (s *sample) report(id string) (string, []templ.Component) {
 		blocks := []templ.Component{components.Heading(c.Title)}
 		if c.Description != "" {
 			blocks = append(blocks, components.Paragraph(c.Description))
-		}
-		if c.Priority != 0 {
-			blocks = append(blocks, components.Fields([]components.Field{{Label: "Priority", Value: strconv.Itoa(c.Priority)}}))
 		}
 		return c.Title, blocks
 	}

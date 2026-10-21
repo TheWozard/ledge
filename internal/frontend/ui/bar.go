@@ -77,15 +77,14 @@ func barPage(options *Options) (string, error) {
 	return page.String(), nil
 }
 
-// Render shows cards, of any kinds, and their actions: highest priority first, and
-// those of the same priority in the order given. From then, clicking one calls its
-// Click; a click on what a render took off the bar is dropped. A card that ends has
-// its Complete called once its end has passed, if it's still on the bar then, and
-// only once for that end, however many renders show it. Safe from any goroutine.
+// Render shows cards, of any kinds, and their actions, in the order given. From then,
+// clicking one calls its Click; a click on what a render took off the bar is dropped.
+// A card that ends has its Complete called once its end has passed, if it's still on
+// the bar then, and only once for that end, however many renders show it. Safe from
+// any goroutine.
 func (b *Bar) Render(cards []components.Card) {
 	b.mu.Lock()
 	b.cards = slices.Clone(cards)
-	components.SortByPriority(b.cards)
 	b.clicks = components.Clicks(b.cards)
 	b.endings.schedule(b.cards, b.complete)
 	b.mu.Unlock()

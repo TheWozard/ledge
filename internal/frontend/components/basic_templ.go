@@ -14,7 +14,6 @@ type Basic struct {
 	ID          string
 	Title       string
 	Description string
-	Priority    int
 	Color       string
 	Width       int
 	Click       Click
@@ -24,7 +23,7 @@ type Basic struct {
 
 // Frame is the card's frame, from its fields of the same names.
 func (b Basic) Frame() Frame {
-	return Frame{ID: b.ID, Kind: "basic", Priority: b.Priority, Color: b.Color, Width: b.Width, Click: b.Click, Dismiss: b.Dismiss,
+	return Frame{ID: b.ID, Kind: "basic", Color: b.Color, Width: b.Width, Click: b.Click, Dismiss: b.Dismiss,
 		Actions: b.Actions}
 }
 
@@ -60,7 +59,7 @@ func basicBody(b Basic) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(b.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/basic.templ`, Line: 28, Col: 30}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/basic.templ`, Line: 27, Col: 30}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -78,7 +77,7 @@ func basicBody(b Basic) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(b.Description)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/basic.templ`, Line: 30, Col: 42}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/basic.templ`, Line: 29, Col: 42}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {

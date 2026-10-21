@@ -143,6 +143,12 @@ li.clickable:hover {
   color: var(--muted);
 }
 
+/* Beside a timer's time, which is padded, its description needs no padding of its
+   own on that side. */
+.timer-body .description {
+  padding-left: 0;
+}
+
 .dismiss {
   top: 4px;
   right: 8px;

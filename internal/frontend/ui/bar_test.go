@@ -267,11 +267,32 @@ func TestWheelOverScrolling(t *testing.T) {
 func TestTimerCountsDown(t *testing.T) {
 	gui(t)
 	start := time.Now()
-	testBar.Render([]components.Card{components.Timer{ID: "egg", Title: "Egg", Start: start, End: start.Add(1500 * time.Millisecond)}})
+	// One without a start, for something coming up, counts down the same.
+	testBar.Render([]components.Card{
+		components.Timer{Basic: components.Basic{ID: "egg", Title: "Egg"}, Start: start, End: start.Add(1500 * time.Millisecond)},
+		components.Timer{Basic: components.Basic{ID: "meeting", Title: "Meeting"}, End: start.Add(1500 * time.Millisecond)},
+	})
 	t.Cleanup(func() { testBar.Render(nil) })
-	waitFor(t, `document.querySelector("#card-egg .time-left")?.textContent`, `"0:01"`)
-	if got := eval(t, `document.getElementById("card-egg").hasAttribute("data-done")`); got != "false" {
-		t.Error("the timer is done before it's up")
+	for _, id := range []string{"card-egg", "card-meeting"} {
+		waitFor(t, `document.querySelector("#`+id+` .time-left")?.textContent`, `"0:01"`)
+		if got := eval(t, `document.getElementById("`+id+`").hasAttribute("data-done")`); got != "false" {
+			t.Errorf("%s is done before it's up", id)
+		}
 	}
-	waitFor(t, `(c => c.querySelector(".time-left").textContent + " " + c.hasAttribute("data-done"))(document.getElementById("card-egg"))`, `"0:00 true"`)
+	for _, id := range []string{"card-egg", "card-meeting"} {
+		waitFor(t, `(c => c.querySelector(".time-left").textContent + " " + c.hasAttribute("data-done"))(document.getElementById("`+id+`"))`, `"0:00 true"`)
+	}
+}
+
+// A timer without an end counts up from its start by itself, without another Render,
+// and is never done.
+func TestTimerCountsUp(t *testing.T) {
+	gui(t)
+	start := time.Now().Add(-58 * time.Second)
+	testBar.Render([]components.Card{components.Timer{Basic: components.Basic{ID: "incident", Title: "Incident"}, Start: start}})
+	t.Cleanup(func() { testBar.Render(nil) })
+	waitFor(t, `document.querySelector("#card-incident .time-left")?.textContent`, `"1:00"`)
+	if got := eval(t, `document.getElementById("card-incident").hasAttribute("data-done")`); got != "false" {
+		t.Error("a timer without an end is done")
+	}
 }

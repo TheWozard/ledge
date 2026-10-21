@@ -4,8 +4,8 @@
    for actions.
 
    A card's kind is a class on its <li>, such as basic, for a theme to style
-   each kind by. A timer card has --progress, from 0 to 1 as it counts down, and
-   data-done once it's up. A card with a colour carries it in data-color, and as CSS in --card-color; a
+   each kind by. A timer card with an end has data-done once it's up, and, if it
+   has a start too, --progress, from 0 to 1 as it counts down. A card with a colour carries it in data-color, and as CSS in --card-color; a
    theme shows it however it likes, or not at all. An action carries its
    current colour in data-color, and as CSS in --action.
 
@@ -73,9 +73,11 @@ ul {
 ul::-webkit-scrollbar {
   display: none;
 }
-/* A card is --card-width wide: 300px, or 100px for a timer. A theme sets it, for
-   every card or by kind (li.timer, as li alone doesn't reach a timer past this),
-   and a card with a Width of its own has it inline, which wins. */
+/* A card is --card-width wide: 300px, or for a timer 100px, 200px with a
+   description beside its time. A theme sets it, for every card or by kind
+   (li.timer, as li alone doesn't reach a timer past this, and
+   li.timer:has(.description)), and a card with a Width of its own has it inline,
+   which wins. */
 li {
   --card-width: 300px;
   position: relative;
@@ -88,6 +90,9 @@ li {
 }
 li.timer {
   --card-width: 100px;
+}
+li.timer:has(.description) {
+  --card-width: 200px;
 }
 /* Anything with a Click has the class clickable, and is clicked on its own: a
    clickable action isn't also a click on its card. */
@@ -111,6 +116,22 @@ li.timer {
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+}
+/* Under a timer's title, a row fills the space above its actions: its time on the
+   left, and its description beside it, both centred, the description scrolling if
+   it doesn't fit. */
+.timer-body {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  min-height: 0;
+}
+.time-left {
+  flex: none;
+}
+.timer-body .description {
+  min-width: 0;
+  max-height: 100%;
 }
 
 /* A card's actions sit in one row at its bottom, inside the card's padding,

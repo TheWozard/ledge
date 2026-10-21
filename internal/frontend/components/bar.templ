@@ -26,11 +26,11 @@ templ BarPage(themeCSS string, edge string) {
 	</html>
 }
 
-// BarContent is what the bar shows: cards in a row, in the order given (see
-// SortByPriority), each with its actions. fresh gives each card and action new since
-// the bar last showed, by ElementID, its place among the new ones of its kind (card
-// or action), for the theme's entrance animation. The row is there even when empty,
-// so the last card can animate out.
+// BarContent is what the bar shows: cards in a row, in the order given, each with its
+// actions. fresh gives each card and action new since the bar last showed, by
+// ElementID, its place among the new ones of its kind (card or action), for the
+// theme's entrance animation. The row is there even when empty, so the last card can
+// animate out.
 templ BarContent(cards []Card, fresh map[string]int) {
 	<ul id="cards">
 		for _, c := range cards {

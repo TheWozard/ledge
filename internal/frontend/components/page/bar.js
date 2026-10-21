@@ -82,23 +82,38 @@ app.addEventListener("wheel", event => {
   event.preventDefault();
 }, { passive: false });
 
-// tick counts down every timer on the bar: an element with data-start and data-end,
-// in milliseconds, shows the time left, rounded up to the second, as Go's timeLeft
-// does, and sets --progress on its card, from 0 at its start to 1 at its end, and
-// data-done once it's up. It runs a few times a second, and after every update, as
-// a render puts back the time left as of then.
+// clock is seconds as a timer shows them, as Go's clock does: "4:05", or "1:02:03"
+// from an hour.
+function clock(seconds) {
+  const pad = n => String(n).padStart(2, "0");
+  return seconds >= 3600
+    ? `${Math.floor(seconds / 3600)}:${pad(Math.floor(seconds / 60) % 60)}:${pad(seconds % 60)}`
+    : `${Math.floor(seconds / 60)}:${pad(seconds % 60)}`;
+}
+
+// tick keeps the time of every timer on the bar, an element with data-start or
+// data-end, in milliseconds, as Go's timeLeft and timeSince do. With data-end, it
+// shows the time left, rounded up to the second, and sets data-done on its card once
+// it's up; with data-start too, it sets --progress on its card, from 0 at its start
+// to 1 at its end. With only data-start, it shows the time since, rounded down. It
+// runs a few times a second, and after every update, as a render puts back the time
+// as of then.
 function tick() {
   const now = Date.now();
-  for (const timer of app.querySelectorAll("[data-end]")) {
-    const start = +timer.dataset.start, end = +timer.dataset.end;
+  for (const timer of app.querySelectorAll("[data-start], [data-end]")) {
+    if (!("end" in timer.dataset)) {
+      timer.textContent = clock(Math.floor(Math.max(0, now - +timer.dataset.start) / 1000));
+      continue;
+    }
+    const end = +timer.dataset.end;
     const seconds = Math.ceil(Math.max(0, end - now) / 1000);
-    const pad = n => String(n).padStart(2, "0");
-    timer.textContent = seconds >= 3600
-      ? `${Math.floor(seconds / 3600)}:${pad(Math.floor(seconds / 60) % 60)}:${pad(seconds % 60)}`
-      : `${Math.floor(seconds / 60)}:${pad(seconds % 60)}`;
+    timer.textContent = clock(seconds);
     const card = timer.closest("li");
     if (!card) continue;
-    card.style.setProperty("--progress", end > start ? Math.min(1, Math.max(0, (now - start) / (end - start))) : 1);
+    if ("start" in timer.dataset) {
+      const start = +timer.dataset.start;
+      card.style.setProperty("--progress", end > start ? Math.min(1, Math.max(0, (now - start) / (end - start))) : 1);
+    }
     card.toggleAttribute("data-done", seconds === 0);
   }
 }

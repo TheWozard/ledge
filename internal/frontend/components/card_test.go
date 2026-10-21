@@ -96,19 +96,6 @@ func TestKinds(t *testing.T) {
 	}
 }
 
-// Cards sort highest priority first, those of the same priority keeping their order.
-func TestSortByPriority(t *testing.T) {
-	cards := Cards([]Basic{{ID: "a"}, {ID: "b", Priority: 2}, {ID: "c", Priority: -1}, {ID: "d", Priority: 2}, {ID: "e"}})
-	SortByPriority(cards)
-	var ids []string
-	for _, c := range cards {
-		ids = append(ids, c.Frame().ID)
-	}
-	if got := strings.Join(ids, ""); got != "bdaec" {
-		t.Errorf("sorted %s, want bdaec", got)
-	}
-}
-
 func TestAction(t *testing.T) {
 	actions := []Action{
 		{ID: "aws", Title: "AWS", Color: "green", Click: nothing},
