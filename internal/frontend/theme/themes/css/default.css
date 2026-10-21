@@ -5,7 +5,7 @@
   --card: #ffffff;
   --text: #1d1d1f;
   --muted: #6b6b70;
-  --line: rgba(0, 0, 0, .08);
+  --line: rgba(0, 0, 0, 0.08);
   --accent: #2f5fd0;
   --tint: 9%;
   --action-tint: 22%;
@@ -26,7 +26,7 @@
     --card: #26262b;
     --text: #ececef;
     --muted: #9a9aa2;
-    --line: rgba(255, 255, 255, .09);
+    --line: rgba(255, 255, 255, 0.09);
     --accent: #7ea2ff;
     --c-green: #5cc27a;
     --c-yellow: #e8b55a;
@@ -36,8 +36,11 @@
 }
 
 body {
+  font:
+    12px / 1.4 -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
   color: var(--text);
-  font: 12px/1.4 -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 #app {
@@ -51,9 +54,9 @@ body.top #app {
 }
 
 .action {
-  border-radius: var(--radius);
-  border: 1px solid var(--action);
   background: color-mix(in srgb, var(--action) var(--action-tint), var(--card));
+  border: 1px solid var(--action);
+  border-radius: var(--radius);
 }
 
 .action .label {
@@ -61,14 +64,18 @@ body.top #app {
 }
 
 .action.clickable:hover {
-  background: color-mix(in srgb, var(--action) var(--action-hover), var(--card));
+  background: color-mix(
+    in srgb,
+    var(--action) var(--action-hover),
+    var(--card)
+  );
 }
 
 li {
-  border-radius: var(--radius);
+  gap: 4px;
   background: var(--card);
   border: 1px solid var(--line);
-  gap: 4px;
+  border-radius: var(--radius);
 }
 
 li[data-color] {
@@ -86,18 +93,21 @@ li[data-color] {
 
 li.timer {
   --fill: var(--card-color, var(--accent));
-  background: linear-gradient(to right,
-      color-mix(in srgb, var(--fill) var(--timer-fill), var(--card)) calc(var(--progress) * 100%),
-      color-mix(in srgb, var(--fill) var(--tint), var(--card)) 0);
-  transition: --progress .25s linear;
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--fill) var(--timer-fill), var(--card))
+      calc(var(--progress) * 100%),
+    color-mix(in srgb, var(--fill) var(--tint), var(--card)) 0
+  );
+  transition: --progress 0.25s linear;
 }
 
 .time-left {
   padding: 0 8px;
   font-size: 22px;
   font-weight: 600;
-  line-height: 1.2;
   font-variant-numeric: tabular-nums;
+  line-height: 1.2;
 }
 
 /* A card that can be clicked has a stripe of its colour down its left edge (a
@@ -113,35 +123,35 @@ li.clickable:hover {
 
 /* One line, kept clear of ×: it's 18px wide, 8px in from the right. */
 .title {
-  font-weight: 600;
-  font-size: 13px;
-  line-height: 18px;
-  -webkit-line-clamp: 1;
-  margin-right: 28px;
   padding: 4px 0 0 8px;
+  margin-right: 28px;
+  -webkit-line-clamp: 1;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
 }
 
 .actions {
-  margin-top: auto;
   gap: 5px;
-  padding-left: 8px;
   padding-bottom: 4px;
+  padding-left: 8px;
+  margin-top: auto;
 }
 
 .description {
-  color: var(--muted);
   padding: 0 8px;
+  color: var(--muted);
 }
 
 .dismiss {
   top: 4px;
   right: 8px;
-  border-radius: var(--radius);
-  color: var(--muted);
   font-size: 14px;
   line-height: 18px;
+  color: var(--muted);
+  border-radius: var(--radius);
   opacity: 0;
-  transition: opacity .15s;
+  transition: opacity 0.15s;
 }
 
 li:hover .dismiss,
@@ -150,8 +160,8 @@ li:hover .dismiss,
 }
 
 .dismiss:hover {
-  background: var(--line);
   color: var(--text);
+  background: var(--line);
 }
 
 .empty {
@@ -161,18 +171,20 @@ li:hover .dismiss,
 /* Entering and leaving: cards and actions fade up into place, staggered, and fade
    back down to leave while the row closes up behind them. */
 li[data-new] {
-  animation: rise .3s ease-out backwards;
+  animation: rise 0.3s ease-out backwards;
   animation-delay: calc(var(--i) * 40ms);
 }
 
 .action[data-new] {
-  animation: rise .25s ease-out backwards;
+  animation: rise 0.25s ease-out backwards;
   animation-delay: calc(var(--i) * 30ms);
 }
 
 li[data-leaving],
 .action[data-leaving] {
-  animation: sink .18s ease-in both, collapse .2s .15s ease-in-out both;
+  animation:
+    sink 0.18s ease-in both,
+    collapse 0.2s 0.15s ease-in-out both;
 }
 
 @keyframes rise {
@@ -192,7 +204,7 @@ li[data-leaving],
 /* A clicked action flashes its colour. After the entrance, so a click during it
    still flashes. */
 .action.clicked {
-  animation: clicked .6s;
+  animation: clicked 0.6s;
 }
 
 @keyframes clicked {
@@ -203,7 +215,6 @@ li[data-leaving],
 
 /* With reduced motion, nothing moves: what leaves just closes up. */
 @media (prefers-reduced-motion: reduce) {
-
   li[data-new],
   .action[data-new] {
     animation: none;
@@ -211,6 +222,6 @@ li[data-leaving],
 
   li[data-leaving],
   .action[data-leaving] {
-    animation: collapse .2s ease-in-out both;
+    animation: collapse 0.2s ease-in-out both;
   }
 }

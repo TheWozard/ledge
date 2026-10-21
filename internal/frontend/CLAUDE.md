@@ -13,7 +13,7 @@ Run the narrowest tests that cover the change. Most changes need only `just test
 
 | Changed | Run | Takes |
 |---|---|---|
-| anything (always, first) | `just test`: generates the templ files, then the tests that don't open windows | ~1s |
+| anything (always, first) | `just test`: generates the templ files, lints the CSS (`just lint`), then the tests that don't open windows | ~1s |
 | one theme's files: `theme/themes/<name>.json`, `css/<name>.css`, `css/<name>.report.css` | `just gui-themes <name>`: that it loads | ~1s a theme |
 | `components/*.templ`, `components/*.go`, `components/page/*`, `ui/*.go` | `just gui`: every window test, with the per-theme ones in the default theme only | ~13s |
 | `shim/` | `go test ./shim`, then `just gui` | |
@@ -33,3 +33,6 @@ Run the narrowest tests that cover the change. Most changes need only `just test
   run, or `just inspect <theme>` to see the pages in the browser's inspector.
 - After editing a `.templ` file, `just check-generated` confirms the committed
   `*_templ.go` files match it.
+- The CSS lint is Biome (`biome.json`), and a warning fails it. Fix what it flags
+  rather than turning a rule off; if a rule is wrong for this code, ask first.
+  `just lint` runs it alone.

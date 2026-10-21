@@ -178,13 +178,18 @@ that's all. To try a theme of your own, `just preview path/to/neon.json`.
 ## Developing
 
 The `.templ` files are compiled to `*_templ.go` with the templ CLI, and the generated
-files are committed, so building doesn't need it:
+files are committed, so building doesn't need it. The CSS, the pages' layout styles and the
+built-in themes', is linted with [Biome](https://biomejs.dev), set up in
+[biome.json](biome.json):
 
 ```sh
 go install github.com/a-h/templ/cmd/templ@v0.3.1001
+brew install biome
 just generate      # templ generate
 just check-generated # fail if the committed *_templ.go are stale
-just test          # go test ./...
+just lint          # biome lint, failing on warnings too
+just fmt           # format the CSS and sort each rule's properties, writing the changes
+just test          # just lint, then go test ./...
 just gui           # the tests that open windows, those for each theme in only the default
 just gui-themes default # only the tests for each theme, in those themes
 just gui-all       # every test that opens windows, in every theme (slow)

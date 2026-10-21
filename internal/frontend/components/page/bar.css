@@ -19,64 +19,169 @@
    action that's gone stays, with data-leaving, until its animations end,
    then goes. A theme's exit should end with "collapse", which closes up the space
    it leaves so what follows slides into place; without one, it just collapses. */
-* { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: var(--bar); overflow: hidden; }
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--bar);
+}
 /* The bar stays put against the window's edges: no rubber-band bounce. */
-html { overscroll-behavior: none; }
-body { -webkit-user-select: none; cursor: default; }
+html {
+  overscroll-behavior: none;
+}
+body {
+  cursor: default;
+  -webkit-user-select: none;
+}
 
 /* The bar fills the window with the scrolling row of cards. A theme sets its padding
    with --pad-top, --pad-x and --pad-bottom. */
-#app { --pad-top: 8px; --pad-x: 8px; --pad-bottom: 8px;
-       position: relative; display: flex; height: 100%; gap: 8px;
-       padding: var(--pad-top) var(--pad-x) var(--pad-bottom); }
+#app {
+  --pad-top: 8px;
+  --pad-x: 8px;
+  --pad-bottom: 8px;
+  position: relative;
+  display: flex;
+  gap: 8px;
+  height: 100%;
+  padding: var(--pad-top) var(--pad-x) var(--pad-bottom);
+}
 
 /* The row of cards runs through the bar's side padding to the window's edges, padded
    the same inside, so the cards rest inside the padding but scroll out to the edge,
    not cut off short of it. A theme pads the row further sideways with --row-pad-x,
    not padding-inline, which this sets. */
-ul { flex: 1; min-width: 0; list-style: none; margin: 0 calc(-1 * var(--pad-x)); padding: 0; display: flex; gap: 8px;
-     overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
-#cards { padding-inline: calc(var(--pad-x) + var(--row-pad-x, 0px)); }
-ul::-webkit-scrollbar { display: none; }
+ul {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  margin: 0 calc(-1 * var(--pad-x));
+  overflow-x: auto;
+  overflow-y: hidden;
+  list-style: none;
+  scrollbar-width: none;
+}
+#cards {
+  padding-inline: calc(var(--pad-x) + var(--row-pad-x, 0px));
+}
+ul::-webkit-scrollbar {
+  display: none;
+}
 /* A card is --card-width wide: 300px, or 100px for a timer. A theme sets it, for
    every card or by kind (li.timer, as li alone doesn't reach a timer past this),
    and a card with a Width of its own has it inline, which wins. */
-li { --card-width: 300px; position: relative; flex: none; width: var(--card-width); height: 100%; display: flex; flex-direction: column; overflow: hidden; }
-li.timer { --card-width: 100px; }
+li {
+  --card-width: 300px;
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: var(--card-width);
+  height: 100%;
+  overflow: hidden;
+}
+li.timer {
+  --card-width: 100px;
+}
 /* Anything with a Click has the class clickable, and is clicked on its own: a
    clickable action isn't also a click on its card. */
-.clickable { cursor: pointer; }
+.clickable {
+  cursor: pointer;
+}
 /* Title, description, then the actions pinned to the bottom. The title
    clamps; the description fills the space between it and the actions (or
    the bottom, without them), and scrolls if it doesn't fit. */
 /* Only the title shares the top line with ×, so only it keeps clear of it. */
-.title { display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; -webkit-line-clamp: 2; flex: none;
-         margin-right: 16px; }
-.description { flex: 1 1 0; min-height: 0; overflow-x: hidden; overflow-y: auto; }
+.title {
+  display: -webkit-box;
+  flex: none;
+  -webkit-box-orient: vertical;
+  margin-right: 16px;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+}
+.description {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
 
 /* A card's actions sit in one row at its bottom, inside the card's padding,
    and scroll sideways if they don't fit. A theme spaces them from the description
    above, such as with a gap on the card. A theme whose card has no padding of its
    own, its lines padding themselves, pads the row the same. A clickable one is a
    button of its own; clicking one that isn't is clicking the card. */
-.actions { flex: none; display: flex; gap: 4px; margin-top: auto;
-                 overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
-.actions::-webkit-scrollbar { display: none; }
-.action { position: relative; flex: none; display: flex; align-items: center; height: 20px;
-                padding: 0 8px; white-space: nowrap; }
+.actions {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  margin-top: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.actions::-webkit-scrollbar {
+  display: none;
+}
+.action {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
 
-.dismiss { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border: 0; padding: 0;
-           background: none; color: inherit; font: inherit; cursor: pointer; }
+.dismiss {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
 
-.empty { flex: 1; display: flex; align-items: center; }
+.empty {
+  display: flex;
+  flex: 1;
+  align-items: center;
+}
 /* The row, and a card's actions, are always there, so the last of them can
    leave; empty, they're hidden, and "No events." shows once the last card has gone. */
-.actions:empty, ul:empty { display: none; }
-ul:not(:empty) ~ .empty { display: none; }
+.actions:empty,
+ul:empty {
+  display: none;
+}
+ul:not(:empty) ~ .empty {
+  display: none;
+}
 
 /* --collapse-x is set on a leaving element to minus the room it takes in its row,
    gap included. */
-[data-leaving] { pointer-events: none; animation: collapse .2s ease-in-out both; }
-@keyframes collapse { to { margin-right: var(--collapse-x, 0); } }
-@keyframes blink { 50% { opacity: 0; } }
+[data-leaving] {
+  pointer-events: none;
+  animation: collapse 0.2s ease-in-out both;
+}
+@keyframes collapse {
+  to {
+    margin-right: var(--collapse-x, 0);
+  }
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}

@@ -10,7 +10,7 @@ func TestBarPage(t *testing.T) {
 	html := render(t, BarPage(":root { --bar: #fff; }", "top"))
 	contains(t, html, `<body class="top">`, "<style>\n:root { --bar: #fff; }</style>", `<div id="app"></div>`,
 		// The layout and the script come through as written.
-		"html, body { margin: 0;", `send("ready");`, `event.target.closest("[data-click]")`,
+		"/* Layout only. How the bar looks comes from its theme", `send("ready");`, `event.target.closest("[data-click]")`,
 		// Idiomorph is inlined whole, and update morphs with it.
 		"<script>var Idiomorph=", `Idiomorph.morph(app, html, {`)
 }

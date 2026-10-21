@@ -21,8 +21,16 @@ check-generated:
         exit 1
     fi
 
-# The tests that don't open windows.
-test: generate
+# Lint the CSS with Biome (brew install biome); see biome.json. Warnings fail it too.
+lint:
+    biome lint --error-on-warnings
+
+# Clean up the CSS with Biome: format it, sort each rule's properties, apply safe fixes.
+fmt:
+    biome check --write
+
+# The CSS lint, then the tests that don't open windows.
+test: generate lint
     go test ./...
 
 # The tests that open windows, with those that go through each theme only in the
