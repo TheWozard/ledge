@@ -1,0 +1,56 @@
+# Lint and the tests that don't open windows, on every push and pull request. macOS
+# only: the shim is Cocoa, so nothing that imports it builds anywhere else.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: biomejs/setup-biome@v2
+        with:
+          version: 2.5.15 # biome.json's schema; a newer one can change the rules
+      # templ's CLI at go.mod's version of it, so an update to it there is checked
+      # with the CLI it needs.
+      - name: Install just and templ
+        run: |
+          brew install just
+          go install github.com/a-h/templ/cmd/templ@$(go list -m -f '{{.Version}}' github.com/a-h/templ)
+      - name: The CSS lint
+        run: just lint
+      - name: The *_templ.go files match the .templ files
+        run: just check-generated
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt'd:" >&2
+            echo "$unformatted" >&2
+            exit 1
+          fi
+      - name: go vet
+        run: go vet ./...
+
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      # The tests that open windows skip themselves without LEDGE_GUI_TEST: they run
+      # only locally, with just gui. The committed *_templ.go files are tested as they
+      # are; the lint job checks they're current.
+      - name: go test
+        run: go test ./...

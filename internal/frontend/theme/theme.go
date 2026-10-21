@@ -45,8 +45,8 @@ type Theme struct {
 	Report string // the report window's stylesheet
 	// Menu is the stylesheet of a card's menu of actions, drawn as a page in a pop-up
 	// of its own; "" for the native macOS menu instead.
-	Menu string
-	Frame  Frame
+	Menu  string
+	Frame Frame
 }
 
 // Frame is how a theme's report window frame looks. Its page draws the title bar.

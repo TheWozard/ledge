@@ -242,6 +242,11 @@ just preview default # a bar and a report window in a theme (or a .json), until 
 just inspect default # the same pages in the browser, to inspect (a card's menu opens in the report frame); theme edits show on a reload
 ```
 
+On GitHub, [ci.yml](.github/workflows/ci.yml) runs the lint, `check-generated`,
+`gofmt`, `go vet` and the tests that don't open windows on every push to `main` and
+every pull request, on macOS (the shim is Cocoa, so nothing builds elsewhere). The
+tests that open windows run only locally, with `just gui`.
+
 The tests that open windows put a bar on your screen and a report window over it for a
 few seconds. They read the pages' DOM through the shim and click from JavaScript; they
 can't check hover, a real mouse drag, keyboard shortcuts or how the windows look.
