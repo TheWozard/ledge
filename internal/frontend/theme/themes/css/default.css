@@ -8,8 +8,6 @@
   --line: rgba(0, 0, 0, 0.08);
   --accent: #2f5fd0;
   --tint: 9%;
-  --action-tint: 22%;
-  --action-hover: 36%;
   --timer-fill: 30%;
   --stripe: 3px;
   --radius: 4px;
@@ -51,24 +49,6 @@ body {
 body.top #app {
   border-top: 0;
   border-bottom: 1px solid var(--line);
-}
-
-.action {
-  background: color-mix(in srgb, var(--action) var(--action-tint), var(--card));
-  border: 1px solid var(--action);
-  border-radius: var(--radius);
-}
-
-.action .label {
-  font-weight: 600;
-}
-
-.action.clickable:hover {
-  background: color-mix(
-    in srgb,
-    var(--action) var(--action-hover),
-    var(--card)
-  );
 }
 
 li {
@@ -123,7 +103,8 @@ li.clickable:hover {
   border-color: var(--accent);
 }
 
-/* One line, kept clear of ×: it's 18px wide, 8px in from the right. */
+/* One line, kept clear of the card's buttons: each 18px wide, 2px apart, 8px in
+   from the right. */
 .title {
   padding: 4px 0 0 8px;
   margin-right: 28px;
@@ -131,13 +112,6 @@ li.clickable:hover {
   font-size: 13px;
   font-weight: 600;
   line-height: 18px;
-}
-
-.actions {
-  gap: 5px;
-  padding-bottom: 4px;
-  padding-left: 8px;
-  margin-top: auto;
 }
 
 .description {
@@ -206,9 +180,17 @@ li.clickable:hover {
   color: var(--muted);
 }
 
-.dismiss {
+li:has(.menu):has(.dismiss) .title {
+  margin-right: 48px;
+}
+
+/* The card's buttons show while it's hovered. */
+.card-buttons {
   top: 4px;
   right: 8px;
+}
+
+.card-buttons button {
   font-size: 14px;
   line-height: 18px;
   color: var(--muted);
@@ -217,12 +199,12 @@ li.clickable:hover {
   transition: opacity 0.15s;
 }
 
-li:hover .dismiss,
-.dismiss:focus-visible {
+li:hover .card-buttons button,
+.card-buttons button:focus-visible {
   opacity: 1;
 }
 
-.dismiss:hover {
+.card-buttons button:hover {
   color: var(--text);
   background: var(--line);
 }
@@ -231,20 +213,14 @@ li:hover .dismiss,
   color: var(--muted);
 }
 
-/* Entering and leaving: cards and actions fade up into place, staggered, and fade
-   back down to leave while the row closes up behind them. */
+/* Entering and leaving: cards fade up into place, staggered, and fade back down to
+   leave while the row closes up behind them. */
 li[data-new] {
   animation: rise 0.3s ease-out backwards;
   animation-delay: calc(var(--i) * 40ms);
 }
 
-.action[data-new] {
-  animation: rise 0.25s ease-out backwards;
-  animation-delay: calc(var(--i) * 30ms);
-}
-
-li[data-leaving],
-.action[data-leaving] {
+li[data-leaving] {
   animation:
     sink 0.18s ease-in both,
     collapse 0.2s 0.15s ease-in-out both;
@@ -264,28 +240,14 @@ li[data-leaving],
   }
 }
 
-/* A clicked action flashes its colour. After the entrance, so a click during it
-   still flashes. */
-.action.clicked {
-  animation: clicked 0.6s;
-}
-
-@keyframes clicked {
-  from {
-    background: var(--action);
-  }
-}
-
 /* With reduced motion, nothing moves: what leaves just closes up. */
 @media (prefers-reduced-motion: reduce) {
   li[data-new],
-  .action[data-new],
   .check[data-state="running"] .check-mark {
     animation: none;
   }
 
-  li[data-leaving],
-  .action[data-leaving] {
+  li[data-leaving] {
     animation: collapse 0.2s ease-in-out both;
   }
 }

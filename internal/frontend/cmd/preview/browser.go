@@ -112,7 +112,8 @@ func (s *browserServer) report(w http.ResponseWriter, r *http.Request) {
 }
 
 // action takes what the bar page posts, as the app would, and replies with the bar's
-// content and any report a click opened.
+// content and any report a click opened. A browser has no native menus, so a card's
+// menu is only logged.
 func (s *browserServer) action(w http.ResponseWriter, r *http.Request) {
 	var message struct{ Action, ID string }
 	if err := json.NewDecoder(r.Body).Decode(&message); err != nil {
@@ -134,6 +135,14 @@ func (s *browserServer) action(w http.ResponseWriter, r *http.Request) {
 			reply["report"], s.opening = s.opening, ""
 		}
 		s.mu.Unlock()
+	case "menu":
+		for _, card := range s.sample.shown() {
+			if frame := card.Frame(); frame.ElementID() == message.ID {
+				for _, item := range frame.Menu() {
+					log.Printf("  %s (%s, can be chosen: %v)", item.Title, item.Color, item.Enabled)
+				}
+			}
+		}
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(reply)

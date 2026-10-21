@@ -6,20 +6,15 @@ function send(action, id) {
 }
 
 // update shows html, rendered by Go from BarContent, with its text escaped. It
-// morphs #app into it, matching cards and actions by their ids, so what's
-// still there keeps its element: the row keeps its scroll, a hovered card its hover,
-// and a clicked action its flash: "clicked" is the page's own class, not in
-// html, so it's carried over rather than morphed away. A card or action that's
-// gone leaves rather than vanishing.
+// morphs #app into it, matching cards by their ids, so what's still there keeps its
+// element: the row keeps its scroll, and a hovered card its hover. A card that's gone
+// leaves rather than vanishing.
 function update(html) {
   Idiomorph.morph(app, html, {
     morphStyle: "innerHTML",
     callbacks: {
-      beforeNodeMorphed(from, to) {
-        if (from.classList?.contains("clicked")) to.classList.add("clicked");
-      },
       beforeNodeRemoved(node) {
-        if (!node.matches?.("#cards > li, #cards .actions > .action")) return true;
+        if (!node.matches?.("#cards > li")) return true;
         if (!node.hasAttribute("data-leaving")) leave(node);
         return false;
       },
@@ -34,7 +29,6 @@ function update(html) {
 // data-leaving off, and it stays.
 function leave(node) {
   node.removeAttribute("data-new");
-  node.classList.remove("clicked");
   const gap = parseFloat(getComputedStyle(node.parentElement).columnGap) || 0;
   node.style.setProperty("--collapse-x", -(node.offsetWidth + gap) + "px");
   node.setAttribute("data-leaving", "");
@@ -47,18 +41,24 @@ function leave(node) {
   setTimeout(gone, 3000);
 }
 
-// A click on anything with data-click posts its id: the innermost, so an
-// action's click isn't also its card's. A clicked action has the class
-// clicked for a theme to flash it, restarting if it's clicked again quickly.
+// A click on a card's ⋯ asks for its menu. A click on anything else with
+// data-click posts its id: the innermost, so the ×'s click isn't also its card's.
 app.addEventListener("click", event => {
-  const target = event.target.closest("[data-click]");
-  if (!target) return;
-  if (target.classList.contains("action")) {
-    target.classList.remove("clicked");
-    void target.offsetWidth;
-    target.classList.add("clicked");
+  const menu = event.target.closest("button[data-menu]");
+  if (menu) {
+    send("menu", menu.dataset.menu);
+    return;
   }
-  send("click", target.dataset.click);
+  const target = event.target.closest("[data-click]");
+  if (target) send("click", target.dataset.click);
+});
+
+// A right-click on a card with actions asks for its menu, which the app shows.
+// WebKit's own menu never shows, anywhere on the page.
+document.addEventListener("contextmenu", event => {
+  event.preventDefault();
+  const card = event.target.closest?.("[data-menu]");
+  if (card) send("menu", card.dataset.menu);
 });
 
 // Whether node, or something it's in, scrolls vertically and has more to show, as
@@ -70,12 +70,10 @@ function scrollsVertically(node) {
   return false;
 }
 
-// A mouse wheel only scrolls vertically; turn that into sideways scrolling of the row,
-// or of a card's actions when they don't fit. Over anything that scrolls
-// vertically, it's left alone.
+// A mouse wheel only scrolls vertically; turn that into sideways scrolling of the
+// row. Over anything that scrolls vertically, it's left alone.
 app.addEventListener("wheel", event => {
-  const actions = event.target.closest?.(".actions");
-  const row = actions && actions.scrollWidth > actions.clientWidth ? actions : app.querySelector("ul");
+  const row = app.querySelector("ul");
   if (!row || scrollsVertically(event.target)
       || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
   row.scrollLeft += event.deltaY;

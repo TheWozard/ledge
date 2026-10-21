@@ -16,7 +16,6 @@ func TestChecks(t *testing.T) {
 		}}
 	html := render(t, BarContent([]Card{card}, nil))
 	contains(t, html,
-		`<li id="card-ci" class="checks">`,
 		`<span class="title">CI</span> <div class="check-list">`,
 		`<span class="check" data-state="passed" title="build: passed"><span class="check-mark">✓</span>build</span>`,
 		`<span class="check" data-state="failed" title="&lt;test&gt;: failed"><span class="check-mark">✗</span>&lt;test&gt;</span>`,
@@ -25,7 +24,9 @@ func TestChecks(t *testing.T) {
 		`data-state="skipped" title="docs: skipped"><span class="check-mark">–</span>`,
 		// A state that isn't one is pending.
 		`data-state="pending" title="odd: pending"><span class="check-mark">○</span>odd</span>`,
-		`</div><div class="description">On main</div><div class="actions"><div id="action-rerun"`)
+		`</div><div class="description">On main</div></li>`,
+		// Its action, to rerun the failed one, is in its menu.
+		`<li id="card-ci" class="checks" data-menu="card-ci">`)
 	lacks(t, html, "<test>", "exploded")
 
 	// Without checks, there's no row for them.

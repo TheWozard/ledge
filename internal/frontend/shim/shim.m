@@ -436,3 +436,87 @@ void ledgeEvalResult(int window, const char *js, uintptr_t handle) {
         }];
     });
 }
+
+// dotColor is the colour of a menu item's dot: a named colour as the system's, #rrggbb,
+// or nil for none.
+static NSColor *dotColor(NSString *name) {
+    NSDictionary<NSString *, NSColor *> *named = @{
+        @"green" : NSColor.systemGreenColor, @"yellow" : NSColor.systemYellowColor,
+        @"red" : NSColor.systemRedColor, @"blue" : NSColor.systemBlueColor, @"gray" : NSColor.systemGrayColor,
+    };
+    if (named[name] != nil) {
+        return named[name];
+    }
+    unsigned int rgb = 0;
+    NSScanner *scanner = name.length == 7 && [name hasPrefix:@"#"] ? [NSScanner scannerWithString:[name substringFromIndex:1]] : nil;
+    if (scanner == nil || ![scanner scanHexInt:&rgb] || !scanner.isAtEnd) {
+        return nil;
+    }
+    return [NSColor colorWithSRGBRed:((rgb >> 16) & 0xff) / 255.0 green:((rgb >> 8) & 0xff) / 255.0 blue:(rgb & 0xff) / 255.0 alpha:1];
+}
+
+// dot is a small round image in color, for before a menu item's title.
+static NSImage *dot(NSColor *color) {
+    return [NSImage imageWithSize:NSMakeSize(10, 10) flipped:NO drawingHandler:^BOOL(NSRect rect) {
+        [color setFill];
+        [[NSBezierPath bezierPathWithOvalInRect:NSInsetRect(rect, 1, 1)] fill];
+        return YES;
+    }];
+}
+
+// Reports what was chosen from a menu ledgeShowMenu popped up, once: the item's
+// index when its action is sent, or -1 if the menu closed without one.
+@interface LedgeMenuTarget : NSObject
+@property uintptr_t handle;
+@property BOOL reported;
+@end
+@implementation LedgeMenuTarget
+- (void)report:(int)index {
+    if (!self.reported) {
+        self.reported = YES;
+        goLedgeMenuChosen(self.handle, index);
+    }
+}
+- (void)choose:(NSMenuItem *)item {
+    [self report:(int)item.tag];
+}
+@end
+
+void ledgeShowMenu(const LedgeMenuItem *items, int count, uintptr_t handle) {
+    NSMutableArray<NSMenuItem *> *made = [NSMutableArray array];
+    for (int i = 0; i < count; i++) {
+        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:[NSString stringWithUTF8String:items[i].title]
+                                                      action:@selector(choose:)
+                                               keyEquivalent:@""];
+        item.tag = i;
+        item.enabled = items[i].enabled != 0;
+        NSColor *color = dotColor([NSString stringWithUTF8String:items[i].color]);
+        if (color != nil) {
+            item.image = dot(color);
+        }
+        [made addObject:item];
+    }
+    // From the run loop rather than the main queue: the menu runs its own loop until
+    // it closes, and the queue would wait for it.
+    CFRunLoopPerformBlock(CFRunLoopGetMain(), kCFRunLoopCommonModes, ^{
+        LedgeMenuTarget *target = [LedgeMenuTarget new];
+        target.handle = handle;
+        NSMenu *menu = [[NSMenu alloc] initWithTitle:@""];
+        menu.autoenablesItems = NO;
+        for (NSMenuItem *item in made) {
+            item.target = target;
+            [menu addItem:item];
+        }
+        // An item's action is sent as the menu closes; without one, nothing was chosen.
+        // Should a chosen item's action not come, nothing is reported as chosen a
+        // moment later, so Go isn't left waiting.
+        if (![menu popUpMenuPositioningItem:nil atLocation:[NSEvent mouseLocation] inView:nil]) {
+            [target report:-1];
+            return;
+        }
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / 4), dispatch_get_main_queue(), ^{
+            [target report:-1];
+        });
+    });
+    CFRunLoopWakeUp(CFRunLoopGetMain());
+}

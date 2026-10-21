@@ -7,9 +7,14 @@ import (
 	"fmt"
 	"log"
 	"slices"
+
+	"github.com/TheWozard/ledge-frontend/components"
+	"github.com/TheWozard/ledge-frontend/shim"
 )
 
-// message is what the bar page posts: an action, and the id it applies to.
+// message is what the bar page posts: an action, and the id it applies to. It's
+// "ready", once the page has loaded; "click", with the id of a Click; or "menu", with
+// the element id of a card whose menu of actions to show.
 type message struct {
 	Action string `json:"action"`
 	ID     string `json:"id"`
@@ -28,7 +33,7 @@ func readMessage(data []byte) (message, error) {
 		return m, errors.New("more than one value")
 	}
 	switch {
-	case !slices.Contains([]string{"ready", "click"}, m.Action):
+	case !slices.Contains([]string{"ready", "click", "menu"}, m.Action):
 		return m, fmt.Errorf("no action %q", m.Action)
 	case m.Action == "ready" && m.ID != "":
 		return m, errors.New("ready takes no id")
@@ -61,5 +66,45 @@ func (b *Bar) handle(data []byte) {
 			return
 		}
 		click()
+	case "menu":
+		b.menu(m.ID)
 	}
+}
+
+// showMenu pops up a menu and returns the index of the item chosen, or -1: the
+// shim's, or a test's in its place.
+var showMenu = shim.ShowMenu
+
+// menu shows the menu of the card whose element id is id, and calls the Click of the
+// action chosen from it. The card's actions are those it had when it was asked for;
+// one a render has since taken off the bar is dropped, as a click on it would be.
+func (b *Bar) menu(id string) {
+	b.mu.Lock()
+	var items []components.MenuItem
+	for _, card := range b.cards {
+		if frame := card.Frame(); frame.ElementID() == id {
+			items = frame.Menu()
+		}
+	}
+	b.mu.Unlock()
+	if len(items) == 0 {
+		log.Printf("ui: the bar asked for the menu of %q, which has none", id)
+		return
+	}
+	shown := make([]shim.MenuItem, len(items))
+	for i, item := range items {
+		shown[i] = shim.MenuItem{Title: item.Title, Color: item.Color, Enabled: item.Enabled}
+	}
+	chosen := showMenu(shown)
+	if chosen < 0 || chosen >= len(items) {
+		return
+	}
+	b.mu.Lock()
+	click := b.clicks[items[chosen].ClickID]
+	b.mu.Unlock()
+	if click == nil {
+		log.Printf("ui: %q was chosen from a menu, but isn't on the bar", items[chosen].ClickID)
+		return
+	}
+	click()
 }

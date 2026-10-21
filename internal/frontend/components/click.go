@@ -27,9 +27,10 @@ func Clicks(cards []Card) map[string]Click {
 	return clicks
 }
 
-// clickID, dismissID and the action's clickID are the ids the page has for
-// their Clicks. A card's and an action's are their element ids, which can't
-// collide; the ×'s is its card's with a prefix neither has.
+// clickID, dismissID and the action's clickID are the ids for their Clicks. A
+// card's is its element id; the ×'s and an action's are its id with a prefix of
+// their own, so none can collide. The page posts a card's and its ×'s; an action's is
+// chosen from its card's menu, which the bar shows.
 func (f Frame) clickID() string   { return f.ElementID() }
 func (f Frame) dismissID() string { return "dismiss-" + f.ID }
-func (q Action) clickID() string  { return q.ElementID() }
+func (q Action) clickID() string  { return "action-" + q.ID }

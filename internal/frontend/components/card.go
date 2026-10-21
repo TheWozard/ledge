@@ -11,8 +11,8 @@ import (
 )
 
 // Card is something on the bar, of any kind. The bar draws every card's frame the
-// same way, from its Frame: its colour, its ×, what clicking
-// it does, its actions along its bottom, and its arrival and leaving. What's inside
+// same way, from its Frame: its colour, its ×, what clicking it does, the menu of
+// its actions, and its arrival and leaving. What's inside
 // the frame is the card's Body, which is up to its kind. Basic is the built-in kind.
 //
 // The bar calls Frame and Body while it holds its lock, so neither may call back into
@@ -31,10 +31,10 @@ type Frame struct {
 	Kind    string // a class on the card, for a theme to style its kind: lower case letters, digits and -
 	Color   string // the card's own colour, #rrggbb, or "" for none
 	Width   int    // the card's width in pixels, or 0 for its theme's for its kind
-	Click   Click  // clicking the card, anywhere but × and a clickable action
+	Click   Click  // clicking the card, anywhere but its × and ⋯
 	Dismiss Click  // clicking the card's ×, which shows only if this is set
-	// Actions are shown at the card's bottom, in order. Each is clicked on its
-	// own, apart from the card.
+	// Actions are the card's menu, in order: right-clicking the card, or clicking
+	// its ⋯, which shows only if it has some, pops it up.
 	Actions []Action
 	// Ends is when the card's time is up, for one that ends, such as a Timer; then
 	// the bar calls Complete, once, if it's set and the card is still on the bar.
@@ -95,29 +95,35 @@ func (f Frame) style(fresh map[string]int) string {
 	return strings.Join(style, "; ")
 }
 
-// Action is something to do about a card without opening it: a label in a
-// colour. Its ID is the app's, like a card's, and is unique across the bar.
+// Action is something to do about a card without opening it: an item in the card's
+// menu, its title with a dot in its colour (a theme's named colour or #rrggbb;
+// anything else is gray). Its ID is the app's, like a card's, and is unique across
+// the bar.
 type Action struct {
 	ID    string
 	Title string
 	Color string
-	// Click is clicking the action. Without one, clicking it is clicking its card.
+	// Click is choosing the action from the menu. Without one, it's greyed out: it
+	// says something about the card, but there's nothing to do.
 	Click Click
 }
 
-// ElementID is the action's id on the page, and its key in BarContent's fresh.
-func (q Action) ElementID() string { return "action-" + q.ID }
-
-// style is the action's inline style: its colour, and its place among the new ones
-// if it's in fresh.
-func (q Action) style(fresh map[string]int) string {
-	style := "--action: " + cssColor(q.Color)
-	if i, ok := fresh[q.ElementID()]; ok {
-		style += "; " + entering(i)
-	}
-	return style
+// MenuItem is an action as an item in its card's menu.
+type MenuItem struct {
+	Title   string
+	Color   string // a named colour or #rrggbb, as colorName has it
+	Enabled bool   // whether it can be chosen: it has a Click
+	ClickID string // the id Clicks has for its Click
 }
 
-// entering is the style that gives a new card or action its place among the new
-// ones.
+// Menu is the card's menu: an item for each of its actions, in order.
+func (f Frame) Menu() []MenuItem {
+	items := make([]MenuItem, len(f.Actions))
+	for i, q := range f.Actions {
+		items[i] = MenuItem{Title: q.Title, Color: colorName(q.Color), Enabled: q.Click != nil, ClickID: q.clickID()}
+	}
+	return items
+}
+
+// entering is the style that gives a new card its place among the new ones.
 func entering(i int) string { return fmt.Sprintf("--i: %d", i) }

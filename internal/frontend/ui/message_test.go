@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +15,8 @@ func TestReadMessage(t *testing.T) {
 	for body, want := range map[string]string{
 		`{"action": "ready"}`:                            "",
 		`{"action": "click", "id": "a"}`:                 "",
+		`{"action": "menu", "id": "card-a"}`:             "",
+		`{"action": "menu"}`:                             "menu needs an id",
 		`{"action": "click"}`:                            "click needs an id",
 		`{"action": "ready", "id": "a"}`:                 "ready takes no id",
 		`{"action": "open", "id": "a"}`:                  `no action "open"`,
@@ -27,53 +31,112 @@ func TestReadMessage(t *testing.T) {
 	}
 }
 
-// Clicks post only ids, which reach the Clicks. An action with a Click is clicked
-// apart from its card; one without is part of it. A click on what's gone is dropped.
+// Clicks post only ids, which reach the Clicks: a card's, and its ×'s apart from the
+// card's. A click on what's gone is dropped.
 func TestClicks(t *testing.T) {
 	gui(t)
 	show(t, []components.Basic{
-		{ID: "card-open", Title: "Opens", Click: record("open card-open"), Dismiss: record("dismiss card-open"),
-			Actions: []components.Action{
-				{ID: "qa-run", Title: "Run", Click: record("run qa-run")},
-				{ID: "qa-link", Title: "Link", Click: record("open qa-link")},
-				{ID: "qa-plain", Title: "Plain"},
-			}},
+		{ID: "card-open", Title: "Opens", Click: record("open card-open"), Dismiss: record("dismiss card-open")},
 		{ID: "card-still", Title: "Still"},
 	})
-	waitFor(t, `document.querySelectorAll(".action").length`, "3")
+	waitFor(t, `document.querySelectorAll("li").length`, "2")
 	if got := eval(t, `document.querySelectorAll("#card-card-still .dismiss").length`); got != "0" {
 		t.Error("a card without a Dismiss has ×")
 	}
-	eval(t, `document.getElementById("action-qa-run").click(), document.querySelector("#action-qa-link .label").click(), true`)
-	for _, call := range []string{"run qa-run", "open qa-link"} {
-		eventually(t, call, func() bool { return calls.has(call) })
-	}
+	eval(t, `document.querySelector("#card-card-open .dismiss").click(), true`)
+	eventually(t, "dismiss card-open", func() bool { return calls.has("dismiss card-open") })
 	time.Sleep(200 * time.Millisecond)
 	if calls.has("open card-open") {
-		t.Error("clicking an action also opened its card")
+		t.Error("clicking × also opened its card")
 	}
 	for _, js := range []string{
-		`document.getElementById("action-qa-plain").click()`,
 		`[...document.querySelectorAll("li")].find(li => li.textContent.includes("Still")).click()`,
-		`[...document.querySelectorAll("li")].find(li => li.textContent.includes("Opens")).querySelector(".dismiss").click()`,
+		`document.querySelector("#card-card-open .title").click()`,
 	} {
 		eval(t, js+", true")
 	}
-	for _, call := range []string{"open card-open", "dismiss card-open"} {
-		eventually(t, call, func() bool { return calls.has(call) })
-	}
+	eventually(t, "open card-open", func() bool { return calls.has("open card-open") })
 	time.Sleep(200 * time.Millisecond)
-	for _, call := range []string{"open qa-plain", "open card-still", "open qa-run"} {
-		if calls.has(call) {
-			t.Errorf("clicking something that doesn't open called %q", call)
-		}
+	if calls.has("open card-still") {
+		t.Error("clicking a card without a Click called something")
 	}
 
 	// Once a render takes a card off, a click on it is dropped.
 	before := logs.Len()
 	testBar.Render(components.Cards([]components.Basic{{ID: "card-still", Title: "Still"}}))
-	eval(t, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "action-qa-run"}), true`)
+	eval(t, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "card-card-open"}), true`)
 	eventually(t, "the click to be dropped", func() bool { return strings.Contains(logs.String()[before:], "isn't on it") })
+}
+
+// A right-click on a card with actions, or a click on its ⋯, pops up its menu of them,
+// each with its colour, and greyed out without a Click. Choosing one calls its Click,
+// and not its card's; choosing nothing does nothing; and choosing one a render has
+// since taken off is dropped. WebKit's own menu never shows. No real menu opens: one
+// that records it, and chooses what it's told to, stands in.
+func TestMenus(t *testing.T) {
+	gui(t)
+	var mu sync.Mutex
+	var menus [][]shim.MenuItem
+	choose, then := 0, func() {}
+	opened := func() int { mu.Lock(); defer mu.Unlock(); return len(menus) }
+	real := showMenu
+	showMenu = func(items []shim.MenuItem) int {
+		mu.Lock()
+		menus = append(menus, items)
+		chosen, before := choose, then
+		mu.Unlock()
+		before()
+		return chosen
+	}
+	t.Cleanup(func() { showMenu = real })
+	cards := []components.Basic{
+		{ID: "m", Title: "Menu", Click: record("open m"), Actions: []components.Action{
+			{ID: "run", Title: "Run", Color: "green", Click: record("run run")}, {ID: "info", Title: "Info"},
+		}},
+		{ID: "plain", Title: "Plain"},
+	}
+	show(t, cards)
+	waitFor(t, `document.querySelectorAll("li").length`, "2")
+	rightClick := func(id string) string {
+		return eval(t, `document.getElementById("`+id+`").dispatchEvent(new MouseEvent("contextmenu", {bubbles: true, cancelable: true}))`)
+	}
+
+	// A right-click chooses Run.
+	if got := rightClick("card-m"); got != "false" {
+		t.Error("WebKit's menu wasn't stopped")
+	}
+	eventually(t, "run run", func() bool { return calls.has("run run") })
+	want := []shim.MenuItem{{Title: "Run", Color: "green", Enabled: true}, {Title: "Info", Color: "gray"}}
+	if mu.Lock(); !slices.Equal(menus[0], want) {
+		t.Errorf("the menu was %+v, want %+v", menus[0], want)
+	}
+	mu.Unlock()
+	if time.Sleep(200 * time.Millisecond); calls.has("open m") {
+		t.Error("choosing from the menu also opened its card")
+	}
+
+	// The ⋯ opens it too; choosing nothing does nothing.
+	mu.Lock()
+	choose = -1
+	mu.Unlock()
+	eval(t, `document.querySelector("#card-m .menu").click(), true`)
+	eventually(t, "the ⋯ menu", func() bool { return opened() == 2 })
+
+	// A card without actions has no menu, nor WebKit's.
+	if got := rightClick("card-plain"); got != "false" {
+		t.Error("WebKit's menu wasn't stopped on a card without actions")
+	}
+	if time.Sleep(200 * time.Millisecond); opened() != 2 {
+		t.Error("a card without actions had a menu")
+	}
+
+	// Run, chosen once a render has taken its card off, is dropped.
+	before := logs.Len()
+	mu.Lock()
+	choose, then = 0, func() { testBar.Render(components.Cards(cards[1:])) }
+	mu.Unlock()
+	rightClick("card-m")
+	eventually(t, "the choice to be dropped", func() bool { return strings.Contains(logs.String()[before:], "isn't on the bar") })
 }
 
 func TestMessagesAreChecked(t *testing.T) {

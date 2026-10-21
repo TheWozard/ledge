@@ -51,7 +51,7 @@ func must[T any](v T, err error) T {
 
 | Package | What it is |
 |---|---|
-| `ui` | the bar and report windows: `Open` places the bar and loads its page, `Render` shows cards and their actions, `ShowReport` shows a report in its id's own window; clicks call the cards' and actions' `Click`s |
+| `ui` | the bar and report windows: `Open` places the bar and loads its page, `Render` shows cards, `ShowReport` shows a report in its id's own window; clicks call the cards' `Click`s, and a card's right-click menu its actions' |
 | `components` | the templ components: the pages (`BarPage`, `ReportPage`), the bar's contents (`BarContent`, from `Card`s of any kind, such as the built-in `Basic`, and their `Action`s), and the report blocks |
 | `theme` | a `Theme`: the bar's and report window's stylesheets, fonts inlined, and how the report window's frame looks; `ReadSet` finds the themes in any files, `Load` reads one, `Builtin` is one of the built-in themes |
 | `shim` | the native layer (cgo + Objective-C): windows and WKWebView, and nothing else |
@@ -59,18 +59,16 @@ func must[T any](v T, err error) T {
 ### Components
 
 The bar is rendered in Go: `Bar.Render` renders `BarContent`, and the page morphs into it
-with [Idiomorph](https://github.com/bigskysoftware/idiomorph), matching cards and
-actions by id. Only what changed is touched, so the rest keep their elements: the row
-keeps its scroll, a hovered card its hover, a clicked action its flash. New cards
-and actions animate in, and gone ones animate out before they're removed. It renders
-only when the app calls `Render`.
+with [Idiomorph](https://github.com/bigskysoftware/idiomorph), matching cards by id.
+Only what changed is touched, so the rest keep their elements: the row keeps its
+scroll, and a hovered card its hover. New cards animate in, and gone ones animate out
+before they're removed. It renders only when the app calls `Render`.
 
 A card is any `components.Card`, an interface of two methods, so an app can have kinds of
 card of its own. `Frame()` is what the bar draws the same for every kind: the card's
-id, its `Kind` (a class on it, for a theme to style it by), colour, width,
-`Click`,
-`Dismiss` and actions. `Body()` is a templ component for what's inside the frame, above
-the actions. There are five built-in kinds:
+id, its `Kind` (a class on it, for a theme to style it by), colour, width, `Click`,
+`Dismiss` and actions. `Body()` is a templ component for what's inside the frame.
+There are five built-in kinds:
 
 - `components.Basic` (`basic`): a title and a description.
 - `components.Timer` (`timer`): a `Basic` card that keeps time, shown under its title
@@ -95,7 +93,7 @@ the actions. There are five built-in kinds:
   `Value` (such as `"2.3%"`), with its `Change` (such as `"↑0.8"`) small beside it in
   its `ChangeColor`, and its description beside those. Its `History`, oldest first,
   is drawn behind the whole card as a sparkline, an inline SVG `polyline` a theme
-  strokes and insets, so it's there whatever else the card has, such as actions.
+  strokes and insets, so it's there whatever else the card has.
 
 - `components.Checks` (`checks`): a `Basic` card showing how a set of `Check`s went,
   such as a CI run's jobs: its title, then each check's mark and name in a
@@ -109,12 +107,14 @@ Any kind can end: a frame with `Ends` and `Complete` has `Complete` called once 
 
 Anything clickable has a `Click`, a `func()` the bar calls on its own goroutine: a card's
 `Click` for the card itself, its `Dismiss` for its × (shown only if set), and an
-action's `Click`. An action without one is part of its card. The bar gives each
-`Click` an id for the page, made from the card's and action's ids, so the app never
-handles click ids itself; a click on something a later `Render` took off is dropped.
+action's `Click`. The bar gives each `Click` an id, made from the card's and action's
+ids, so the app never handles click ids itself; a click on something a later `Render`
+took off is dropped.
 
-A card's actions sit at its bottom: things to do about it without opening a
-report. Each has a colour.
+A card's actions are things to do about it without opening a report, in a native
+macOS menu: right-clicking the card, or clicking its ⋯ (shown only if it has some),
+pops it up. Each is an item with a dot in its colour; one without a `Click` is
+greyed out. Choosing one calls its `Click`, not the card's.
 
 A report is a title and any `templ.Component`s, drawn top to bottom, shown for an id
 such as the card it's about. Each id has its own window: showing the same id again
@@ -139,11 +139,14 @@ and can't add CSS.
 
 ### What the pages can do
 
-The bar page posts only `{action: "click", id}`, and `{action: "ready"}` once loaded,
-checked strictly before it reaches a `Click`. It holds nothing but ids: it never names a
-url, path or command, so what a click does is only ever the app's `Click`. The report page can't post to the app
-at all. Its only channel is to its own window, handled natively: `drag` (on a
-mouse-down in its title bar; a double-click zooms), `close`, `minimise` and `zoom`.
+The bar page posts only `{action: "click", id}`, `{action: "menu", id}` for a card's
+menu, and `{action: "ready"}` once loaded, checked strictly before it reaches a
+`Click`. It holds nothing but ids: it never names a url, path or command, so what a
+click does is only ever the app's `Click`. A card's menu is drawn natively, from the
+card's actions in Go, not by the page; WebKit's own right-click menu never shows. The
+report page can't post to the app at all. Its only channel is to its own window,
+handled natively: `drag` (on a mouse-down in its title bar; a double-click zooms),
+`close`, `minimise` and `zoom`.
 Neither window can navigate: a report's clicked http(s) link goes to `OpenURL`.
 
 ## Themes
@@ -190,10 +193,9 @@ edges), the row's own sideways padding (`--row-pad-x`), a card's kind as a class
 as `basic`) and its `data-color` and `--card-color`, its width as `--card-width` (300px, or
 100px for a timer, progress or stat card, 150px for a stat with a change, and 200px
 with a description, set on such as `li.timer`, `li.stat:has(.change)` and
-`li.timer:has(.description)`; a card's own `Width` overrides it), an action's `data-color`
-and `--action`, a new card's or action's `data-new` and a gone one's
-`data-leaving`
-(for enter and exit animations, the exit ending with the layout's `collapse` so the rest
+`li.timer:has(.description)`; a card's own `Width` overrides it), its `.card-buttons`
+(`.menu`, its ⋯, and `.dismiss`, its ×), a new card's `data-new` and a gone one's
+`data-leaving` (for enter and exit animations, the exit ending with the layout's `collapse` so the rest
 close up), the report window's `.titlebar` and its buttons, the `main` that scrolls
 under it, and the `article` in it that holds the blocks (for a background that scrolls
 with them).

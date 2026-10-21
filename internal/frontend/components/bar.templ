@@ -26,11 +26,10 @@ templ BarPage(themeCSS string, edge string) {
 	</html>
 }
 
-// BarContent is what the bar shows: cards in a row, in the order given, each with its
-// actions. fresh gives each card and action new since the bar last showed, by
-// ElementID, its place among the new ones of its kind (card or action), for the
-// theme's entrance animation. The row is there even when empty, so the last card can
-// animate out.
+// BarContent is what the bar shows: cards in a row, in the order given. fresh gives
+// each card new since the bar last showed, by ElementID, its place among the new
+// ones, for the theme's entrance animation. The row is there even when empty, so the
+// last card can animate out.
 templ BarContent(cards []Card, fresh map[string]int) {
 	<ul id="cards">
 		for _, c := range cards {
@@ -42,14 +41,18 @@ templ BarContent(cards []Card, fresh map[string]int) {
 	}
 }
 
-// card is a card's frame around its body: × if it can be dismissed, then the body,
-// then its actions.
+// card is a card's frame around its body: its buttons, ⋯ if it has actions and × if
+// it can be dismissed, then the body. One with actions has data-menu, its element
+// id, for a right-click on it, or a click on its ⋯, to ask for its menu.
 templ card(f Frame, body templ.Component, fresh map[string]int) {
 	<li
 		id={ f.ElementID() }
 		class={ f.classes() }
 		if f.Click != nil {
 			data-click={ f.clickID() }
+		}
+		if len(f.Actions) > 0 {
+			data-menu={ f.ElementID() }
 		}
 		if color, ok := f.color(); ok {
 			data-color={ color }
@@ -61,32 +64,16 @@ templ card(f Frame, body templ.Component, fresh map[string]int) {
 			style={ templ.SafeCSS(style) }
 		}
 	>
-		if f.Dismiss != nil {
-			<button class="dismiss clickable" title="Dismiss" data-click={ f.dismissID() }>×</button>
+		if len(f.Actions) > 0 || f.Dismiss != nil {
+			<div class="card-buttons">
+				if len(f.Actions) > 0 {
+					<button class="menu clickable" title="Actions" data-menu={ f.ElementID() }>⋯</button>
+				}
+				if f.Dismiss != nil {
+					<button class="dismiss clickable" title="Dismiss" data-click={ f.dismissID() }>×</button>
+				}
+			</div>
 		}
 		@body
-		<div class="actions">
-			for _, q := range f.Actions {
-				@action(q, fresh)
-			}
-		</div>
 	</li>
-}
-
-// action is a label. One with a Click is itself the button.
-templ action(q Action, fresh map[string]int) {
-	<div
-		id={ q.ElementID() }
-		class={ "action", templ.KV("clickable", q.Click != nil) }
-		if _, ok := fresh[q.ElementID()]; ok {
-			data-new
-		}
-		style={ templ.SafeCSS(q.style(fresh)) }
-		data-color={ colorName(q.Color) }
-		if q.Click != nil {
-			data-click={ q.clickID() }
-		}
-	>
-		<span class="label">{ q.Title }</span>
-	</div>
 }

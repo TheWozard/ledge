@@ -24,7 +24,7 @@ type Bar struct {
 	mu      sync.Mutex
 	cards   []components.Card
 	clicks  map[string]components.Click // the Clicks on cards, by the page's id for them
-	shown   map[string]bool             // the element ids of the cards and actions on the bar, to tell which are new
+	shown   map[string]bool             // the element ids of the cards on the bar, to tell which are new
 	ready   bool                        // the page has loaded and can take updates
 	endings endings                     // the cards that end, and when each has completed
 
@@ -111,31 +111,17 @@ func (b *Bar) draw() {
 }
 
 // arrivals is what's new among cards since the bar showed shown, the element ids of
-// the cards and actions on it then. fresh gives each card new since then its place
-// among the new cards, for the theme's entrance animation, and each action new to a
-// card that was already there its place among the new actions; a new card's actions
-// arrive with it, so aren't in it. now is the element ids on the bar with cards.
+// the cards on it then. fresh gives each card new since then its place among the new
+// ones, for the theme's entrance animation. now is the element ids on the bar with
+// cards.
 func arrivals(cards []components.Card, shown map[string]bool) (fresh map[string]int, now map[string]bool) {
 	fresh, now = map[string]int{}, map[string]bool{}
-	var newCards, newActions int
-	mark := func(id string, count *int) {
+	for _, card := range cards {
+		id := card.Frame().ElementID()
 		if !shown[id] {
-			fresh[id] = *count
-			*count++
+			fresh[id] = len(fresh)
 		}
 		now[id] = true
-	}
-	for _, card := range cards {
-		frame := card.Frame()
-		arriving := !shown[frame.ElementID()]
-		mark(frame.ElementID(), &newCards)
-		for _, action := range frame.Actions {
-			if arriving {
-				now[action.ElementID()] = true
-			} else {
-				mark(action.ElementID(), &newActions)
-			}
-		}
 	}
 	return fresh, now
 }

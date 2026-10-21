@@ -28,18 +28,19 @@ func TestTimer(t *testing.T) {
 
 // A timer for something coming up, such as a meeting, has no start, so the page only
 // counts it down: it has no data-start to fill it from. Its description, width and
-// actions show as a basic card's do.
+// actions are a basic card's.
 func TestUpcomingTimer(t *testing.T) {
 	end := time.Now().Add(12*time.Minute + 500*time.Millisecond)
 	timer := Timer{Basic: Basic{ID: "standup", Title: "Standup", Description: "10:30 · <Room 4>", Width: 200,
 		Actions: []Action{{ID: "join", Title: "Join", Color: "blue", Click: nothing}}}, End: end}
 	html := render(t, BarContent([]Card{timer}, nil))
 	contains(t, html,
-		`<li id="card-standup" class="timer" style="--card-width: 200px;">`,
+		`<li id="card-standup" class="timer" data-menu="card-standup" style="--card-width: 200px;">`,
 		// The title, then the time with the description beside it.
 		fmt.Sprintf(`<span class="title">Standup</span><div class="reading"><div class="reading-value time-left" data-end="%d">12:01</div>`, end.UnixMilli()),
 		`<div class="description">10:30 · &lt;Room 4&gt;</div></div>`,
-		`<div class="actions"><div id="action-join" class="action clickable"`)
+		// Its action, to join the meeting, is in its menu.
+		`data-menu="card-standup"`)
 	lacks(t, html, "data-start")
 	if clicks := Clicks([]Card{timer}); clicks["action-join"] == nil {
 		t.Error("the timer's action has no Click")

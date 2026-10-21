@@ -175,6 +175,35 @@ func EvalResult(id int, js string) (json.RawMessage, error) {
 	return result.value, result.err
 }
 
+// MenuItem is an item in a menu ShowMenu pops up.
+type MenuItem struct {
+	Title string
+	// Color is the colour of a dot before the title: green, yellow, red, blue or gray,
+	// as the system's, or #rrggbb; "" for none.
+	Color   string
+	Enabled bool // whether it can be chosen
+}
+
+// ShowMenu pops up a menu of items at the mouse, and returns the index of the one
+// chosen, or -1 if none was. Not from the main goroutine: it waits for the menu to
+// close. While it's open, everything else still runs.
+func ShowMenu(items []MenuItem) int {
+	if len(items) == 0 {
+		return -1
+	}
+	array := unsafe.Slice((*C.LedgeMenuItem)(C.malloc(C.size_t(len(items))*C.size_t(unsafe.Sizeof(C.LedgeMenuItem{})))), len(items))
+	defer C.free(unsafe.Pointer(&array[0]))
+	for i, item := range items {
+		title, color := cString(item.Title), cString(item.Color)
+		defer C.free(unsafe.Pointer(title))
+		defer C.free(unsafe.Pointer(color))
+		array[i] = C.LedgeMenuItem{title: title, color: color, enabled: cBool(item.Enabled)}
+	}
+	done := make(chan int, 1)
+	C.ledgeShowMenu(&array[0], C.int(len(items)), C.uintptr_t(cgo.NewHandle(done)))
+	return <-done
+}
+
 // cString is s as a C string, made safe by cText. Free it with C.free.
 func cString(s string) *C.char { return C.CString(cText(s)) }
 
@@ -237,4 +266,12 @@ func goLedgeEvalResult(handle C.uintptr_t, value *C.char, message *C.char) {
 		return
 	}
 	done <- evalResult{value: json.RawMessage(C.GoString(value))}
+}
+
+//export goLedgeMenuChosen
+func goLedgeMenuChosen(handle C.uintptr_t, index C.int) {
+	h := cgo.Handle(handle)
+	done := h.Value().(chan int)
+	h.Delete()
+	done <- int(index)
 }

@@ -56,3 +56,13 @@ void ledgeLoadHTML(int window, const char *html);
 void ledgeEval(int window, const char *js);
 // ledgeEvalResult runs js and reports its result, as JSON, to goLedgeEvalResult.
 void ledgeEvalResult(int window, const char *js, uintptr_t handle);
+
+// An item in a menu ledgeShowMenu pops up: its title, the colour of a dot before it
+// (green, yellow, red, blue or gray as the system's, or #rrggbb; "" for none), and
+// whether it can be chosen.
+typedef struct { const char *title; const char *color; int enabled; } LedgeMenuItem;
+// ledgeShowMenu pops up a menu of `count` items at the mouse, and reports the index
+// of the one chosen, or -1 if none was, to goLedgeMenuChosen with `handle`. It copies
+// the items before it returns. The menu is run from the main run loop, not the main
+// queue, so what's queued for the main thread still runs while it's open.
+void ledgeShowMenu(const LedgeMenuItem *items, int count, uintptr_t handle);

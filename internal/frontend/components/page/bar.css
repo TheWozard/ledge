@@ -1,26 +1,26 @@
 /* Layout only. How the bar looks comes from its theme, added after this, so a
    theme's rules win over these. A theme sets --bar to an opaque colour for the
    page behind the bar, and --c-green, --c-yellow, --c-red, --c-blue and --c-gray
-   for actions.
+   for the colours cards name, such as a stat's change.
 
    A card's kind is a class on its <li>, such as basic, for a theme to style
    each kind by. A card that's partway along has --progress, from 0 to 1: a
    progress card always, and a timer with a start and an end as it counts down. A
    timer card with an end has data-done once it's up. A card with a colour carries
    it in data-color, and as CSS in --card-color; a theme shows it however it
-   likes, or not at all. An action carries its
-   current colour in data-color, and as CSS in --action.
+   likes, or not at all. A card with actions has data-menu and a ⋯ button, .menu,
+   beside its × in its .card-buttons; its actions are in a native menu, not the
+   page.
 
-   Entering and leaving: a card new since the last render, or an action new
-   to a card that was already there, has data-new and --i, its place among the new
-   ones of its kind, for an entrance animation; the next render takes them off. A
-   new card's actions arrive with it, so aren't marked. An entrance should
-   fill backwards, not both: it ends at how the element looks anyway, and WebKit
-   can hold a stepped one a step short of its end. Each render morphs the page
-   rather than replacing it, so that only plays for what's really new. A card or
-   action that's gone stays, with data-leaving, until its animations end,
-   then goes. A theme's exit should end with "collapse", which closes up the space
-   it leaves so what follows slides into place; without one, it just collapses. */
+   Entering and leaving: a card new since the last render has data-new and --i,
+   its place among the new ones, for an entrance animation; the next render takes
+   them off. An entrance should fill backwards, not both: it ends at how the
+   element looks anyway, and WebKit can hold a stepped one a step short of its
+   end. Each render morphs the page rather than replacing it, so that only plays
+   for what's really new. A card that's gone stays, with data-leaving, until its
+   animations end, then goes. A theme's exit should end with "collapse", which
+   closes up the space it leaves so what follows slides into place; without one,
+   it just collapses. */
 * {
   box-sizing: border-box;
 }
@@ -108,14 +108,13 @@ li.stat:has(.description) {
   --card-width: 200px;
 }
 /* Anything with a Click has the class clickable, and is clicked on its own: a
-   clickable action isn't also a click on its card. */
+   click on a card's × or ⋯ isn't also a click on the card. */
 .clickable {
   cursor: pointer;
 }
-/* Title, description, then the actions pinned to the bottom. The title
-   clamps; the description fills the space between it and the actions (or
-   the bottom, without them), and scrolls if it doesn't fit. */
-/* Only the title shares the top line with ×, so only it keeps clear of it. */
+/* Title, then description. The title clamps; the description fills the space
+   under it, and scrolls if it doesn't fit. Only the title shares the top line with
+   the card's buttons, so only it keeps clear of them. */
 .title {
   display: -webkit-box;
   flex: none;
@@ -133,7 +132,7 @@ li.stat:has(.description) {
 /* Under a timer's, progress or stat card's title, a row as tall as what's in it:
    its reading on the left (the time, how far along it is, or the number), and its
    description beside it, centred against the reading. Given less room than that,
-   above the actions, it shrinks, and the description scrolls. */
+   it shrinks, and the description scrolls. */
 .reading {
   display: flex;
   flex: 0 1 auto;
@@ -148,8 +147,8 @@ li.stat:has(.description) {
   max-height: 100%;
 }
 /* A stat's sparkline is drawn behind the card's content, across the whole card and
-   stretched to fit, so it's there whatever else the card has, such as actions. It
-   takes no room and no clicks. A theme draws its line, such as with a stroke, and
+   stretched to fit, so it's there whatever else the card has. It takes no room and
+   no clicks. A theme draws its line, such as with a stroke, and
    insets it with padding, such as to keep it under the title. */
 .sparkline {
   position: absolute;
@@ -181,37 +180,16 @@ li.stat:has(.description) {
   white-space: nowrap;
 }
 
-/* A card's actions sit in one row at its bottom, inside the card's padding,
-   and scroll sideways if they don't fit. A theme spaces them from the description
-   above, such as with a gap on the card. A theme whose card has no padding of its
-   own, its lines padding themselves, pads the row the same. A clickable one is a
-   button of its own; clicking one that isn't is clicking the card. */
-.actions {
-  display: flex;
-  flex: none;
-  gap: 4px;
-  margin-top: auto;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-}
-.actions::-webkit-scrollbar {
-  display: none;
-}
-.action {
-  position: relative;
-  display: flex;
-  flex: none;
-  align-items: center;
-  height: 20px;
-  padding: 0 8px;
-  white-space: nowrap;
-}
-
-.dismiss {
+/* A card's buttons, ⋯ for its menu and × to dismiss it, sit in its top right
+   corner, over its content. */
+.card-buttons {
   position: absolute;
   top: 4px;
   right: 4px;
+  display: flex;
+  gap: 2px;
+}
+.card-buttons button {
   width: 18px;
   height: 18px;
   padding: 0;
@@ -227,9 +205,8 @@ li.stat:has(.description) {
   flex: 1;
   align-items: center;
 }
-/* The row, and a card's actions, are always there, so the last of them can
-   leave; empty, they're hidden, and "No events." shows once the last card has gone. */
-.actions:empty,
+/* The row is always there, so the last card can leave; empty, it's hidden, and "No
+   events." shows once the last card has gone. */
 ul:empty {
   display: none;
 }
