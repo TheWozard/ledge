@@ -14,10 +14,10 @@ import (
 	"github.com/TheWozard/ledge-frontend/components"
 )
 
-// sample is what the preview shows: basic cards, timers, progress, stat and checks
-// cards, whose Clicks open a report, run nothing but a log line, or dismiss the card, and the
-// long report. Opening, dismissing and advance go through open and changed, which the
-// windows or the browser set before showing it.
+// sample is what the preview shows: basic cards, timers, progress, stat, checks and
+// message cards, whose Clicks open a report, run nothing but a log line, or dismiss
+// the card, and the long report. Opening, dismissing and advance go through open and
+// changed, which the windows or the browser set before showing it.
 type sample struct {
 	mu       sync.Mutex
 	cards    []components.Basic
@@ -25,6 +25,7 @@ type sample struct {
 	progress []components.Progress
 	stats    []components.Stat
 	checks   []components.Checks
+	messages []components.Message
 	long     []templ.Component
 
 	open    func(id string) // shows id's report
@@ -140,6 +141,22 @@ func newSample(now time.Time) *sample {
 	for i, c := range s.checks {
 		s.checks[i].Dismiss = s.dismisses(c.ID)
 	}
+	s.messages = []components.Message{
+		{Basic: components.Basic{ID: "dm", Title: "Re: Lorem deploy", Description: "Consectetur adipiscing elit, sed do eiusmod tempor. Ut enim ad minim veniam?",
+			Click: s.opens("dm"), Actions: []components.Action{
+				{ID: "reply", Title: "Reply", Color: "blue", Click: s.runs("reply")},
+				{ID: "mark-read", Title: "Mark as read", Click: s.runs("mark-read")},
+			}},
+			From: "Ada Lovelace", Sent: now.Add(-4 * time.Minute)},
+		// A picture for an avatar: a 1×1 teal PNG.
+		{Basic: components.Basic{ID: "channel", Title: "#lorem-ipsum", Description: "Duis aute irure dolor in reprehenderit.", Color: "#8b5cf6",
+			Click: s.opens("channel")},
+			From: "ci-bot", Sent: now.Add(-26 * time.Hour),
+			Avatar: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mMQKav8DwADKAGbTX5zawAAAABJRU5ErkJggg=="},
+	}
+	for i, m := range s.messages {
+		s.messages[i].Dismiss = s.dismisses(m.ID)
+	}
 	s.long = longReport(now)
 	return s
 }
@@ -220,6 +237,7 @@ func (s *sample) dismisses(id string) components.Click {
 		s.progress = slices.DeleteFunc(s.progress, func(p components.Progress) bool { return p.ID == id })
 		s.stats = slices.DeleteFunc(s.stats, func(st components.Stat) bool { return st.ID == id })
 		s.checks = slices.DeleteFunc(s.checks, func(c components.Checks) bool { return c.ID == id })
+		s.messages = slices.DeleteFunc(s.messages, func(m components.Message) bool { return m.ID == id })
 		s.mu.Unlock()
 		s.changed()
 	}
@@ -230,7 +248,7 @@ func (s *sample) shown() []components.Card {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return slices.Concat(components.Cards(s.timers), components.Cards(s.progress), components.Cards(s.stats),
-		components.Cards(s.checks), components.Cards(s.cards))
+		components.Cards(s.checks), components.Cards(s.messages), components.Cards(s.cards))
 }
 
 // advance moves the deploy along every second, starting again once it's done, adds
@@ -273,6 +291,12 @@ func (s *sample) report(id string) (string, []templ.Component) {
 		return p.Title, []templ.Component{components.Heading(p.Title), components.Fields([]components.Field{
 			{Label: "Done", Value: fmt.Sprintf("%.0f%%", p.Value*100)},
 		})}
+	}
+	if i := slices.IndexFunc(s.messages, func(m components.Message) bool { return m.ID == id }); i >= 0 {
+		m := s.messages[i]
+		return m.Title, []templ.Component{components.Heading(m.Title), components.Fields([]components.Field{
+			{Label: "From", Value: m.From}, {Label: "Sent", Value: m.Sent.Format(time.Kitchen)},
+		}), components.Paragraph(m.Description)}
 	}
 	if i := slices.IndexFunc(s.checks, func(c components.Checks) bool { return c.ID == id }); i >= 0 {
 		c := s.checks[i]

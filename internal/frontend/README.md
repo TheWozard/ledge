@@ -68,7 +68,7 @@ A card is any `components.Card`, an interface of two methods, so an app can have
 card of its own. `Frame()` is what the bar draws the same for every kind: the card's
 id, its `Kind` (a class on it, for a theme to style it by), colour, width, `Click`,
 `Dismiss` and actions. `Body()` is a templ component for what's inside the frame.
-There are five built-in kinds:
+There are six built-in kinds:
 
 - `components.Basic` (`basic`): a title and a description.
 - `components.Timer` (`timer`): a `Basic` card that keeps time, shown under its title
@@ -100,6 +100,13 @@ There are five built-in kinds:
   `.check-list`, wrapping, then its description. A check's `State` is `passed`,
   `failed`, `running`, `pending` or `skipped`, in its `data-state` for a theme to
   colour it. An action can do something about one, such as rerunning a failed job.
+
+- `components.Message` (`message`): a `Basic` card for a message, such as a chat or an
+  email: a line of its avatar, who it's `From` and when it was `Sent` (the time today,
+  the day within the week, the date before that), then its title, such as a subject
+  or channel, and its description, the start of it. Its `Avatar` is a `data:` URL of
+  an image, base64; anything else shows `From`'s initials, as the page can't fetch
+  anything and mustn't try.
 
 Any kind can end: a frame with `Ends` and `Complete` has `Complete` called once when
 `Ends` passes, if the card's still on the bar, however many renders show it.

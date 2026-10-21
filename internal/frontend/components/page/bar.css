@@ -113,8 +113,9 @@ li.stat:has(.description) {
   cursor: pointer;
 }
 /* Title, then description. The title clamps; the description fills the space
-   under it, and scrolls if it doesn't fit. Only the title shares the top line with
-   the card's buttons, so only it keeps clear of them. */
+   under it, and scrolls if it doesn't fit. Only the first line shares the top with
+   the card's buttons, so only it keeps clear of them: the title, or a message's
+   .message-head. */
 .title {
   display: -webkit-box;
   flex: none;
@@ -178,6 +179,35 @@ li.stat:has(.description) {
 }
 .check {
   white-space: nowrap;
+}
+/* A message's first line is its .avatar, an <img> or a <span> of its sender's
+   initials, its sender, .from, cut short if it doesn't fit, and when it was sent,
+   .sent, a <time>; its title and description follow. */
+.message-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  min-width: 0;
+  margin-right: 16px;
+}
+.avatar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  object-fit: cover;
+}
+.from {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sent {
+  flex: none;
+  margin-left: auto;
 }
 
 /* A card's buttons, ⋯ for its menu and × to dismiss it, sit in its top right

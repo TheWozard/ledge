@@ -147,8 +147,44 @@ li.clickable:hover {
   color: var(--muted);
 }
 
-li:has(.menu):has(.dismiss) .title {
+.message-head {
+  gap: 6px;
+  padding: 4px 0 0 8px;
+  margin-right: 28px;
+  line-height: 18px;
+}
+
+/* A message's title follows its sender's line, so it needs no space above it. */
+.message-head + .title {
+  padding-top: 0;
+  font-weight: 500;
+}
+
+li:has(.menu):has(.dismiss) .title,
+li:has(.menu):has(.dismiss) .message-head {
   margin-right: 48px;
+}
+
+/* A message's avatar is a small circle: its picture, or its sender's initials on
+   the card's colour (or the accent). */
+.avatar {
+  width: 18px;
+  height: 18px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--card-color, var(--accent));
+  border-radius: 50%;
+}
+
+.from {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sent {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
 }
 
 /* The card's buttons show while it's hovered. */
