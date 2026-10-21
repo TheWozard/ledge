@@ -46,7 +46,6 @@ const lorem = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do e
 func newSample(now time.Time) *sample {
 	s := &sample{}
 	s.cards = []components.Basic{
-		{ID: "lorem", Title: "Lorem ipsum dolor sit amet", Description: lorem, Color: "#14b8a6"},
 		{ID: "lorem-actions", Title: "Lorem ipsum with actions", Description: lorem, Color: "#ec4899", Width: 420, Click: s.opens("lorem-actions"),
 			Actions: []components.Action{
 				{ID: "lorem-1", Title: "Lorem", Color: "green", Click: s.runs("lorem-1")},
@@ -64,30 +63,8 @@ func newSample(now time.Time) *sample {
 				{ID: "tempor", Title: "Tempor", Color: "yellow", Click: s.runs("tempor")},
 				{ID: "incididunt", Title: "Incididunt", Color: "gray", Click: s.opens("incididunt")},
 			}},
-		{ID: "voluptate", Title: "In voluptate velit esse cillum dolore eu fugiat nulla", Description: "Excepteur sint occaecat cupidatat non proident, sunt in culpa.",
-			Color: "#e0362c", Click: s.opens("voluptate"),
-			Actions: []components.Action{
-				{ID: "officia", Title: "Officia", Color: "red", Click: s.runs("officia")},
-				{ID: "deserunt", Title: "Deserunt", Color: "blue", Click: s.opens("deserunt")},
-				{ID: "mollit", Title: "Mollit anim", Color: "yellow", Click: s.runs("mollit")},
-			}},
-		{ID: "magna", Title: "Magna aliqua", Description: "Ad minim veniam, quis nostrud.", Color: "#e08a00", Click: s.opens("magna"),
-			Actions: []components.Action{{ID: "exercitation", Title: "Exercitation", Color: "green", Click: s.runs("exercitation")}}},
-		{ID: "perspiciatis", Title: "Sed ut perspiciatis", Description: "Unde omnis iste natus error sit voluptatem.", Color: "#e08a00",
-			Actions: []components.Action{{ID: "accusantium", Title: "Accusantium", Color: "green", Click: s.runs("accusantium")}}},
-		{ID: "quasi", Title: "Quasi architecto", Description: "Beatae vitae dicta sunt explicabo.", Color: "#e08a00",
-			Actions: []components.Action{{ID: "nemo", Title: "Nemo enim", Color: "gray", Click: s.runs("nemo")}}},
-		{ID: "ullamco", Title: "Ullamco laboris", Color: "#2f9e5b",
-			Actions: []components.Action{{ID: "nisi", Title: "Nisi ut aliquip", Color: "#c060ff"}}},
-		{ID: "laborum", Title: "Id est laborum", Color: "#2f9e5b", Click: s.opens("laborum")},
-		{ID: "inventore", Title: "Inventore veritatis", Color: "#2f9e5b"},
 		{ID: "long", Title: "Ex ea commodo", Description: strings.Repeat("Consequat duis aute irure dolor in reprehenderit. ", 12)},
-		{ID: "doloremque", Title: "Doloremque laudantium", Description: "Totam rem aperiam, eaque ipsa quae ab illo.", Click: s.opens("doloremque")},
-		{ID: "aspernatur", Title: "Aut odit aut fugit", Color: "#3b82f6", Click: s.opens("aspernatur"),
-			Actions: []components.Action{{ID: "consequuntur", Title: "Consequuntur", Color: "green", Click: s.opens("consequuntur")}}},
 		{ID: "neque", Title: "Neque porro quisquam"},
-		{ID: "dolorem", Title: "Est qui dolorem ipsum", Description: "Quia dolor sit amet, consectetur, adipisci velit."},
-		{ID: "numquam", Title: "Sed quia non numquam", Color: "#8b5cf6", Description: "Eius modi tempora incidunt", Click: s.opens("numquam")},
 	}
 	for i, c := range s.cards {
 		s.cards[i].Dismiss = s.dismisses(c.ID)
