@@ -19,9 +19,7 @@ import (
 
 func main() {
 	ui.Init() // on the main goroutine; AppKit needs it
-	bar, err := ui.Open(
-		ui.Options{Edge: "bottom", Height: 110, Level: "floating", Theme: must(theme.Builtin("default"))},
-		ui.Handlers{OpenURL: func(url string) { /* a link clicked in a report */ }})
+	bar, err := ui.Open(ui.Options{Edge: "bottom", Height: 110, Level: "floating", Theme: must(theme.Builtin("default"))})
 	if err != nil {
 		panic(err)
 	}
@@ -51,7 +49,7 @@ func must[T any](v T, err error) T {
 
 | Package | What it is |
 |---|---|
-| `ui` | the bar and report windows: `Open` places the bar and loads its page, `Render` shows cards, `ShowReport` shows a report in its id's own window; clicks call the cards' `Click`s, and a card's right-click menu its actions' |
+| `ui` | the bar and report windows: `Open` places the bar and loads its page, `Render` shows cards and `RenderCard` replaces one by its ID, `ShowReport` shows a report in its id's own window and `ShowReportBlock` replaces one block in it; clicks call the cards' `Click`s, and a card's right-click menu its actions' |
 | `components` | the templ components: the pages (`BarPage`, `ReportPage`), the bar's contents (`BarContent`, from `Card`s of any kind, such as the built-in `Basic`, and their `Action`s), and the report blocks |
 | `theme` | a `Theme`: the bar's and report window's stylesheets, fonts inlined, and how the report window's frame looks; `ReadSet` finds the themes in any files, `Load` reads one, `Builtin` is one of the built-in themes |
 | `shim` | the native layer (cgo + Objective-C): windows and WKWebView, and nothing else |
@@ -62,7 +60,7 @@ The bar is rendered in Go: `Bar.Render` renders `BarContent`, and the page morph
 with [Idiomorph](https://github.com/bigskysoftware/idiomorph), matching cards by id.
 Only what changed is touched, so the rest keep their elements: the row keeps its
 scroll, and a hovered card its hover. New cards animate in, and gone ones animate out
-before they're removed. It renders only when the app calls `Render`.
+before they're removed. It renders only when the app calls `Render` or `RenderCard`, which replaces one card by its ID and leaves the rest.
 
 A card is any `components.Card`, an interface of two methods, so an app can have kinds of
 card of its own. `Frame()` is what the bar draws the same for every kind: the card's
@@ -129,7 +127,9 @@ theme without one, it's the native macOS menu.
 A report is a title and any `templ.Component`s, drawn top to bottom, shown for an id
 such as the card it's about. Each id has its own window: showing the same id again
 replaces what's in it, and closing it destroys it, so the next `ShowReport` for that id
-opens a new one. New windows open down and to the right of the last. The built-in
+opens a new one. New windows open down and to the right of the last. A block wrapped in
+`Block(id, block)` can be replaced on its own with `ShowReportBlock`, which keeps the
+report's scroll and doesn't bring its window forward. The built-in
 blocks:
 
 | Block | Shows |
@@ -141,7 +141,7 @@ blocks:
 | `List(items, ordered)` | bullets, or numbers |
 | `Code(text)` | fixed-width text that scrolls sideways |
 | `Note(text, color)` | a callout in a colour |
-| `Link(text, url)` | a link; clicking it calls `Handlers.OpenURL` if it's http(s) |
+| `Link(text, url)` | a link; clicking it opens it in the browser if it's http(s) |
 
 Every string is escaped by templ, so text can't add markup. Colours are a theme's named
 colours (`green`, `yellow`, `red`, `blue`, `gray`) or `#rrggbb`; anything else is gray,
@@ -159,7 +159,7 @@ page posts only `{action: "choose", id}`, with the index of the item chosen,
 report page can't post to the app at all. Its only channel is to its own window,
 handled natively: `drag` (on a mouse-down in its title bar; a double-click zooms),
 `close`, `minimise` and `zoom`.
-Neither window can navigate: a report's clicked http(s) link goes to `OpenURL`.
+Neither window can navigate: a report's clicked http(s) link opens in the browser.
 
 ## Themes
 

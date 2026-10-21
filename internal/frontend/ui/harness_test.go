@@ -25,12 +25,12 @@ import (
 var (
 	testBar *Bar
 	logs    syncBuffer
-	calls   recorder // what the handlers were called with
+	calls   recorder // what the Clicks and openURL were called with
 )
 
 var defaults = Options{Edge: "bottom", Height: 110, Level: "normal"} // the zero Theme: the default
 
-// recorder keeps the calls of the test Clicks and handlers: each Click's name, and
+// recorder keeps the calls of the test Clicks and openURL: each Click's name, and
 // "url u".
 type recorder struct {
 	mu    sync.Mutex
@@ -70,6 +70,7 @@ func (r *recorder) has(call string) bool {
 func record(name string) components.Click { return func() { calls.add(name) } }
 
 func TestMain(m *testing.M) {
+	openURL = func(url string) { calls.add("url " + url) }
 	if os.Getenv("LEDGE_GUI_TEST") == "" {
 		fmt.Println("skipping the tests that open windows; set LEDGE_GUI_TEST=1 to run them")
 		os.Exit(m.Run())
@@ -78,7 +79,7 @@ func TestMain(m *testing.M) {
 	// The main loop has the main goroutine, so the tests run beside it.
 	Init()
 	var err error
-	testBar, err = Open(defaults, Handlers{OpenURL: func(url string) { calls.add("url " + url) }})
+	testBar, err = Open(defaults)
 	if err != nil {
 		log.Fatal(err)
 	}

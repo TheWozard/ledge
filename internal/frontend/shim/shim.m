@@ -521,6 +521,13 @@ void ledgeEval(int window, const char *js) {
     });
 }
 
+void ledgeOpenURL(const char *url) {
+    NSURL *target = [NSURL URLWithString:[NSString stringWithUTF8String:url]];
+    if (target != nil) {
+        [[NSWorkspace sharedWorkspace] openURL:target];
+    }
+}
+
 void ledgeEvalResult(int window, const char *js, uintptr_t handle) {
     NSString *text = [NSString stringWithUTF8String:js];
     onMain(^{

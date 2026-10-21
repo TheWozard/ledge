@@ -11,8 +11,10 @@ import templruntime "github.com/a-h/templ/runtime"
 // ReportPage is the report window's page, styled by themeCSS (a theme.Theme's
 // Report): title in the title bar the page draws, and blocks under it, top to
 // bottom, scrolling under the title bar. A block is any component; the ones in
-// blocks.templ are Heading, Paragraph, Fields, Table, List, Code, Note and Link. Its
-// layout is page/report.css, and its script page/report.js.
+// blocks.templ are Heading, Paragraph, Fields, Table, List, Code, Note and Link, and
+// any of them can be given an id with Block. Its layout is page/report.css, and its
+// script page/report.js, which takes replaceBlock(id, html), with html rendered
+// from a Block with that id, and replaces that block with it.
 //
 // The page can't talk to the app. All it can ask of its window, through its "frame"
 // handler (see the shim), is: a mouse-down on the title bar starts a drag (the second
@@ -59,7 +61,7 @@ func ReportPage(themeCSS string, title string, blocks []templ.Component) templ.C
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 23, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 25, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {

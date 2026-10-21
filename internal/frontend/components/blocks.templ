@@ -87,9 +87,18 @@ templ Note(text string, color string) {
 	<div class="note" data-color={ colorName(color) } style={ templ.SafeCSS("--note: " + cssColor(color)) }>{ text }</div>
 }
 
-// Link is a link to url, which only works if the app lets the window go there (ledge
-// opens http(s) urls in the browser). A url that isn't safe, such as javascript:, is
-// replaced so it goes nowhere.
+// Link is a link to url, which opens in the browser if it's http(s); anything
+// else goes nowhere. A url that isn't safe, such as javascript:, is replaced so
+// it can't run.
 templ Link(text string, url string) {
 	<p class="link"><a href={ templ.URL(url) } title={ url }>{ text }</a></p>
+}
+
+// Block is block with an id, unique in its report, so ShowReportBlock can replace it
+// later and leave the rest of the report as it is. It's drawn as block alone: the page
+// marks its elements data-block, with its id, rather than wrapping them.
+templ Block(id string, block templ.Component) {
+	<template data-block={ id }>
+		@block
+	</template>
 }

@@ -87,7 +87,7 @@ func TestRender(t *testing.T) {
 
 func TestOpenOnce(t *testing.T) {
 	gui(t)
-	if _, err := Open(defaults, Handlers{}); err == nil {
+	if _, err := Open(defaults); err == nil {
 		t.Error("a second Open should be an error")
 	}
 }
@@ -138,6 +138,39 @@ func TestRenderMorphs(t *testing.T) {
 		}
 	}
 	waitFor(t, `document.getElementById("card-m-00") === null`, "true")
+}
+
+// RenderCard replaces only the card with its ID, in its place, and its Click with
+// it. A card that isn't on the bar isn't added.
+func TestRenderCard(t *testing.T) {
+	gui(t)
+	cards := []components.Basic{{ID: "rc-a", Title: "A"}, {ID: "rc-b", Title: "B"}, {ID: "rc-c", Title: "C"}}
+	show(t, cards)
+	waitFor(t, `document.querySelectorAll("#cards > li").length`, "3")
+	eval(t, `window.kept = document.getElementById("card-rc-a"), true`)
+
+	if !testBar.RenderCard(components.Basic{ID: "rc-b", Title: "Changed", Click: record("open rc-b")}) {
+		t.Fatal("RenderCard didn't find rc-b")
+	}
+	waitFor(t, `document.querySelector("#card-rc-b .title").textContent`, `"Changed"`)
+	for js, want := range map[string]string{
+		`document.getElementById("card-rc-a") === window.kept`:          "true",
+		`[...document.querySelectorAll("li")].map(li => li.id).join()`:  `"card-rc-a,card-rc-b,card-rc-c"`,
+		`document.getElementById("card-rc-b").hasAttribute("data-new")`: "false",
+	} {
+		if got := eval(t, js); got != want {
+			t.Errorf("%s = %s, want %s", js, got, want)
+		}
+	}
+	eval(t, `document.getElementById("card-rc-b").click(), true`)
+	eventually(t, "open rc-b", func() bool { return calls.has("open rc-b") })
+
+	if testBar.RenderCard(components.Basic{ID: "rc-none", Title: "None"}) {
+		t.Error("RenderCard found a card that isn't on the bar")
+	}
+	if got := eval(t, `document.querySelectorAll("#cards > li").length`); got != "3" {
+		t.Errorf("%s cards on the bar, want 3", got)
+	}
 }
 
 // New cards are marked new, and gone ones are marked leaving, told how far to

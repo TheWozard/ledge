@@ -18,8 +18,7 @@ import (
 
 // Bar is the bar window and the report windows.
 type Bar struct {
-	options  Options
-	handlers Handlers
+	options Options
 
 	mu      sync.Mutex
 	cards   []components.Card
@@ -37,7 +36,7 @@ var opened atomic.Bool
 
 // Open creates the bar, places it and loads its page. Call it once, after Init and
 // before Run, on the main goroutine.
-func Open(options Options, handlers Handlers) (*Bar, error) {
+func Open(options Options) (*Bar, error) {
 	if !opened.CompareAndSwap(false, true) {
 		return nil, errors.New("ui: the bar is already open")
 	}
@@ -46,7 +45,7 @@ func Open(options Options, handlers Handlers) (*Bar, error) {
 		opened.Store(false)
 		return nil, err
 	}
-	b := &Bar{options: options, handlers: handlers, shown: map[string]bool{}, reports: newReportWindows()}
+	b := &Bar{options: options, shown: map[string]bool{}, reports: newReportWindows()}
 	shim.CreateBar(BarWindow)
 	shim.SetLevel(BarWindow, options.Level)
 	b.Place()
@@ -98,6 +97,25 @@ func (b *Bar) Render(cards []components.Card) {
 	b.endings.schedule(b.cards, b.complete)
 	b.mu.Unlock()
 	b.draw()
+}
+
+// RenderCard replaces the card on the bar with card's ID by card, in its place, and
+// leaves the rest as they are, as a Render of them all with only it changed would.
+// It reports whether there was one; if not, nothing changes. Safe from any goroutine.
+func (b *Bar) RenderCard(card components.Card) bool {
+	b.mu.Lock()
+	id := card.Frame().ID
+	i := slices.IndexFunc(b.cards, func(c components.Card) bool { return c.Frame().ID == id })
+	if i < 0 {
+		b.mu.Unlock()
+		return false
+	}
+	b.cards[i] = card
+	b.clicks = components.Clicks(b.cards)
+	b.endings.schedule(b.cards, b.complete)
+	b.mu.Unlock()
+	b.draw()
+	return true
 }
 
 // draw renders what the bar has into its page, once the page is ready.

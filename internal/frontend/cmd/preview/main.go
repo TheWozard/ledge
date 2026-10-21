@@ -56,9 +56,7 @@ func main() {
 // it's interrupted.
 func showWindows(name string, th theme.Theme, sample *sample) {
 	ui.Init()
-	bar, err := ui.Open(
-		ui.Options{Edge: "bottom", Height: barHeight, Level: "normal", Theme: th},
-		ui.Handlers{OpenURL: func(url string) { log.Printf("url %s", url) }})
+	bar, err := ui.Open(ui.Options{Edge: "bottom", Height: barHeight, Level: "normal", Theme: th})
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -179,6 +179,13 @@ func Eval(id int, js string) {
 	C.ledgeEval(C.int(id), text)
 }
 
+// OpenURL opens url in its default app, such as the browser for an http(s) one.
+func OpenURL(url string) {
+	text := cString(url)
+	defer C.free(unsafe.Pointer(text))
+	C.ledgeOpenURL(text)
+}
+
 type evalResult struct {
 	value json.RawMessage
 	err   error

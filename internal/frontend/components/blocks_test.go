@@ -38,3 +38,9 @@ func TestBlocks(t *testing.T) {
 		`<a href="https://example.com/run" title="https://example.com/run">The run</a>`)
 	lacks(t, html.String(), "<b>not bold", "extra", `href="javascript:`)
 }
+
+// A block with an id comes in a template with it, its text escaped.
+func TestBlock(t *testing.T) {
+	html := render(t, Block(`"x"`, Paragraph("<b>")))
+	contains(t, html, `<template data-block="&#34;x&#34;"><p>&lt;b&gt;</p></template>`)
+}

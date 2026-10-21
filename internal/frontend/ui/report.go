@@ -3,6 +3,7 @@ package ui
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/url"
 	"strings"
 	"sync"
@@ -36,6 +37,27 @@ func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	return nil
 }
 
+// ShowReportBlock replaces the block given blockID with components.Block in id's
+// report by block, leaving the rest of the report, its scroll and where its window
+// is as they are. It reports whether id's report is open; if it is but has no such
+// block, nothing changes. Called just after ShowReport, before the new page has
+// loaded, the change can be lost.
+func (b *Bar) ShowReportBlock(id, blockID string, block templ.Component) (bool, error) {
+	window, ok := b.reports.open(id)
+	if !ok {
+		return false, nil
+	}
+	var html strings.Builder
+	if err := components.Block(blockID, block).Render(context.Background(), &html); err != nil {
+		return true, err
+	}
+	// Marshalled, the id and html are JS strings; <, > and & are escaped in them.
+	idJS, _ := json.Marshal(blockID)
+	htmlJS, _ := json.Marshal(html.String())
+	shim.Eval(window, "replaceBlock("+string(idJS)+", "+string(htmlJS)+")")
+	return true, nil
+}
+
 // reportWindows is the window of each report that's open, by the id it was shown
 // with. Each report has its own window, its id never reused.
 type reportWindows struct {
@@ -63,6 +85,14 @@ func (r *reportWindows) window(id string) int {
 	return window
 }
 
+// open is id's report window, if it has one open.
+func (r *reportWindows) open(id string) (int, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	window, ok := r.byID[id]
+	return window, ok
+}
+
 // closed forgets a report window that's been closed, so its id opens a new one.
 func (r *reportWindows) closed(window int) {
 	r.mu.Lock()
@@ -75,19 +105,23 @@ func (r *reportWindows) closed(window int) {
 }
 
 // navigate says whether a window may go to target. Every window only ever shows the
-// page it was given. A link clicked in a report goes to Handlers.OpenURL instead, if
-// it's http(s); anything else is blocked.
+// page it was given. A link clicked in a report opens in the browser instead, if it's
+// http(s); anything else is blocked.
 func (b *Bar) navigate(window int, target string, clicked bool) bool {
 	if target == "about:blank" {
 		return true
 	}
-	if window == BarWindow || window == MenuWindow || !clicked || b.handlers.OpenURL == nil {
+	if window == BarWindow || window == MenuWindow || !clicked {
 		return false
 	}
 	if u, err := url.Parse(target); err == nil {
 		if scheme := strings.ToLower(u.Scheme); scheme == "http" || scheme == "https" {
-			go b.handlers.OpenURL(target)
+			go openURL(target)
 		}
 	}
 	return false
 }
+
+// openURL opens a link clicked in a report. The tests have it record the link
+// instead of opening the browser.
+var openURL = shim.OpenURL

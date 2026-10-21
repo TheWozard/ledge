@@ -65,6 +65,8 @@ void ledgeSetAppearance(int window, LedgeAppearance appearance);
 // it. One that would open a new window goes nowhere.
 void ledgeLoadHTML(int window, const char *html);
 void ledgeEval(int window, const char *js);
+// ledgeOpenURL opens url in its default app, such as the browser for an http(s) one.
+void ledgeOpenURL(const char *url);
 // ledgeEvalResult runs js and reports its result, as JSON, to goLedgeEvalResult.
 void ledgeEvalResult(int window, const char *js, uintptr_t handle);
 

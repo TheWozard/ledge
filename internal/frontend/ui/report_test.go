@@ -44,9 +44,9 @@ func TestReportWindow(t *testing.T) {
 			t.Errorf("%s = %s, want %s", js, got, want)
 		}
 	}
-	// The link goes to OpenURL, and the report stays put.
+	// The link goes to openURL, and the report stays put.
 	evalIn(t, w, `document.querySelector("a").click(), true`)
-	eventually(t, "OpenURL", func() bool { return calls.has("url https://example.com/from-report") })
+	eventually(t, "openURL", func() bool { return calls.has("url https://example.com/from-report") })
 	if got := evalIn(t, w, `location.href`); got != `"about:blank"` {
 		t.Errorf("the link moved the report to %s", got)
 	}
@@ -55,6 +55,52 @@ func TestReportWindow(t *testing.T) {
 		t.Errorf("showing the same id again opened window %d, not %d", again, w)
 	}
 	waitIn(t, w, `document.querySelector("p")?.textContent`, `"Second version"`)
+}
+
+// A block with an id is drawn as itself, and ShowReportBlock replaces only it, leaving
+// the report's scroll. A report that isn't open, or a block it hasn't, is left alone.
+func TestReportBlock(t *testing.T) {
+	gui(t)
+	blocks := []templ.Component{components.Heading("Top")}
+	for i := range 60 {
+		blocks = append(blocks, components.Paragraph(fmt.Sprint("Filler ", i)))
+	}
+	blocks = append(blocks, components.Block("status", components.Note("Running", "blue")), components.Paragraph("After"))
+	w := showReport(t, "blocks", "Blocks", blocks)
+	waitIn(t, w, `document.querySelector(".note")?.dataset.block`, `"status"`)
+	evalIn(t, w, `window.kept = document.querySelector("h2");
+		document.querySelector("main").scrollTop = 200, true`)
+	if got := evalIn(t, w, `document.querySelector("main").scrollTop`); got != "200" {
+		t.Fatalf("the report scrolled to %s, want 200; the test needs more blocks", got)
+	}
+
+	open, err := testBar.ShowReportBlock("blocks", "status", components.Paragraph("<b>Done</b>"))
+	if err != nil || !open {
+		t.Fatalf("ShowReportBlock = %v, %v", open, err)
+	}
+	waitIn(t, w, `document.querySelector("[data-block=status]")?.tagName`, `"P"`)
+	for js, want := range map[string]string{
+		`document.querySelector("[data-block=status]").textContent`:                 `"<b>Done</b>"`,
+		`document.querySelectorAll("template, .note").length`:                       "0",
+		`[...document.querySelectorAll("main > article > *")].at(-2).dataset.block`: `"status"`,
+		`document.querySelector("main > article > :last-child").textContent`:        `"After"`,
+		`document.querySelector("h2") === window.kept`:                              "true",
+		`document.querySelector("main").scrollTop`:                                  "200",
+	} {
+		if got := evalIn(t, w, js); got != want {
+			t.Errorf("%s = %s, want %s", js, got, want)
+		}
+	}
+
+	if _, err := testBar.ShowReportBlock("blocks", "missing", components.Paragraph("Lost")); err != nil {
+		t.Fatal(err)
+	}
+	if got := evalIn(t, w, `document.querySelectorAll("main > article > *").length`); got != fmt.Sprint(len(blocks)) {
+		t.Errorf("%s blocks after replacing a missing one, want %d", got, len(blocks))
+	}
+	if open, _ := testBar.ShowReportBlock("not-open", "status", components.Paragraph("Lost")); open {
+		t.Error("ShowReportBlock found a report that isn't open")
+	}
 }
 
 // Each theme loads in a report.
@@ -142,7 +188,7 @@ func TestReportWindowPerID(t *testing.T) {
 }
 
 func TestNavigate(t *testing.T) {
-	bar := &Bar{handlers: Handlers{OpenURL: func(string) {}}}
+	bar := &Bar{}
 	for _, c := range []struct {
 		window  int
 		url     string
@@ -154,7 +200,7 @@ func TestNavigate(t *testing.T) {
 		{BarWindow + 1, "about:blank", false, true},
 		{BarWindow + 1, "file:///etc/hosts", true, false},
 		{BarWindow + 1, "https://example.com", false, false},
-		{BarWindow + 1, "https://example.com", true, false}, // to OpenURL instead
+		{BarWindow + 1, "https://example.com", true, false}, // to openURL instead
 		{BarWindow + 1, "javascript:alert(1)", true, false},
 	} {
 		if got := bar.navigate(c.window, c.url, c.clicked); got != c.want {
