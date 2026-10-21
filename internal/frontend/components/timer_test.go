@@ -16,7 +16,7 @@ func TestTimer(t *testing.T) {
 	contains(t, html,
 		`<li id="card-tea" class="timer clickable" data-click="card-tea" data-color="#3b82f6"`,
 		`<span class="title">&lt;b&gt;Tea&lt;/b&gt;</span>`,
-		fmt.Sprintf(`<div class="time-left" data-start="%d" data-end="%d">1:31</div>`, start.UnixMilli(), timer.End.UnixMilli()),
+		fmt.Sprintf(`<div class="reading-value time-left" data-start="%d" data-end="%d">1:31</div>`, start.UnixMilli(), timer.End.UnixMilli()),
 		`data-click="dismiss-tea"`)
 	if f := timer.Frame(); !f.Ends.Equal(timer.End) || f.Complete == nil {
 		t.Errorf("the timer's frame ends %v, with Complete %v", f.Ends, f.Complete != nil)
@@ -37,7 +37,7 @@ func TestUpcomingTimer(t *testing.T) {
 	contains(t, html,
 		`<li id="card-standup" class="timer" style="--card-width: 200px;">`,
 		// The title, then the time with the description beside it.
-		fmt.Sprintf(`<span class="title">Standup</span><div class="timer-body"><div class="time-left" data-end="%d">12:01</div>`, end.UnixMilli()),
+		fmt.Sprintf(`<span class="title">Standup</span><div class="reading"><div class="reading-value time-left" data-end="%d">12:01</div>`, end.UnixMilli()),
 		`<div class="description">10:30 · &lt;Room 4&gt;</div></div>`,
 		`<div class="actions"><div id="action-join" class="action clickable"`)
 	lacks(t, html, "data-start")
@@ -52,7 +52,7 @@ func TestSinceTimer(t *testing.T) {
 	start := time.Now().Add(-(12*time.Minute + 500*time.Millisecond))
 	timer := Timer{Basic: Basic{ID: "incident", Title: "Incident"}, Start: start, Complete: nothing}
 	html := render(t, BarContent([]Card{timer}, nil))
-	contains(t, html, fmt.Sprintf(`<div class="time-left" data-start="%d">12:00</div>`, start.UnixMilli()))
+	contains(t, html, fmt.Sprintf(`<div class="reading-value time-left" data-start="%d">12:00</div>`, start.UnixMilli()))
 	lacks(t, html, "data-end")
 	if f := timer.Frame(); !f.Ends.IsZero() {
 		t.Errorf("a timer without an end ends at %v", f.Ends)

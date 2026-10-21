@@ -70,12 +70,13 @@ card of its own. `Frame()` is what the bar draws the same for every kind: the ca
 id, its `Kind` (a class on it, for a theme to style it by), colour, width,
 `Click`,
 `Dismiss` and actions. `Body()` is a templ component for what's inside the frame, above
-the actions. There are two built-in kinds:
+the actions. There are three built-in kinds:
 
 - `components.Basic` (`basic`): a title and a description.
 - `components.Timer` (`timer`): a `Basic` card that keeps time, shown under its title
-  with its description beside it: `Timer{Basic: components.Basic{...}, End: meeting}`. The page keeps
-  its time itself, from whichever of `Start` and `End` it has:
+  with its description beside it, such as
+  `Timer{Basic: components.Basic{...}, End: meeting}`. The page keeps its time itself,
+  from whichever of `Start` and `End` it has:
   - both: it counts down to `End`, setting `--progress` (0 to 1 from `Start` to `End`)
     on the card for a theme to fill it;
   - only `End`, for something coming up such as a meeting: it counts down, unfilled;
@@ -83,6 +84,12 @@ the actions. There are two built-in kinds:
 
   One with an `End` has `data-done` once it's up, and its `Complete` is called when
   `End` passes.
+
+- `components.Progress` (`progress`): a `Basic` card showing how far along something
+  is, such as a deploy: its title, then its `Value` (0 to 1) as a percent, or its
+  `Label` such as `"3/5"`, with its description beside it. It has `--progress` on the
+  card, for a theme to fill it; the app renders it again as it moves. Any kind can
+  set `--progress` on its card, through its frame's `Progress`.
 
 Any kind can end: a frame with `Ends` and `Complete` has `Complete` called once when
 `Ends` passes, if the card's still on the bar, however many renders show it.

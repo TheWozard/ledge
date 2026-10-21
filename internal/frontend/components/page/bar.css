@@ -4,9 +4,11 @@
    for actions.
 
    A card's kind is a class on its <li>, such as basic, for a theme to style
-   each kind by. A timer card with an end has data-done once it's up, and, if it
-   has a start too, --progress, from 0 to 1 as it counts down. A card with a colour carries it in data-color, and as CSS in --card-color; a
-   theme shows it however it likes, or not at all. An action carries its
+   each kind by. A card that's partway along has --progress, from 0 to 1: a
+   progress card always, and a timer with a start and an end as it counts down. A
+   timer card with an end has data-done once it's up. A card with a colour carries
+   it in data-color, and as CSS in --card-color; a theme shows it however it
+   likes, or not at all. An action carries its
    current colour in data-color, and as CSS in --action.
 
    Entering and leaving: a card new since the last render, or an action new
@@ -73,9 +75,9 @@ ul {
 ul::-webkit-scrollbar {
   display: none;
 }
-/* A card is --card-width wide: 300px, or for a timer 100px, 200px with a
-   description beside its time. A theme sets it, for every card or by kind
-   (li.timer, as li alone doesn't reach a timer past this, and
+/* A card is --card-width wide: 300px, or for a timer or a progress card 100px,
+   200px with a description beside its reading. A theme sets it, for every card or
+   by kind (such as li.timer, as li alone doesn't reach a timer past this, and
    li.timer:has(.description)), and a card with a Width of its own has it inline,
    which wins. */
 li {
@@ -88,10 +90,12 @@ li {
   height: 100%;
   overflow: hidden;
 }
-li.timer {
+li.timer,
+li.progress {
   --card-width: 100px;
 }
-li.timer:has(.description) {
+li.timer:has(.description),
+li.progress:has(.description) {
   --card-width: 200px;
 }
 /* Anything with a Click has the class clickable, and is clicked on its own: a
@@ -117,19 +121,20 @@ li.timer:has(.description) {
   overflow-x: hidden;
   overflow-y: auto;
 }
-/* Under a timer's title, a row fills the space above its actions: its time on the
-   left, and its description beside it, both centred, the description scrolling if
-   it doesn't fit. */
-.timer-body {
+/* Under a timer's or a progress card's title, a row fills the space above its
+   actions: its reading on the left (the time, or how far along it is), and its
+   description beside it, both centred, the description scrolling if it doesn't
+   fit. */
+.reading {
   display: flex;
   flex: 1 1 0;
   align-items: center;
   min-height: 0;
 }
-.time-left {
+.reading-value {
   flex: none;
 }
-.timer-body .description {
+.reading .description {
   min-width: 0;
   max-height: 100%;
 }

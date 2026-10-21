@@ -13,15 +13,16 @@ import (
 	"github.com/TheWozard/ledge-frontend/components"
 )
 
-// sample is what the preview shows: basic cards and timers, whose Clicks open a
-// report, run nothing but a log line, or dismiss the card, and the long report.
-// Opening and dismissing go through open and changed, which the windows or the
-// browser set before showing it.
+// sample is what the preview shows: basic cards, timers and progress cards, whose
+// Clicks open a report, run nothing but a log line, or dismiss the card, and the long
+// report. Opening, dismissing and advance go through open and changed, which the
+// windows or the browser set before showing it.
 type sample struct {
-	mu     sync.Mutex
-	cards  []components.Basic
-	timers []components.Timer
-	long   []templ.Component
+	mu       sync.Mutex
+	cards    []components.Basic
+	timers   []components.Timer
+	progress []components.Progress
+	long     []templ.Component
 
 	open    func(id string) // shows id's report
 	changed func()          // shows the cards after one's dismissed
@@ -106,6 +107,15 @@ func newSample(now time.Time) *sample {
 	for i, t := range s.timers {
 		s.timers[i].Dismiss = s.dismisses(t.ID)
 	}
+	s.progress = []components.Progress{
+		// advance moves this one along.
+		{Basic: components.Basic{ID: "deploy", Title: "Lorem deploy", Description: "Building, then testing", Color: "#2f9e5b",
+			Click: s.opens("deploy")}, Value: 0.35},
+		{Basic: components.Basic{ID: "steps", Title: "Ipsum steps", Click: s.opens("steps")}, Value: 0.4, Label: "2/5"},
+	}
+	for i, p := range s.progress {
+		s.progress[i].Dismiss = s.dismisses(p.ID)
+	}
 	s.long = longReport(now)
 	return s
 }
@@ -183,6 +193,7 @@ func (s *sample) dismisses(id string) components.Click {
 		s.mu.Lock()
 		s.cards = slices.DeleteFunc(s.cards, func(c components.Basic) bool { return c.ID == id })
 		s.timers = slices.DeleteFunc(s.timers, func(t components.Timer) bool { return t.ID == id })
+		s.progress = slices.DeleteFunc(s.progress, func(p components.Progress) bool { return p.ID == id })
 		s.mu.Unlock()
 		s.changed()
 	}
@@ -192,7 +203,23 @@ func (s *sample) dismisses(id string) components.Click {
 func (s *sample) shown() []components.Card {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return append(components.Cards(s.timers), components.Cards(s.cards)...)
+	return slices.Concat(components.Cards(s.timers), components.Cards(s.progress), components.Cards(s.cards))
+}
+
+// advance moves the deploy along every second, starting again once it's done, and
+// shows it: the app rendering a progress card again as it goes. Run it once changed
+// is set.
+func (s *sample) advance() {
+	for range time.Tick(time.Second) {
+		s.mu.Lock()
+		if i := slices.IndexFunc(s.progress, func(p components.Progress) bool { return p.ID == "deploy" }); i >= 0 {
+			if s.progress[i].Value += 0.05; s.progress[i].Value > 1 {
+				s.progress[i].Value = 0
+			}
+		}
+		s.mu.Unlock()
+		s.changed()
+	}
 }
 
 // report is the title and blocks of id's report: the long one for the report card,
@@ -202,6 +229,12 @@ func (s *sample) report(id string) (string, []templ.Component) {
 	defer s.mu.Unlock()
 	if id == longID {
 		return "Lorem ipsum dolor", s.long
+	}
+	if i := slices.IndexFunc(s.progress, func(p components.Progress) bool { return p.ID == id }); i >= 0 {
+		p := s.progress[i]
+		return p.Title, []templ.Component{components.Heading(p.Title), components.Fields([]components.Field{
+			{Label: "Done", Value: fmt.Sprintf("%.0f%%", p.Value*100)},
+		})}
 	}
 	if i := slices.IndexFunc(s.timers, func(t components.Timer) bool { return t.ID == id }); i >= 0 {
 		t := s.timers[i]

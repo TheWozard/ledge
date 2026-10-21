@@ -83,15 +83,17 @@ li[data-color] {
 }
 
 /* A timer fills with its colour (or the accent, without one) from the left as it
-   counts down, and is full once it's up. --progress is registered so the fill
-   moves smoothly between the page's ticks. */
+   counts down, and is full once it's up; a progress card fills as it goes.
+   --progress is registered so the fill moves smoothly between the page's ticks
+   and the app's renders. */
 @property --progress {
   syntax: "<number>";
   inherits: false;
   initial-value: 0;
 }
 
-li.timer {
+li.timer,
+li.progress {
   --fill: var(--card-color, var(--accent));
   background: linear-gradient(
     to right,
@@ -102,7 +104,7 @@ li.timer {
   transition: --progress 0.25s linear;
 }
 
-.time-left {
+.reading-value {
   padding: 0 8px;
   font-size: 22px;
   font-weight: 600;
@@ -143,9 +145,9 @@ li.clickable:hover {
   color: var(--muted);
 }
 
-/* Beside a timer's time, which is padded, its description needs no padding of its
-   own on that side. */
-.timer-body .description {
+/* Beside a timer's or progress card's reading, which is padded, its description
+   needs no padding of its own on that side. */
+.reading .description {
   padding-left: 0;
 }
 

@@ -102,7 +102,7 @@ func timerBody(t Timer, shown string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</span><div class=\"timer-body\"><div class=\"time-left\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</span><div class=\"reading\"><div class=\"reading-value time-left\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

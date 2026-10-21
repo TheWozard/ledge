@@ -62,9 +62,9 @@ func clock(seconds int) string {
 // end, in milliseconds, whichever it has.
 templ timerBody(t Timer, shown string) {
 	<span class="title">{ t.Title }</span>
-	<div class="timer-body">
+	<div class="reading">
 		<div
-			class="time-left"
+			class="reading-value time-left"
 			if !t.Start.IsZero() {
 				data-start={ fmt.Sprint(t.Start.UnixMilli()) }
 			}

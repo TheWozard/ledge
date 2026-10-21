@@ -69,6 +69,7 @@ func showWindows(name string, th theme.Theme, sample *sample) {
 		}
 	}
 	sample.changed = func() { bar.Render(sample.shown()) }
+	go sample.advance()
 
 	go func() {
 		bar.Render(sample.shown())

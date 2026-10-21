@@ -3,6 +3,7 @@ package components
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,6 +40,9 @@ type Frame struct {
 	// the bar calls Complete, once, if it's set and the card is still on the bar.
 	Ends     time.Time
 	Complete Click
+	// Progress is how far along the card is, from 0 to 1, such as a Progress's. It's
+	// set on the card as --progress, for a theme to fill it; 0 is none.
+	Progress float64
 }
 
 // Cards is cards of one kind as Cards, to Render.
@@ -72,8 +76,8 @@ func (f Frame) classes() string {
 // color is the card's colour, if it has one that's #rrggbb.
 func (f Frame) color() (string, bool) { return f.Color, hex.MatchString(f.Color) }
 
-// style is the card's inline style: its colour and width, if it has them, and its
-// place among the new ones if it's in fresh.
+// style is the card's inline style: its colour, width and progress, if it has them,
+// and its place among the new ones if it's in fresh.
 func (f Frame) style(fresh map[string]int) string {
 	var style []string
 	if color, ok := f.color(); ok {
@@ -81,6 +85,9 @@ func (f Frame) style(fresh map[string]int) string {
 	}
 	if f.Width > 0 {
 		style = append(style, fmt.Sprintf("--card-width: %dpx", f.Width))
+	}
+	if f.Progress > 0 {
+		style = append(style, "--progress: "+strconv.FormatFloat(min(f.Progress, 1), 'f', -1, 64))
 	}
 	if i, ok := fresh[f.ElementID()]; ok {
 		style = append(style, entering(i))
