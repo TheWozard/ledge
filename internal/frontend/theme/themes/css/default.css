@@ -187,7 +187,7 @@ li:has(.menu):has(.dismiss) .message-head {
   color: var(--muted);
 }
 
-/* The card's buttons show while it's hovered. */
+/* The card's buttons always show. */
 .card-buttons {
   top: 4px;
   right: 8px;
@@ -198,13 +198,6 @@ li:has(.menu):has(.dismiss) .message-head {
   line-height: 18px;
   color: var(--muted);
   border-radius: var(--radius);
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-li:hover .card-buttons button,
-.card-buttons button:focus-visible {
-  opacity: 1;
 }
 
 .card-buttons button:hover {
