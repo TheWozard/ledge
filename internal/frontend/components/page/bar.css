@@ -121,13 +121,13 @@ li.progress:has(.description) {
   overflow-x: hidden;
   overflow-y: auto;
 }
-/* Under a timer's or a progress card's title, a row fills the space above its
-   actions: its reading on the left (the time, or how far along it is), and its
-   description beside it, both centred, the description scrolling if it doesn't
-   fit. */
+/* Under a timer's or a progress card's title, a row as tall as what's in it: its
+   reading on the left (the time, or how far along it is), and its description
+   beside it, centred against the reading. Given less room than that, above the
+   actions, it shrinks, and the description scrolls. */
 .reading {
   display: flex;
-  flex: 1 1 0;
+  flex: 0 1 auto;
   align-items: center;
   min-height: 0;
 }
