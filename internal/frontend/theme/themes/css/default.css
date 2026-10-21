@@ -1,38 +1,5 @@
 /* default: light or dark to match the system, square-ish cards tinted with their
    colour, and a colour stripe on the ones that can be clicked. */
-:root {
-  --bar: #ecebe8;
-  --card: #ffffff;
-  --text: #1d1d1f;
-  --muted: #6b6b70;
-  --line: rgba(0, 0, 0, 0.08);
-  --accent: #2f5fd0;
-  --tint: 9%;
-  --timer-fill: 30%;
-  --stripe: 3px;
-  --radius: 4px;
-  --c-green: #2f8f4e;
-  --c-yellow: #c08a12;
-  --c-red: #c4352b;
-  --c-blue: var(--accent);
-  --c-gray: #8a8a90;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bar: #151517;
-    --card: #26262b;
-    --text: #ececef;
-    --muted: #9a9aa2;
-    --line: rgba(255, 255, 255, 0.09);
-    --accent: #7ea2ff;
-    --c-green: #5cc27a;
-    --c-yellow: #e8b55a;
-    --c-red: #ff7b6e;
-    --c-gray: #9a9aa2;
-  }
-}
-
 body {
   font:
     12px / 1.4 -apple-system,

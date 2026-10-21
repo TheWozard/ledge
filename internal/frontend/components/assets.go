@@ -17,6 +17,10 @@ var (
 	reportCSS string
 	//go:embed page/report.js
 	reportJS string
+	//go:embed page/menu.css
+	menuCSS string
+	//go:embed page/menu.js
+	menuJS string
 )
 
 // idiomorph is Idiomorph 0.8.0 (github.com/bigskysoftware/idiomorph, 0BSD; see

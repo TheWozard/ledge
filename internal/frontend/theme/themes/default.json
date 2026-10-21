@@ -1,6 +1,7 @@
 {
   "name": "default",
   "default": true,
-  "bar": ["css/default.css"],
-  "report": ["css/default.report.css"]
+  "bar": ["css/default.colors.css", "css/default.css"],
+  "report": ["css/default.report.css"],
+  "menu": ["css/default.colors.css", "css/default.menu.css"]
 }

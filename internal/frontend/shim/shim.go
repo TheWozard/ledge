@@ -41,6 +41,7 @@ var handlers struct {
 	screensChanged func()
 	navigate       func(window int, url string, clicked bool) bool
 	windowClosed   func(window int)
+	popupDismissed func(window int)
 }
 
 // setHandler sets one of handlers.
@@ -74,6 +75,10 @@ func OnNavigate(decide func(window int, url string, clicked bool) bool) {
 // shim forgets it, and CreateWindow makes a new one.
 func OnWindowClosed(handle func(window int)) { setHandler(&handlers.windowClosed, handle) }
 
+// OnPopupDismissed sets what's called when a pop-up is dismissed by a click anywhere
+// but on it. It's hidden by then; it isn't called for HidePopup.
+func OnPopupDismissed(handle func(window int)) { setHandler(&handlers.popupDismissed, handle) }
+
 // Init sets up the app. Call it once, before creating windows.
 func Init() { C.ledgeInit() }
 
@@ -90,6 +95,22 @@ func CreateBar(id int) { C.ledgeCreateBar(C.int(id)) }
 func PlaceBar(id, screen int, top bool, height float64) Rect {
 	return goRect(C.ledgePlaceBar(C.int(id), C.int(screen), cBool(top), C.double(height)))
 }
+
+// CreatePopup creates window id as a pop-up, if it doesn't exist yet: borderless and
+// see-through where its page draws nothing, above other windows, and taking keys
+// without taking focus from the app that has it. Its page can post messages to Go,
+// as the bar's can. It's hidden until ShowPopup.
+func CreatePopup(id int) { C.ledgeCreatePopup(C.int(id)) }
+
+// ShowPopup shows the pop-up width by height at the mouse, down and to the right of
+// it, or up or left to stay on its screen, and gives it the keys. A click anywhere
+// but on it dismisses it (see OnPopupDismissed).
+func ShowPopup(id int, width, height float64) {
+	C.ledgeShowPopup(C.int(id), C.double(width), C.double(height))
+}
+
+// HidePopup hides the pop-up, without it being dismissed.
+func HidePopup(id int) { C.ledgeHidePopup(C.int(id)) }
 
 // CreateWindow creates window id as a titled window, if it doesn't exist yet, down
 // and to the right of the last one. Closing it destroys it (see OnWindowClosed). Its
@@ -274,4 +295,11 @@ func goLedgeMenuChosen(handle C.uintptr_t, index C.int) {
 	done := h.Value().(chan int)
 	h.Delete()
 	done <- int(index)
+}
+
+//export goLedgePopupDismissed
+func goLedgePopupDismissed(window C.int) {
+	if handle := getHandler(&handlers.popupDismissed); handle != nil {
+		handle(int(window))
+	}
 }

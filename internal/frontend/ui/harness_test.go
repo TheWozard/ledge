@@ -43,6 +43,18 @@ func (r *recorder) add(call string) {
 	r.calls = append(r.calls, call)
 }
 
+func (r *recorder) count(call string) int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	n := 0
+	for _, c := range r.calls {
+		if c == call {
+			n++
+		}
+	}
+	return n
+}
+
 func (r *recorder) has(call string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -171,7 +183,10 @@ var testThemes = func() map[string]theme.Theme {
 	frameless.Name = "frameless"
 	frameless.Report += "\n/* frameless: the window has no frame of its own. */"
 	frameless.Frame = theme.Frame{Frameless: true}
-	return map[string]theme.Theme{"frameless": frameless}
+	native := def
+	native.Name, native.Menu = "native", ""
+	native.Bar += "\n/* native: a card's menu is the native one. */"
+	return map[string]theme.Theme{"frameless": frameless, "native": native}
 }()
 
 // testTheme is the test theme name, or the built-in one.

@@ -26,7 +26,10 @@ func TestBuiltin(t *testing.T) {
 		for _, page := range []struct {
 			files []string
 			css   string
-		}{{manifest.Bar, theme.Bar}, {manifest.Report, theme.Report}} {
+		}{{manifest.Bar, theme.Bar}, {manifest.Report, theme.Report}, {manifest.Menu, theme.Menu}} {
+			if len(page.files) == 0 {
+				continue // a menu is optional
+			}
 			if fontURL.MatchString(page.css) {
 				t.Errorf("%s: a font wasn't inlined", name)
 			}

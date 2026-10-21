@@ -11,22 +11,34 @@ import (
 	"github.com/TheWozard/ledge-frontend/shim"
 )
 
+// A message is one of the page's actions, with an id if it takes one, and nothing
+// more.
 func TestReadMessage(t *testing.T) {
-	for body, want := range map[string]string{
-		`{"action": "ready"}`:                            "",
-		`{"action": "click", "id": "a"}`:                 "",
-		`{"action": "menu", "id": "card-a"}`:             "",
-		`{"action": "menu"}`:                             "menu needs an id",
-		`{"action": "click"}`:                            "click needs an id",
-		`{"action": "ready", "id": "a"}`:                 "ready takes no id",
-		`{"action": "open", "id": "a"}`:                  `no action "open"`,
-		`{"action": "click", "id": "a", "path": "/etc"}`: `unknown field "path"`,
-		`"click"`:                           "cannot unmarshal string",
-		`{"action": "click", "id": "a"} {}`: "more than one value",
+	for _, c := range []struct {
+		actions map[string]bool
+		body    string
+		want    string
+	}{
+		{barMessages, `{"action": "ready"}`, ""},
+		{barMessages, `{"action": "click", "id": "a"}`, ""},
+		{barMessages, `{"action": "menu", "id": "card-a"}`, ""},
+		{barMessages, `{"action": "menu"}`, "menu needs an id"},
+		{barMessages, `{"action": "click"}`, "click needs an id"},
+		{barMessages, `{"action": "ready", "id": "a"}`, "ready takes no id"},
+		{barMessages, `{"action": "open", "id": "a"}`, `no action "open"`},
+		{barMessages, `{"action": "choose", "id": "0"}`, `no action "choose"`},
+		{barMessages, `{"action": "click", "id": "a", "path": "/etc"}`, `unknown field "path"`},
+		{barMessages, `"click"`, "cannot unmarshal string"},
+		{barMessages, `{"action": "click", "id": "a"} {}`, "more than one value"},
+		{menuMessages, `{"action": "choose", "id": "0"}`, ""},
+		{menuMessages, `{"action": "close"}`, ""},
+		{menuMessages, `{"action": "close", "id": "0"}`, "close takes no id"},
+		{menuMessages, `{"action": "choose"}`, "choose needs an id"},
+		{menuMessages, `{"action": "click", "id": "card-a"}`, `no action "click"`},
 	} {
-		_, err := readMessage([]byte(body))
-		if want == "" && err != nil || want != "" && (err == nil || !strings.Contains(err.Error(), want)) {
-			t.Errorf("%s: got %v, want %q", body, err, want)
+		_, err := readMessage([]byte(c.body), c.actions)
+		if c.want == "" && err != nil || c.want != "" && (err == nil || !strings.Contains(err.Error(), c.want)) {
+			t.Errorf("%s: got %v, want %q", c.body, err, c.want)
 		}
 	}
 }
@@ -68,13 +80,15 @@ func TestClicks(t *testing.T) {
 	eventually(t, "the click to be dropped", func() bool { return strings.Contains(logs.String()[before:], "isn't on it") })
 }
 
-// A right-click on a card with actions, or a click on its ⋯, pops up its menu of them,
-// each with its colour, and greyed out without a Click. Choosing one calls its Click,
-// and not its card's; choosing nothing does nothing; and choosing one a render has
-// since taken off is dropped. WebKit's own menu never shows. No real menu opens: one
-// that records it, and chooses what it's told to, stands in.
-func TestMenus(t *testing.T) {
+// In a theme without a menu of its own, a right-click on a card with actions, or a
+// click on its ⋯, pops up the native menu of them, each with its colour, and greyed
+// out without a Click. Choosing one calls its Click, and not its card's; choosing
+// nothing does nothing; and choosing one a render has since taken off is dropped.
+// WebKit's own menu never shows. No real menu opens: one that records it, and chooses
+// what it's told to, stands in.
+func TestNativeMenus(t *testing.T) {
 	gui(t)
+	withTheme(t, "native")
 	var mu sync.Mutex
 	var menus [][]shim.MenuItem
 	choose, then := 0, func() {}
@@ -97,17 +111,14 @@ func TestMenus(t *testing.T) {
 	}
 	show(t, cards)
 	waitFor(t, `document.querySelectorAll("li").length`, "2")
-	rightClick := func(id string) string {
-		return eval(t, `document.getElementById("`+id+`").dispatchEvent(new MouseEvent("contextmenu", {bubbles: true, cancelable: true}))`)
-	}
 
 	// A right-click chooses Run.
-	if got := rightClick("card-m"); got != "false" {
+	if got := rightClick(t, "card-m"); got != "false" {
 		t.Error("WebKit's menu wasn't stopped")
 	}
 	eventually(t, "run run", func() bool { return calls.has("run run") })
 	want := []shim.MenuItem{{Title: "Run", Color: "green", Enabled: true}, {Title: "Info", Color: "gray"}}
-	if mu.Lock(); !slices.Equal(menus[0], want) {
+	if mu.Lock(); len(menus) == 0 || !slices.Equal(menus[0], want) {
 		t.Errorf("the menu was %+v, want %+v", menus[0], want)
 	}
 	mu.Unlock()
@@ -123,7 +134,7 @@ func TestMenus(t *testing.T) {
 	eventually(t, "the ⋯ menu", func() bool { return opened() == 2 })
 
 	// A card without actions has no menu, nor WebKit's.
-	if got := rightClick("card-plain"); got != "false" {
+	if got := rightClick(t, "card-plain"); got != "false" {
 		t.Error("WebKit's menu wasn't stopped on a card without actions")
 	}
 	if time.Sleep(200 * time.Millisecond); opened() != 2 {
@@ -135,7 +146,7 @@ func TestMenus(t *testing.T) {
 	mu.Lock()
 	choose, then = 0, func() { testBar.Render(components.Cards(cards[1:])) }
 	mu.Unlock()
-	rightClick("card-m")
+	rightClick(t, "card-m")
 	eventually(t, "the choice to be dropped", func() bool { return strings.Contains(logs.String()[before:], "isn't on the bar") })
 }
 
@@ -162,5 +173,128 @@ func TestNotJSON(t *testing.T) {
 	}
 	if got := eval(t, `1 + 1`); got != "2" {
 		t.Errorf("after values that aren't JSON, 1 + 1 = %s", got)
+	}
+}
+
+// rightClick right-clicks element id on the bar, and says whether WebKit's own menu
+// was let show.
+func rightClick(t *testing.T, id string) string {
+	t.Helper()
+	return eval(t, `document.getElementById("`+id+`").dispatchEvent(new MouseEvent("contextmenu", {bubbles: true, cancelable: true}))`)
+}
+
+// In a theme with a menu of its own, a right-click on a card with actions, or a click
+// on its ⋯, shows its page at the mouse, an item for each action with its colour, and
+// greyed out without a Click. Clicking one, or Return on one the arrow keys are on,
+// calls its Click, not its card's, and hides it; Escape hides it without; and one
+// whose card a render has since taken off is dropped.
+func TestMenus(t *testing.T) {
+	gui(t)
+	cards := []components.Basic{
+		{ID: "m", Title: "Menu", Click: record("open m"), Actions: []components.Action{
+			{ID: "info", Title: "<Info>"}, {ID: "go", Title: "Go", Color: "green", Click: record("go go")},
+		}},
+		{ID: "plain", Title: "Plain"},
+	}
+	show(t, cards)
+	waitFor(t, `document.querySelectorAll("li").length`, "2")
+	// opens opens the card's menu with open, and waits for it to show.
+	opens := func(t *testing.T, open func()) {
+		t.Helper()
+		open()
+		eventually(t, "the menu to show", func() bool { return shim.WindowVisible(MenuWindow) })
+		waitIn(t, MenuWindow, `document.querySelectorAll(".menu-item").length`, "2")
+	}
+	hidden := func(t *testing.T) {
+		t.Helper()
+		eventually(t, "the menu to hide", func() bool { return !shim.WindowVisible(MenuWindow) })
+	}
+
+	// A right-click shows the menu, and a click on Go chooses it.
+	opens(t, func() {
+		if got := rightClick(t, "card-m"); got != "false" {
+			t.Error("WebKit's menu wasn't stopped")
+		}
+	})
+	for js, want := range map[string]string{
+		`[...document.querySelectorAll(".menu-title")].map(e => e.textContent).join("|")`: `"<Info>|Go"`,
+		`document.querySelector(".menu-title b") === null`:                                "true",
+		`document.querySelector(".menu-item").hasAttribute("aria-disabled")`:              "true",
+		`document.querySelectorAll(".menu-item")[1].dataset.color`:                        `"green"`,
+		`!!window.webkit.messageHandlers.ledge`:                                           "true",
+	} {
+		if got := evalIn(t, MenuWindow, js); got != want {
+			t.Errorf("%s = %s, want %s", js, got, want)
+		}
+	}
+	// Info can't be chosen.
+	evalIn(t, MenuWindow, `document.querySelectorAll(".menu-item")[0].click(), true`)
+	if time.Sleep(200 * time.Millisecond); !shim.WindowVisible(MenuWindow) {
+		t.Fatal("clicking an item that can't be chosen closed the menu")
+	}
+	evalIn(t, MenuWindow, `document.querySelectorAll(".menu-item")[1].click(), true`)
+	eventually(t, "go go", func() bool { return calls.has("go go") })
+	hidden(t)
+	if time.Sleep(200 * time.Millisecond); calls.has("open m") {
+		t.Error("choosing from the menu also opened its card")
+	}
+
+	// The ⋯ shows it too; Escape hides it without choosing.
+	before := calls.count("go go")
+	key := func(key string) {
+		evalIn(t, MenuWindow, `document.dispatchEvent(new KeyboardEvent("keydown", {key: "`+key+`"})), true`)
+	}
+	opens(t, func() { eval(t, `document.querySelector("#card-m .menu").click(), true`) })
+	key("Escape")
+	hidden(t)
+
+	// The arrow keys skip what can't be chosen, and Return chooses.
+	opens(t, func() { rightClick(t, "card-m") })
+	key("ArrowDown")
+	if got := evalIn(t, MenuWindow, `document.querySelector(".menu-item.active .menu-title")?.textContent`); got != `"Go"` {
+		t.Errorf("the arrow went to %s, want Go", got)
+	}
+	key("Enter")
+	eventually(t, "go go again", func() bool { return calls.count("go go") == before+1 })
+	hidden(t)
+
+	// A card without actions has no menu, nor WebKit's.
+	if got := rightClick(t, "card-plain"); got != "false" {
+		t.Error("WebKit's menu wasn't stopped on a card without actions")
+	}
+	if time.Sleep(300 * time.Millisecond); shim.WindowVisible(MenuWindow) {
+		t.Error("a card without actions had a menu")
+	}
+
+	// Go, chosen once a render has taken its card off, is dropped.
+	opens(t, func() { rightClick(t, "card-m") })
+	testBar.Render(components.Cards(cards[1:]))
+	logged := logs.Len()
+	evalIn(t, MenuWindow, `document.querySelectorAll(".menu-item")[1].click(), true`)
+	eventually(t, "the choice to be dropped", func() bool { return strings.Contains(logs.String()[logged:], "isn't on the bar") })
+	hidden(t)
+}
+
+// One menu is open at a time: opening another closes the first without a choice. A
+// choice of what can't be chosen is refused, and leaves it open; with none open,
+// nothing's chosen.
+func TestPopup(t *testing.T) {
+	var p popup
+	if p.isOpen() || p.finish(-1) {
+		t.Fatal("a menu is open before any's opened")
+	}
+	first := p.open([]bool{true, false})
+	second := p.open([]bool{false, true})
+	if got := <-first; got != -1 {
+		t.Errorf("the first menu, closed by the second, chose %d", got)
+	}
+	if p.finish(0) || p.finish(2) || !p.isOpen() {
+		t.Error("an item that can't be chosen was chosen")
+	}
+	if !p.finish(1) || <-second != 1 || p.isOpen() {
+		t.Error("choosing an item didn't close the menu with it")
+	}
+	if p.finish(1) {
+		t.Error("a closed menu was chosen from")
 	}
 }

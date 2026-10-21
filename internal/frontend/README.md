@@ -111,10 +111,13 @@ action's `Click`. The bar gives each `Click` an id, made from the card's and act
 ids, so the app never handles click ids itself; a click on something a later `Render`
 took off is dropped.
 
-A card's actions are things to do about it without opening a report, in a native
-macOS menu: right-clicking the card, or clicking its ⋯ (shown only if it has some),
-pops it up. Each is an item with a dot in its colour; one without a `Click` is
-greyed out. Choosing one calls its `Click`, not the card's.
+A card's actions are things to do about it without opening a report, in a menu:
+right-clicking the card, or clicking its ⋯ (shown only if it has some), pops it up
+at the mouse. Each is an item with a dot in its colour; one without a `Click` is
+greyed out. Choosing one calls its `Click`, not the card's. A theme with a menu
+stylesheet draws the menu itself, as a page in a pop-up window of its own, which
+takes the arrow keys, Return and Escape and closes on a click anywhere else; in a
+theme without one, it's the native macOS menu.
 
 A report is a title and any `templ.Component`s, drawn top to bottom, shown for an id
 such as the card it's about. Each id has its own window: showing the same id again
@@ -142,8 +145,10 @@ and can't add CSS.
 The bar page posts only `{action: "click", id}`, `{action: "menu", id}` for a card's
 menu, and `{action: "ready"}` once loaded, checked strictly before it reaches a
 `Click`. It holds nothing but ids: it never names a url, path or command, so what a
-click does is only ever the app's `Click`. A card's menu is drawn natively, from the
-card's actions in Go, not by the page; WebKit's own right-click menu never shows. The
+click does is only ever the app's `Click`. A card's menu is built from its actions in
+Go, not by the bar page; WebKit's own right-click menu never shows. A theme's menu
+page posts only `{action: "choose", id}`, with the index of the item chosen,
+`{action: "close"}`, and `{action: "ready"}`, checked as strictly. The
 report page can't post to the app at all. Its only channel is to its own window,
 handled natively: `drag` (on a mouse-down in its title bar; a double-click zooms),
 `close`, `minimise` and `zoom`.
@@ -151,8 +156,8 @@ Neither window can navigate: a report's clicked http(s) link goes to `OpenURL`.
 
 ## Themes
 
-`ui.Options.Theme` is a `theme.Theme`: the bar's stylesheet, the report window's, and
-its `Frame` (whether the report window is light or dark, and whether the theme draws the
+`ui.Options.Theme` is a `theme.Theme`: the bar's stylesheet, the report window's, a
+card menu's (or none, for the native menu), and its `Frame` (whether the report window is light or dark, and whether the theme draws the
 whole window: square corners, its own buttons and border). The zero `Theme` is the
 built-in default. Get one with:
 
@@ -175,19 +180,20 @@ can be shared between pages and themes (paths are relative to the manifest):
   "name": "neon",
   "bar": ["css/neon-font.css", "css/neon.css"],
   "report": ["css/neon-font.css", "css/neon.report.css"],
+  "menu": ["css/neon-font.css", "css/neon.menu.css"],
   "frame": {"appearance": "dark"}
 }
 ```
 
-`frame` is optional: `appearance` is `"light"`, `"dark"` or unset (follow the system),
+`menu` is optional: without it, a card's menu is the native one. `frame` is optional: `appearance` is `"light"`, `"dark"` or unset (follow the system),
 and `frameless` is true for a theme that draws the whole window. A stylesheet names a
 font (woff2, woff, ttf or otf) by a url relative to itself, such as
 `url(../fonts/neon.woff2)`, and it can be anywhere in the `fs.FS`.
 
 The pages are loaded from strings and can't fetch files, so `Load` inlines each font as
 a `data:` url. The comments at the top of the layout styles in
-[page/bar.css](components/page/bar.css) and [page/report.css](components/page/report.css) say what a
-theme can hook into: the colour variables it sets, the bar's padding (`--pad-top`,
+[page/bar.css](components/page/bar.css), [page/report.css](components/page/report.css) and
+[page/menu.css](components/page/menu.css) say what a theme can hook into: the colour variables it sets, the bar's padding (`--pad-top`,
 `--pad-x` and `--pad-bottom`, which the row of cards scrolls through to the window's
 edges), the row's own sideways padding (`--row-pad-x`), a card's kind as a class (such
 as `basic`) and its `data-color` and `--card-color`, its width as `--card-width` (300px, or
@@ -198,7 +204,9 @@ with a description, set on such as `li.timer`, `li.stat:has(.change)` and
 `data-leaving` (for enter and exit animations, the exit ending with the layout's `collapse` so the rest
 close up), the report window's `.titlebar` and its buttons, the `main` that scrolls
 under it, and the `article` in it that holds the blocks (for a background that scrolls
-with them).
+with them), and a menu's `#menu`, the only thing in its see-through window, and its
+`.menu-item`s (`active` under the mouse or the keys, `aria-disabled` if they can't
+be chosen, each a `.menu-dot` in its `--item-color` and a `.menu-title`).
 
 Adding a built-in theme: add its manifest, `<name>.json`, to
 [theme/themes/](theme/themes/), its stylesheets to [css/](theme/themes/css/), any fonts
@@ -224,7 +232,7 @@ just gui           # the tests that open windows, those for each theme in only t
 just gui-themes default # only the tests for each theme, in those themes
 just gui-all       # every test that opens windows, in every theme (slow)
 just preview default # a bar and a report window in a theme (or a .json), until ctrl-c
-just inspect default # the same pages in the browser, to inspect; theme edits show on a reload
+just inspect default # the same pages in the browser, to inspect (a card's menu opens in the report frame); theme edits show on a reload
 ```
 
 The tests that open windows put a bar on your screen and a report window over it for a

@@ -1,0 +1,44 @@
+/* Layout only. How a card's menu looks comes from its theme's menu stylesheet,
+   added after this. The page is see-through: the theme draws the menu, #menu, and
+   whatever it draws is all that shows, its window sized to it. A theme sets
+   --c-green, --c-yellow, --c-red, --c-blue and --c-gray for the items' dots.
+
+   Each item is a .menu-item: a .menu-dot in its colour, --item-color (and
+   data-color, as the colour's name or #rrggbb), then its .menu-title. The one the
+   mouse is over, or the arrow keys are on, has the class active. One that can't be
+   chosen has aria-disabled. */
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+}
+body {
+  cursor: default;
+  -webkit-user-select: none;
+}
+/* As big as what's in it, whatever the window's size, so it can be measured and
+   the window sized to it. */
+#menu {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.menu-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  background: var(--item-color);
+  border-radius: 50%;
+}

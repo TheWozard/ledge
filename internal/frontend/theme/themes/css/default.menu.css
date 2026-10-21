@@ -1,0 +1,37 @@
+/* default: a card's menu, like a native one: rounded, light or dark to match the
+   system, the item under the mouse or the keys in the accent, and one that can't be
+   chosen greyed out. */
+body {
+  font:
+    13px / 1.4 -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  color: var(--text);
+}
+
+#menu {
+  min-width: 140px;
+  padding: 5px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.menu-item {
+  gap: 8px;
+  padding: 3px 12px 3px 8px;
+  border-radius: 4px;
+}
+
+.menu-item.active {
+  color: #ffffff;
+  background: var(--accent);
+}
+
+.menu-item[aria-disabled] {
+  color: var(--muted);
+}
+
+.menu-item.active .menu-dot {
+  box-shadow: 0 0 0 1px #ffffff;
+}

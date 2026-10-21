@@ -22,13 +22,14 @@ import (
 
 // barStub stands in for the app in a browser: what the bar page posts goes to
 // /action, and what comes back is shown: new cards are morphed in, as the app does,
-// and a report opens in the report frame.
+// and a report, or a card's menu, opens in the report frame.
 const barStub = `<script>
 window.webkit = { messageHandlers: { ledge: { postMessage(message) {
   console.log("bar posted", message);
   fetch("/action", { method: "POST", body: JSON.stringify(message) }).then(r => r.json()).then(reply => {
     if (reply.html != null) update(reply.html);
     if (reply.report) window.top.document.getElementById("report")?.setAttribute("src", "/report?id=" + encodeURIComponent(reply.report));
+    if (reply.menu) window.top.document.getElementById("report")?.setAttribute("src", "/menu?id=" + encodeURIComponent(reply.menu));
   });
 } } } };
 </script>`
@@ -37,6 +38,11 @@ window.webkit = { messageHandlers: { ledge: { postMessage(message) {
 // a new tab rather than in its frame.
 const reportStub = `<base target="_blank"><script>
 window.webkit = { messageHandlers: { frame: { postMessage(message) { console.log("report posted", message); } } } };
+</script>`
+
+// menuStub logs what a card's menu page posts.
+const menuStub = `<script>
+window.webkit = { messageHandlers: { ledge: { postMessage(message) { console.log("menu posted", message); } } } };
 </script>`
 
 // index is the page at /: the report above the bar, each in a frame at its window's
@@ -48,7 +54,7 @@ var index = template.Must(template.New("index").Parse(indexHTML))
 
 // browserServer serves the bar and a report, for a browser's inspector: / is both,
 // the bar at the bottom at its height and the report above it at its window's size;
-// /bar and /report?id= are each alone. The theme is loaded afresh for every page, so
+// /bar, /report?id= and /menu?id= are each alone. The theme is loaded afresh for every page, so
 // an edit to its stylesheets shows on a reload. A click calls its Click here;
 // dismissing a card takes it off the bar until the server stops.
 type browserServer struct {
@@ -74,6 +80,7 @@ func serveBrowser(addr, name string, load func() (theme.Theme, error), sample *s
 	http.HandleFunc("GET /{$}", s.index)
 	http.HandleFunc("GET /bar", s.bar)
 	http.HandleFunc("GET /report", s.report)
+	http.HandleFunc("GET /menu", s.menu)
 	http.HandleFunc("POST /action", s.action)
 
 	listener, err := net.Listen("tcp", addr)
@@ -111,9 +118,20 @@ func (s *browserServer) report(w http.ResponseWriter, r *http.Request) {
 	s.page(w, func(th theme.Theme) templ.Component { return components.ReportPage(th.Report, title, blocks) }, reportStub)
 }
 
+// menu serves the menu of the card whose element id is ?id=, as its theme draws it;
+// in a theme without one, only its layout.
+func (s *browserServer) menu(w http.ResponseWriter, r *http.Request) {
+	var items []components.MenuItem
+	for _, card := range s.sample.shown() {
+		if frame := card.Frame(); frame.ElementID() == r.URL.Query().Get("id") {
+			items = frame.Menu()
+		}
+	}
+	s.page(w, func(th theme.Theme) templ.Component { return components.MenuPage(th.Menu, items) }, menuStub)
+}
+
 // action takes what the bar page posts, as the app would, and replies with the bar's
-// content and any report a click opened. A browser has no native menus, so a card's
-// menu is only logged.
+// content and any report a click opened, or the card whose menu was asked for.
 func (s *browserServer) action(w http.ResponseWriter, r *http.Request) {
 	var message struct{ Action, ID string }
 	if err := json.NewDecoder(r.Body).Decode(&message); err != nil {
@@ -136,13 +154,7 @@ func (s *browserServer) action(w http.ResponseWriter, r *http.Request) {
 		}
 		s.mu.Unlock()
 	case "menu":
-		for _, card := range s.sample.shown() {
-			if frame := card.Frame(); frame.ElementID() == message.ID {
-				for _, item := range frame.Menu() {
-					log.Printf("  %s (%s, can be chosen: %v)", item.Title, item.Color, item.Enabled)
-				}
-			}
-		}
+		reply["menu"] = message.ID
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(reply)

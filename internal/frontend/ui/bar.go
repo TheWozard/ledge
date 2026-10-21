@@ -29,6 +29,7 @@ type Bar struct {
 	endings endings                     // the cards that end, and when each has completed
 
 	reports *reportWindows
+	popup   popup // the theme's menu that's open, if any
 }
 
 // opened is whether Open has made the bar: there's one, and the shim's handlers are its.
@@ -53,8 +54,16 @@ func Open(options Options, handlers Handlers) (*Bar, error) {
 	shim.OnNavigate(b.navigate)
 	shim.OnWindowClosed(b.reports.closed)
 	shim.OnMessage(func(window int, message []byte) {
-		if window == BarWindow {
+		switch window {
+		case BarWindow:
 			go b.handle(message)
+		case MenuWindow:
+			go b.handleMenuPage(message)
+		}
+	})
+	shim.OnPopupDismissed(func(window int) {
+		if window == MenuWindow {
+			b.popup.finish(-1)
 		}
 	})
 	shim.LoadHTML(BarWindow, page)

@@ -12,9 +12,12 @@ import (
 	"github.com/TheWozard/ledge-frontend/theme"
 )
 
-// BarWindow is the bar's id in the shim. Report windows take the ids after it, one
-// per report, never reused.
-const BarWindow = 1
+// BarWindow is the bar's id in the shim, and MenuWindow the pop-up a theme's menu is
+// drawn in. Report windows take the ids after them, one per report, never reused.
+const (
+	BarWindow  = 1
+	MenuWindow = 2
+)
 
 // Options is where the bar goes and how it looks.
 type Options struct {

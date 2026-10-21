@@ -45,9 +45,9 @@ type reportWindows struct {
 }
 
 // newReportWindows is no report windows yet; the first will take the id after the
-// bar's.
+// menu's.
 func newReportWindows() *reportWindows {
-	return &reportWindows{byID: map[string]int{}, last: BarWindow}
+	return &reportWindows{byID: map[string]int{}, last: MenuWindow}
 }
 
 // window is id's report window, given a new one if it hasn't got one open.
@@ -81,7 +81,7 @@ func (b *Bar) navigate(window int, target string, clicked bool) bool {
 	if target == "about:blank" {
 		return true
 	}
-	if window == BarWindow || !clicked || b.handlers.OpenURL == nil {
+	if window == BarWindow || window == MenuWindow || !clicked || b.handlers.OpenURL == nil {
 		return false
 	}
 	if u, err := url.Parse(target); err == nil {

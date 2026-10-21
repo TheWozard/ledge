@@ -43,6 +43,9 @@ type Theme struct {
 	Name   string // for errors and logs
 	Bar    string // the bar's stylesheet
 	Report string // the report window's stylesheet
+	// Menu is the stylesheet of a card's menu of actions, drawn as a page in a pop-up
+	// of its own; "" for the native macOS menu instead.
+	Menu string
 	Frame  Frame
 }
 
@@ -65,15 +68,17 @@ type Frame struct {
 //	  "name": "neon",
 //	  "bar": ["css/neon-font.css", "css/neon.css"],
 //	  "report": ["css/neon-font.css", "css/neon.report.css"],
+//	  "menu": ["css/neon-font.css", "css/neon.menu.css"],
 //	  "frame": {"appearance": "dark"}
 //	}
 //
-// One theme in a Set can say it's the Default, the one to use when none is chosen.
+// "menu" is optional: without it, a card's menu is the native one. One theme in a Set can say it's the Default, the one to use when none is chosen.
 type Manifest struct {
 	Name    string   `json:"name"`
 	Default bool     `json:"default,omitempty"`
 	Bar     []string `json:"bar"`
 	Report  []string `json:"report"`
+	Menu    []string `json:"menu,omitempty"`
 	Frame   Frame    `json:"frame"`
 }
 
@@ -101,6 +106,9 @@ func load(fsys fs.FS, file string, manifest Manifest) (Theme, error) {
 		return t, fmt.Errorf("theme %s: %w", t.Name, err)
 	}
 	if t.Report, err = joinStylesheets(fsys, dir, manifest.Report); err != nil {
+		return t, fmt.Errorf("theme %s: %w", t.Name, err)
+	}
+	if t.Menu, err = joinStylesheets(fsys, dir, manifest.Menu); err != nil {
 		return t, fmt.Errorf("theme %s: %w", t.Name, err)
 	}
 	return t, nil

@@ -262,6 +262,117 @@ void ledgeCreateBar(int window) {
 // Where the next titled window goes: each opens down and to the right of the last.
 static NSPoint cascade;
 
+// A pop-up takes keys, for its page's own keyboard handling, without making the app
+// active: whatever app was in front stays in front.
+@interface LedgePopup : NSPanel
+@end
+@implementation LedgePopup
+- (BOOL)canBecomeKeyWindow { return YES; }
+@end
+
+// The event monitors that dismiss the pop-up that's showing, on a click anywhere
+// but on it: in another app, or in another of ledge's windows.
+static id popupGlobalMonitor, popupLocalMonitor;
+
+static void stopWatchingPopup(void) {
+    if (popupGlobalMonitor != nil) {
+        [NSEvent removeMonitor:popupGlobalMonitor];
+        popupGlobalMonitor = nil;
+    }
+    if (popupLocalMonitor != nil) {
+        [NSEvent removeMonitor:popupLocalMonitor];
+        popupLocalMonitor = nil;
+    }
+}
+
+// dismissPopup hides the pop-up and tells Go, which hasn't asked for it. Main thread.
+static void dismissPopup(int window) {
+    NSWindow *panel = windows[@(window)];
+    if (panel == nil || !panel.isVisible) {
+        return;
+    }
+    stopWatchingPopup();
+    [panel orderOut:nil];
+    goLedgePopupDismissed(window);
+}
+
+void ledgeCreatePopup(int window) {
+    onMainSync(^{
+        if (windows[@(window)] != nil) {
+            return;
+        }
+        // Big enough to lay its page out in before it's measured and sized.
+        NSRect frame = NSMakeRect(0, 0, 400, 600);
+        LedgePopup *panel = [[LedgePopup alloc] initWithContentRect:frame
+                                                          styleMask:NSWindowStyleMaskBorderless | NSWindowStyleMaskNonactivatingPanel
+                                                            backing:NSBackingStoreBuffered
+                                                              defer:NO];
+        panel.releasedWhenClosed = NO;
+        panel.level = NSPopUpMenuWindowLevel;
+        panel.floatingPanel = YES;
+        panel.hidesOnDeactivate = NO;
+        panel.hasShadow = YES;
+        panel.opaque = NO;
+        panel.backgroundColor = NSColor.clearColor;
+        WKWebView *webView = newWebView(window, frame, YES);
+        // See-through where the page draws nothing, so its theme's menu is the shape.
+        [webView setValue:@NO forKey:@"drawsBackground"];
+        panel.contentView = webView;
+        windows[@(window)] = panel;
+    });
+}
+
+void ledgeShowPopup(int window, double width, double height) {
+    onMain(^{
+        NSWindow *panel = windows[@(window)];
+        if (panel == nil) {
+            return;
+        }
+        NSPoint at = [NSEvent mouseLocation];
+        NSScreen *screen = NSScreen.mainScreen;
+        for (NSScreen *s in NSScreen.screens) {
+            if (NSPointInRect(at, s.frame)) {
+                screen = s;
+            }
+        }
+        // Down and to the right of the mouse, as a menu opens; up, or left, if that
+        // would leave its screen, as from a bar along the bottom.
+        NSRect area = screen.visibleFrame;
+        CGFloat x = at.x, y = at.y - height;
+        if (y < NSMinY(area)) {
+            y = MIN(at.y, NSMaxY(area) - height);
+        }
+        if (x + width > NSMaxX(area)) {
+            x = at.x - width;
+        }
+        x = MAX(x, NSMinX(area));
+        y = MAX(y, NSMinY(area));
+        [panel setFrame:NSMakeRect(x, y, width, height) display:YES];
+        [panel orderFrontRegardless];
+        [panel makeKeyWindow];
+        [panel invalidateShadow];
+
+        stopWatchingPopup();
+        NSEventMask clicks = NSEventMaskLeftMouseDown | NSEventMaskRightMouseDown | NSEventMaskOtherMouseDown;
+        popupGlobalMonitor = [NSEvent addGlobalMonitorForEventsMatchingMask:clicks handler:^(NSEvent *event) {
+            dismissPopup(window);
+        }];
+        popupLocalMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:clicks handler:^NSEvent *(NSEvent *event) {
+            if (event.window != panel) {
+                dismissPopup(window);
+            }
+            return event;
+        }];
+    });
+}
+
+void ledgeHidePopup(int window) {
+    onMain(^{
+        stopWatchingPopup();
+        [windows[@(window)] orderOut:nil];
+    });
+}
+
 // The report window's style: titled, with the page under a see-through title bar. A
 // frameless one drops the title bar, and with it the rounded corners and buttons.
 static const NSWindowStyleMask titledMask = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable

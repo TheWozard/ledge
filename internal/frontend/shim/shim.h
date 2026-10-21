@@ -27,6 +27,17 @@ void ledgeCreateBar(int window);
 // 0 if there's no such screen) along the top or bottom edge, and returns its frame.
 LedgeRect ledgePlaceBar(int window, int screen, int top, double height);
 
+// ledgeCreatePopup creates `window` as a pop-up, if it doesn't exist yet: borderless,
+// see-through where its page is, above other windows, and taking keys without
+// taking focus from the app that has it. Its page can post to Go, as the bar's can.
+void ledgeCreatePopup(int window);
+// ledgeShowPopup shows the pop-up `width` by `height` at the mouse, down and to the
+// right of it, or up or left to stay on its screen, and gives it the keys. A click
+// anywhere but on it dismisses it: it's hidden, and goLedgePopupDismissed is told.
+void ledgeShowPopup(int window, double width, double height);
+// ledgeHidePopup hides the pop-up, without it being dismissed.
+void ledgeHidePopup(int window);
+
 // ledgeCreateWindow creates `window` as a titled window, if it doesn't exist yet,
 // down and to the right of the last one. Its page fills the window under a
 // see-through title bar that shows only the close, minimise and zoom buttons, so the
