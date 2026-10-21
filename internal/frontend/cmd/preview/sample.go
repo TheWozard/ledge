@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"slices"
 	"strings"
 	"sync"
@@ -13,15 +14,16 @@ import (
 	"github.com/TheWozard/ledge-frontend/components"
 )
 
-// sample is what the preview shows: basic cards, timers and progress cards, whose
-// Clicks open a report, run nothing but a log line, or dismiss the card, and the long
-// report. Opening, dismissing and advance go through open and changed, which the
+// sample is what the preview shows: basic cards, timers, progress and stat cards,
+// whose Clicks open a report, run nothing but a log line, or dismiss the card, and the
+// long report. Opening, dismissing and advance go through open and changed, which the
 // windows or the browser set before showing it.
 type sample struct {
 	mu       sync.Mutex
 	cards    []components.Basic
 	timers   []components.Timer
 	progress []components.Progress
+	stats    []components.Stat
 	long     []templ.Component
 
 	open    func(id string) // shows id's report
@@ -116,6 +118,16 @@ func newSample(now time.Time) *sample {
 	for i, p := range s.progress {
 		s.progress[i].Dismiss = s.dismisses(p.ID)
 	}
+	s.stats = []components.Stat{
+		// advance adds to this one's history.
+		{Basic: components.Basic{ID: "errors", Title: "Lorem errors", Description: "Last hour", Color: "#e0362c",
+			Click: s.opens("errors")}, Value: "2.3%", Change: "↑0.8", ChangeColor: "red",
+			History: []float64{1.2, 1.4, 1.1, 1.5, 1.3, 1.9, 1.7, 2.1, 2.0, 2.3}},
+		{Basic: components.Basic{ID: "users", Title: "Ipsum users"}, Value: "1,204", Change: "+12"},
+	}
+	for i, st := range s.stats {
+		s.stats[i].Dismiss = s.dismisses(st.ID)
+	}
 	s.long = longReport(now)
 	return s
 }
@@ -194,6 +206,7 @@ func (s *sample) dismisses(id string) components.Click {
 		s.cards = slices.DeleteFunc(s.cards, func(c components.Basic) bool { return c.ID == id })
 		s.timers = slices.DeleteFunc(s.timers, func(t components.Timer) bool { return t.ID == id })
 		s.progress = slices.DeleteFunc(s.progress, func(p components.Progress) bool { return p.ID == id })
+		s.stats = slices.DeleteFunc(s.stats, func(st components.Stat) bool { return st.ID == id })
 		s.mu.Unlock()
 		s.changed()
 	}
@@ -203,18 +216,30 @@ func (s *sample) dismisses(id string) components.Click {
 func (s *sample) shown() []components.Card {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return slices.Concat(components.Cards(s.timers), components.Cards(s.progress), components.Cards(s.cards))
+	return slices.Concat(components.Cards(s.timers), components.Cards(s.progress), components.Cards(s.stats),
+		components.Cards(s.cards))
 }
 
-// advance moves the deploy along every second, starting again once it's done, and
-// shows it: the app rendering a progress card again as it goes. Run it once changed
-// is set.
+// advance moves the deploy along every second, starting again once it's done, adds
+// to the error rate's history, and shows them: the app rendering cards again as they
+// change. Run it once changed is set.
 func (s *sample) advance() {
 	for range time.Tick(time.Second) {
 		s.mu.Lock()
 		if i := slices.IndexFunc(s.progress, func(p components.Progress) bool { return p.ID == "deploy" }); i >= 0 {
 			if s.progress[i].Value += 0.05; s.progress[i].Value > 1 {
 				s.progress[i].Value = 0
+			}
+		}
+		if i := slices.IndexFunc(s.stats, func(st components.Stat) bool { return st.ID == "errors" }); i >= 0 {
+			st := &s.stats[i]
+			last := st.History[len(st.History)-1]
+			next := max(0.1, last+rand.Float64()-0.5)
+			st.History = append(st.History[1:], next)
+			st.Value = fmt.Sprintf("%.1f%%", next)
+			st.Change, st.ChangeColor = fmt.Sprintf("↑%.1f", next-last), "red"
+			if next < last {
+				st.Change, st.ChangeColor = fmt.Sprintf("↓%.1f", last-next), "green"
 			}
 		}
 		s.mu.Unlock()
@@ -234,6 +259,12 @@ func (s *sample) report(id string) (string, []templ.Component) {
 		p := s.progress[i]
 		return p.Title, []templ.Component{components.Heading(p.Title), components.Fields([]components.Field{
 			{Label: "Done", Value: fmt.Sprintf("%.0f%%", p.Value*100)},
+		})}
+	}
+	if i := slices.IndexFunc(s.stats, func(st components.Stat) bool { return st.ID == id }); i >= 0 {
+		st := s.stats[i]
+		return st.Title, []templ.Component{components.Heading(st.Title), components.Fields([]components.Field{
+			{Label: "Now", Value: st.Value}, {Label: "Change", Value: st.Change},
 		})}
 	}
 	if i := slices.IndexFunc(s.timers, func(t components.Timer) bool { return t.ID == id }); i >= 0 {

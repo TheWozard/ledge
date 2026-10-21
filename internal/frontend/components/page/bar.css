@@ -75,11 +75,14 @@ ul {
 ul::-webkit-scrollbar {
   display: none;
 }
-/* A card is --card-width wide: 300px, or for a timer or a progress card 100px,
-   200px with a description beside its reading. A theme sets it, for every card or
-   by kind (such as li.timer, as li alone doesn't reach a timer past this, and
+/* A card is --card-width wide: 300px, or for a timer, progress or stat card
+   100px, 150px for a stat with a change, and 200px with a description beside its
+   reading. A theme sets it, for every card or by kind (such as li.timer, as li
+   alone doesn't reach a timer past this, li.stat:has(.change) and
    li.timer:has(.description)), and a card with a Width of its own has it inline,
    which wins. */
+/* Each card is a stacking context of its own, so what's drawn behind its content,
+   such as a stat's sparkline, stays above its background. */
 li {
   --card-width: 300px;
   position: relative;
@@ -89,13 +92,19 @@ li {
   width: var(--card-width);
   height: 100%;
   overflow: hidden;
+  isolation: isolate;
 }
 li.timer,
-li.progress {
+li.progress,
+li.stat {
   --card-width: 100px;
 }
+li.stat:has(.change) {
+  --card-width: 150px;
+}
 li.timer:has(.description),
-li.progress:has(.description) {
+li.progress:has(.description),
+li.stat:has(.description) {
   --card-width: 200px;
 }
 /* Anything with a Click has the class clickable, and is clicked on its own: a
@@ -121,10 +130,10 @@ li.progress:has(.description) {
   overflow-x: hidden;
   overflow-y: auto;
 }
-/* Under a timer's or a progress card's title, a row as tall as what's in it: its
-   reading on the left (the time, or how far along it is), and its description
-   beside it, centred against the reading. Given less room than that, above the
-   actions, it shrinks, and the description scrolls. */
+/* Under a timer's, progress or stat card's title, a row as tall as what's in it:
+   its reading on the left (the time, how far along it is, or the number), and its
+   description beside it, centred against the reading. Given less room than that,
+   above the actions, it shrinks, and the description scrolls. */
 .reading {
   display: flex;
   flex: 0 1 auto;
@@ -137,6 +146,24 @@ li.progress:has(.description) {
 .reading .description {
   min-width: 0;
   max-height: 100%;
+}
+/* A stat's sparkline is drawn behind the card's content, across the whole card and
+   stretched to fit, so it's there whatever else the card has, such as actions. It
+   takes no room and no clicks. A theme draws its line, such as with a stroke, and
+   insets it with padding, such as to keep it under the title. */
+.sparkline {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.sparkline polyline {
+  fill: none;
+  vector-effect: non-scaling-stroke;
 }
 
 /* A card's actions sit in one row at its bottom, inside the card's padding,

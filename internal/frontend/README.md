@@ -70,7 +70,7 @@ card of its own. `Frame()` is what the bar draws the same for every kind: the ca
 id, its `Kind` (a class on it, for a theme to style it by), colour, width,
 `Click`,
 `Dismiss` and actions. `Body()` is a templ component for what's inside the frame, above
-the actions. There are three built-in kinds:
+the actions. There are four built-in kinds:
 
 - `components.Basic` (`basic`): a title and a description.
 - `components.Timer` (`timer`): a `Basic` card that keeps time, shown under its title
@@ -90,6 +90,12 @@ the actions. There are three built-in kinds:
   `Label` such as `"3/5"`, with its description beside it. It has `--progress` on the
   card, for a theme to fill it; the app renders it again as it moves. Any kind can
   set `--progress` on its card, through its frame's `Progress`.
+
+- `components.Stat` (`stat`): a `Basic` card showing a number: its title, then its
+  `Value` (such as `"2.3%"`), with its `Change` (such as `"↑0.8"`) small beside it in
+  its `ChangeColor`, and its description beside those. Its `History`, oldest first,
+  is drawn behind the whole card as a sparkline, an inline SVG `polyline` a theme
+  strokes and insets, so it's there whatever else the card has, such as actions.
 
 Any kind can end: a frame with `Ends` and `Complete` has `Complete` called once when
 `Ends` passes, if the card's still on the bar, however many renders show it.
@@ -176,7 +182,8 @@ theme can hook into: the colour variables it sets, the bar's padding (`--pad-top
 `--pad-x` and `--pad-bottom`, which the row of cards scrolls through to the window's
 edges), the row's own sideways padding (`--row-pad-x`), a card's kind as a class (such
 as `basic`) and its `data-color` and `--card-color`, its width as `--card-width` (300px, or
-100px for a timer, 200px with a description, set on `li.timer` and
+100px for a timer, progress or stat card, 150px for a stat with a change, and 200px
+with a description, set on such as `li.timer`, `li.stat:has(.change)` and
 `li.timer:has(.description)`; a card's own `Width` overrides it), an action's `data-color`
 and `--action`, a new card's or action's `data-new` and a gone one's
 `data-leaving`

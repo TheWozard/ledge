@@ -151,6 +151,26 @@ li.clickable:hover {
   padding-left: 0;
 }
 
+/* A stat's change is small beside its number, in its colour if it has one. Its
+   sparkline, behind the card, is a faded line in the card's colour (or the
+   accent), from under the title to the bottom, edge to edge. */
+.change {
+  margin-left: 2px;
+  font-size: 12px;
+  color: var(--change, var(--muted));
+}
+
+.sparkline {
+  padding: 26px 0 4px;
+}
+
+.sparkline polyline {
+  stroke: color-mix(in srgb, var(--card-color, var(--accent)) 50%, transparent);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .dismiss {
   top: 4px;
   right: 8px;
