@@ -212,12 +212,24 @@ type MenuItem struct {
 	Enabled bool // whether it can be chosen
 }
 
-// ShowMenu pops up a menu of items at the mouse, and returns the index of the one
-// chosen, or -1 if none was. Not from the main goroutine: it waits for the menu to
-// close. While it's open, everything else still runs.
-func ShowMenu(items []MenuItem) int {
+// Modifiers is the modifier keys held as a menu item was chosen.
+type Modifiers struct {
+	Alt, Cmd, Shift, Ctrl bool
+}
+
+// Chosen is what was chosen from a menu: the item's index, or -1 for none, and the
+// modifier keys held as it was.
+type Chosen struct {
+	Index     int
+	Modifiers Modifiers
+}
+
+// ShowMenu pops up a menu of items at the mouse, and returns what was chosen from it.
+// Not from the main goroutine: it waits for the menu to close. While it's open,
+// everything else still runs.
+func ShowMenu(items []MenuItem) Chosen {
 	if len(items) == 0 {
-		return -1
+		return Chosen{Index: -1}
 	}
 	array := unsafe.Slice((*C.LedgeMenuItem)(C.malloc(C.size_t(len(items))*C.size_t(unsafe.Sizeof(C.LedgeMenuItem{})))), len(items))
 	defer C.free(unsafe.Pointer(&array[0]))
@@ -227,7 +239,7 @@ func ShowMenu(items []MenuItem) int {
 		defer C.free(unsafe.Pointer(color))
 		array[i] = C.LedgeMenuItem{title: title, color: color, enabled: cBool(item.Enabled)}
 	}
-	done := make(chan int, 1)
+	done := make(chan Chosen, 1)
 	C.ledgeShowMenu(&array[0], C.int(len(items)), C.uintptr_t(cgo.NewHandle(done)))
 	return <-done
 }
@@ -297,11 +309,16 @@ func goLedgeEvalResult(handle C.uintptr_t, value *C.char, message *C.char) {
 }
 
 //export goLedgeMenuChosen
-func goLedgeMenuChosen(handle C.uintptr_t, index C.int) {
+func goLedgeMenuChosen(handle C.uintptr_t, index C.int, modifiers C.int) {
 	h := cgo.Handle(handle)
-	done := h.Value().(chan int)
+	done := h.Value().(chan Chosen)
 	h.Delete()
-	done <- int(index)
+	done <- Chosen{Index: int(index), Modifiers: Modifiers{
+		Alt:   modifiers&C.LedgeAlt != 0,
+		Cmd:   modifiers&C.LedgeCmd != 0,
+		Shift: modifiers&C.LedgeShift != 0,
+		Ctrl:  modifiers&C.LedgeCtrl != 0,
+	}}
 }
 
 //export goLedgePopupDismissed

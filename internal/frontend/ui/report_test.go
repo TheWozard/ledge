@@ -122,14 +122,17 @@ func TestReportClicks(t *testing.T) {
 			{ID: "off", Title: "Off"},
 		}),
 		components.Block("more", components.Buttons([]components.Button{
-			{ID: "slow", Title: "Slow", Click: func() { calls.add("slow"); <-release }},
+			{ID: "slow", Title: "Slow", Click: func(components.ClickEvent) { calls.add("slow"); <-release }},
 		})),
 	})
 	waitIn(t, w, `document.querySelectorAll(".button").length`, "3")
 	button := func(id string) string { return `document.querySelector('[data-click="` + id + `"]')` }
 
-	evalIn(t, w, button("go")+`.click(), true`)
+	evalIn(t, w, button("go")+`.dispatchEvent(new MouseEvent("click", {bubbles: true, metaKey: true})), true`)
 	eventually(t, "go", func() bool { return calls.has("go") })
+	if got, want := calls.event("go"), (components.ClickEvent{Cmd: true}); got != want {
+		t.Errorf("a ⌘-click on Go was %+v, want %+v", got, want)
+	}
 	evalIn(t, w, `document.querySelector(".button[disabled]").click(), true`)
 
 	// A slow one is busy until it's done, and a click on it meanwhile is dropped.
@@ -159,8 +162,11 @@ func TestReportClicks(t *testing.T) {
 		t.Fatalf("ShowReportBlock = %v, %v", open, err)
 	}
 	waitIn(t, w, button("stop")+` !== null`, "true")
-	evalIn(t, w, button("stop")+`.click(), true`)
+	evalIn(t, w, button("stop")+`.dispatchEvent(new MouseEvent("auxclick", {bubbles: true, button: 1})), true`)
 	eventually(t, "stop", func() bool { return calls.has("stop") })
+	if got, want := calls.event("stop"), (components.ClickEvent{Middle: true}); got != want {
+		t.Errorf("a middle click on Stop was %+v, want %+v", got, want)
+	}
 	before = logs.Len()
 	evalIn(t, w, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "slow"}), true`)
 	eventually(t, "the click on slow to be dropped", func() bool { return strings.Contains(logs.String()[before:], "isn't in it") })
@@ -261,7 +267,7 @@ func TestReportWindowPerID(t *testing.T) {
 // closing it forgets them.
 func TestReportWindowClicks(t *testing.T) {
 	r := newReportWindows()
-	nothing := func() {}
+	nothing := func(components.ClickEvent) {}
 	w := r.show("a", &components.ReportClicks{
 		Clicks: map[string]components.Click{"top": nothing, "old": nothing},
 		Blocks: map[string][]string{"block": {"old"}},

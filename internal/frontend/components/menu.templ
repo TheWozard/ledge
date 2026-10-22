@@ -7,8 +7,9 @@ import "strconv"
 // page/menu.css, and its script page/menu.js.
 //
 // The page posts to window.webkit.messageHandlers.ledge only {action: "ready"} once
-// loaded, for the app to measure #menu and show it; {action: "choose", id}, with the
-// index of the item chosen, by a click or Return; and {action: "close"}, on Escape.
+// loaded, for the app to measure #menu and show it; {action: "choose", id, event},
+// with the index of the item chosen, by a click or Return, and the modifier keys held
+// as it was, {alt, cmd, shift, ctrl}; and {action: "close"}, on Escape.
 templ MenuPage(themeCSS string, items []MenuItem) {
 	<!DOCTYPE html>
 	<html lang="en">

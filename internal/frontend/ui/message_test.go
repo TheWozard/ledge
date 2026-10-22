@@ -11,8 +11,8 @@ import (
 	"github.com/TheWozard/ledge-frontend/shim"
 )
 
-// A message is one of the page's actions, with an id if it takes one, and nothing
-// more.
+// A message is one of the page's actions, with an id if it takes one, an event of
+// only the keys and button if it's a click or a choice, and nothing more.
 func TestReadMessage(t *testing.T) {
 	for _, c := range []struct {
 		actions map[string]bool
@@ -35,11 +35,27 @@ func TestReadMessage(t *testing.T) {
 		{menuMessages, `{"action": "close", "id": "0"}`, "close takes no id"},
 		{menuMessages, `{"action": "choose"}`, "choose needs an id"},
 		{menuMessages, `{"action": "click", "id": "card-a"}`, `no action "click"`},
+		{barMessages, `{"action": "click", "id": "a", "event": {"alt": true, "cmd": false, "shift": true, "ctrl": false, "middle": true}}`, ""},
+		{barMessages, `{"action": "click", "id": "a", "event": {}}`, ""},
+		{menuMessages, `{"action": "choose", "id": "0", "event": {"cmd": true}}`, ""},
+		{reportMessages, `{"action": "click", "id": "go", "event": {"shift": true}}`, ""},
+		{barMessages, `{"action": "menu", "id": "card-a", "event": {"alt": true}}`, "menu takes no event"},
+		{barMessages, `{"action": "ready", "event": {}}`, "ready takes no event"},
+		{barMessages, `{"action": "click", "id": "a", "event": {"alt": "yes"}}`, "cannot unmarshal string"},
+		{barMessages, `{"action": "click", "id": "a", "event": {"url": "x"}}`, `unknown field "url"`},
+		{barMessages, `{"action": "click", "id": "a", "event": "alt"}`, "cannot unmarshal string"},
 	} {
 		_, err := readMessage([]byte(c.body), c.actions)
 		if c.want == "" && err != nil || c.want != "" && (err == nil || !strings.Contains(err.Error(), c.want)) {
 			t.Errorf("%s: got %v, want %q", c.body, err, c.want)
 		}
+	}
+	m, err := readMessage([]byte(`{"action": "click", "id": "a", "event": {"alt": true, "middle": true}}`), barMessages)
+	if want := (components.ClickEvent{Alt: true, Middle: true}); err != nil || m.clickEvent() != want {
+		t.Errorf("the click's event is %+v, %v; want %+v", m.clickEvent(), err, want)
+	}
+	if m, _ := readMessage([]byte(`{"action": "click", "id": "a"}`), barMessages); m.clickEvent() != (components.ClickEvent{}) {
+		t.Errorf("a click without an event has %+v", m.clickEvent())
 	}
 }
 
@@ -80,6 +96,40 @@ func TestClicks(t *testing.T) {
 	eventually(t, "the click to be dropped", func() bool { return strings.Contains(logs.String()[before:], "isn't on it") })
 }
 
+// A Click is given how it was clicked: the modifier keys held, and whether with the
+// middle button, which clicks as the main one does, but not a card's ⋯.
+func TestClickEvents(t *testing.T) {
+	gui(t)
+	show(t, []components.Basic{{ID: "ev", Title: "Events", Click: record("open ev"), Dismiss: record("dismiss ev"),
+		Actions: []components.Action{{ID: "ev-run", Title: "Run", Click: record("run ev")}}}})
+	waitFor(t, `document.querySelectorAll("li").length`, "1")
+	mouse := func(selector, kind, init string) {
+		eval(t, `document.querySelector("`+selector+`").dispatchEvent(new MouseEvent("`+kind+`", {bubbles: true, cancelable: true, `+init+`})), true`)
+	}
+
+	mouse("#card-ev .title", "click", "altKey: true, metaKey: true")
+	eventually(t, "open ev", func() bool { return calls.has("open ev") })
+	if got, want := calls.event("open ev"), (components.ClickEvent{Alt: true, Cmd: true}); got != want {
+		t.Errorf("an ⌥⌘-click was %+v, want %+v", got, want)
+	}
+	mouse("#card-ev .dismiss", "click", "shiftKey: true")
+	eventually(t, "dismiss ev", func() bool { return calls.has("dismiss ev") })
+	if got, want := calls.event("dismiss ev"), (components.ClickEvent{Shift: true}); got != want {
+		t.Errorf("a ⇧-click on × was %+v, want %+v", got, want)
+	}
+	mouse("#card-ev .title", "auxclick", "button: 1")
+	eventually(t, "a middle click", func() bool { return calls.count("open ev") == 2 })
+	if got, want := calls.event("open ev"), (components.ClickEvent{Middle: true}); got != want {
+		t.Errorf("a middle click was %+v, want %+v", got, want)
+	}
+	// Not the right button, and not on the ⋯.
+	mouse("#card-ev .title", "auxclick", "button: 2")
+	mouse("#card-ev .menu", "auxclick", "button: 1")
+	if time.Sleep(200 * time.Millisecond); calls.count("open ev") != 2 {
+		t.Errorf("the card was clicked %d times, want 2", calls.count("open ev"))
+	}
+}
+
 // A click on a part of a card, such as a check with a Click, calls the part's Click
 // and not its card's; a click on the rest of the card is still the card's.
 func TestPartClicks(t *testing.T) {
@@ -118,7 +168,7 @@ func TestBusy(t *testing.T) {
 		}
 	})
 	slow := func(name string) components.Click {
-		return func() { calls.add(name); <-release }
+		return func(components.ClickEvent) { calls.add(name); <-release }
 	}
 	cards := []components.Basic{{ID: "busy", Title: "Busy", Click: slow("open busy")}}
 	show(t, cards)
@@ -150,12 +200,12 @@ func TestBusyMenu(t *testing.T) {
 	gui(t)
 	withTheme(t, "native")
 	real := showMenu
-	showMenu = func([]shim.MenuItem) int { return 0 }
+	showMenu = func([]shim.MenuItem) shim.Chosen { return shim.Chosen{} }
 	t.Cleanup(func() { showMenu = real })
 	release := make(chan bool)
 	t.Cleanup(func() { close(release) })
 	show(t, []components.Basic{{ID: "acts", Title: "Acts", Click: record("open acts"), Actions: []components.Action{
-		{ID: "slow", Title: "Slow", Click: func() { calls.add("run slow"); <-release }},
+		{ID: "slow", Title: "Slow", Click: func(components.ClickEvent) { calls.add("run slow"); <-release }},
 	}}})
 	waitFor(t, `document.querySelectorAll("li").length`, "1")
 	eval(t, `document.querySelector("#card-acts .menu").click(), true`)
@@ -179,13 +229,13 @@ func TestNativeMenus(t *testing.T) {
 	choose, then := 0, func() {}
 	opened := func() int { mu.Lock(); defer mu.Unlock(); return len(menus) }
 	real := showMenu
-	showMenu = func(items []shim.MenuItem) int {
+	showMenu = func(items []shim.MenuItem) shim.Chosen {
 		mu.Lock()
 		menus = append(menus, items)
 		chosen, before := choose, then
 		mu.Unlock()
 		before()
-		return chosen
+		return shim.Chosen{Index: chosen, Modifiers: shim.Modifiers{Cmd: true}}
 	}
 	t.Cleanup(func() { showMenu = real })
 	cards := []components.Basic{
@@ -202,6 +252,9 @@ func TestNativeMenus(t *testing.T) {
 		t.Error("WebKit's menu wasn't stopped")
 	}
 	eventually(t, "run run", func() bool { return calls.has("run run") })
+	if got, want := calls.event("run run"), (components.ClickEvent{Cmd: true}); got != want {
+		t.Errorf("Run, chosen with ⌘ held, was clicked %+v, want %+v", got, want)
+	}
 	want := []shim.MenuItem{{Title: "Run", Color: "green", Enabled: true}, {Title: "Info", Color: "gray"}}
 	if mu.Lock(); len(menus) == 0 || !slices.Equal(menus[0], want) {
 		t.Errorf("the menu was %+v, want %+v", menus[0], want)
@@ -324,8 +377,11 @@ func TestMenus(t *testing.T) {
 	if time.Sleep(200 * time.Millisecond); !shim.WindowVisible(MenuWindow) {
 		t.Fatal("clicking an item that can't be chosen closed the menu")
 	}
-	evalIn(t, MenuWindow, `document.querySelectorAll(".menu-item")[1].click(), true`)
+	evalIn(t, MenuWindow, `document.querySelectorAll(".menu-item")[1].dispatchEvent(new MouseEvent("click", {bubbles: true, altKey: true})), true`)
 	eventually(t, "go go", func() bool { return calls.has("go go") })
+	if got, want := calls.event("go go"), (components.ClickEvent{Alt: true}); got != want {
+		t.Errorf("Go, chosen with ⌥ held, was clicked %+v, want %+v", got, want)
+	}
 	hidden(t)
 	if time.Sleep(200 * time.Millisecond); calls.has("open m") {
 		t.Error("choosing from the menu also opened its card")
@@ -346,8 +402,11 @@ func TestMenus(t *testing.T) {
 	if got := evalIn(t, MenuWindow, `document.querySelector(".menu-item.active .menu-title")?.textContent`); got != `"Go"` {
 		t.Errorf("the arrow went to %s, want Go", got)
 	}
-	key("Enter")
+	evalIn(t, MenuWindow, `document.dispatchEvent(new KeyboardEvent("keydown", {key: "Enter", shiftKey: true})), true`)
 	eventually(t, "go go again", func() bool { return calls.count("go go") == before+1 })
+	if got, want := calls.event("go go"), (components.ClickEvent{Shift: true}); got != want {
+		t.Errorf("Go, chosen by ⇧-Return, was clicked %+v, want %+v", got, want)
+	}
 	hidden(t)
 
 	// A card without actions has no menu, nor WebKit's.
@@ -372,21 +431,24 @@ func TestMenus(t *testing.T) {
 // nothing's chosen.
 func TestPopup(t *testing.T) {
 	var p popup
-	if p.isOpen() || p.finish(-1) {
+	item := func(i int) shim.Chosen { return shim.Chosen{Index: i} }
+	if p.isOpen() || p.finish(noChoice) {
 		t.Fatal("a menu is open before any's opened")
 	}
 	first := p.open([]bool{true, false})
 	second := p.open([]bool{false, true})
-	if got := <-first; got != -1 {
-		t.Errorf("the first menu, closed by the second, chose %d", got)
+	if got := <-first; got != noChoice {
+		t.Errorf("the first menu, closed by the second, chose %+v", got)
 	}
-	if p.finish(0) || p.finish(2) || !p.isOpen() {
+	if p.finish(item(0)) || p.finish(item(2)) || !p.isOpen() {
 		t.Error("an item that can't be chosen was chosen")
 	}
-	if !p.finish(1) || <-second != 1 || p.isOpen() {
+	// What's chosen goes with the keys held as it was.
+	shifted := shim.Chosen{Index: 1, Modifiers: shim.Modifiers{Shift: true}}
+	if !p.finish(shifted) || <-second != shifted || p.isOpen() {
 		t.Error("choosing an item didn't close the menu with it")
 	}
-	if p.finish(1) {
+	if p.finish(item(1)) {
 		t.Error("a closed menu was chosen from")
 	}
 }

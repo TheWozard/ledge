@@ -11,7 +11,7 @@ import (
 func TestTimer(t *testing.T) {
 	start := time.Now()
 	timer := Timer{Basic: Basic{ID: "tea", Title: "<b>Tea</b>", Color: "#3b82f6", Click: nothing, Dismiss: nothing},
-		Start: start, End: start.Add(90*time.Second + 500*time.Millisecond), Complete: nothing}
+		Start: start, End: start.Add(90*time.Second + 500*time.Millisecond), Complete: func() {}}
 	html := render(t, BarContent([]Card{timer}, nil))
 	contains(t, html,
 		`<li id="card-tea" class="timer clickable" data-click="card-tea" data-color="#3b82f6"`,
@@ -51,7 +51,7 @@ func TestUpcomingTimer(t *testing.T) {
 // up from its start: it has no data-end, and its frame doesn't end.
 func TestSinceTimer(t *testing.T) {
 	start := time.Now().Add(-(12*time.Minute + 500*time.Millisecond))
-	timer := Timer{Basic: Basic{ID: "incident", Title: "Incident"}, Start: start, Complete: nothing}
+	timer := Timer{Basic: Basic{ID: "incident", Title: "Incident"}, Start: start, Complete: func() {}}
 	html := render(t, BarContent([]Card{timer}, nil))
 	contains(t, html, fmt.Sprintf(`<div class="reading-value time-left" data-start="%d">12:00</div>`, start.UnixMilli()))
 	lacks(t, html, "data-end")

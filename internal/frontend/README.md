@@ -29,10 +29,13 @@ func main() {
 			components.Table([]string{"Job", "State"}, [][]string{{"build", "failed"}}),
 		}
 		bar.Render([]components.Card{components.Basic{ID: "ci", Title: "CI failed", Color: "#e0362c",
-			Click:   func() { bar.ShowReport("ci", "CI failed", report) },
-			Dismiss: func() { /* forget it, then bar.Render again */ },
+			Click: func(e components.ClickEvent) {
+				if e.Cmd { /* ⌘-click: open the run in the browser */ return }
+				bar.ShowReport("ci", "CI failed", report)
+			},
+			Dismiss: func(components.ClickEvent) { /* forget it, then bar.Render again */ },
 			Actions: []components.Action{{ID: "rerun", Title: "Rerun", Color: "yellow",
-				Click: func() { /* gh run rerun */ }}}}})
+				Click: func(components.ClickEvent) { /* gh run rerun */ }}}}})
 	}()
 	ui.Run() // until ui.Stop
 }
@@ -107,12 +110,17 @@ There are six built-in kinds:
   an image, base64; anything else shows `From`'s initials, as the page can't fetch
   anything and mustn't try.
 
-Any kind can end: a frame with `Ends` and `Complete` has `Complete` called once when
-`Ends` passes, if the card's still on the bar, however many renders show it.
+Any kind can end: a frame with `Ends` and `Complete`, a `func()`, has `Complete`
+called once when `Ends` passes, if the card's still on the bar, however many renders
+show it.
 `components.Cards` turns a slice of one kind into `[]Card` for `Render`.
 
-Anything clickable has a `Click`, a `func()` the bar calls on its own goroutine: a card's
-`Click` for the card itself, its `Dismiss` for its × (shown only if set), an
+Anything clickable has a `Click`, a `func(ClickEvent)` the bar calls on its own
+goroutine with how it was clicked: the modifier keys held (`Alt`, `Cmd`, `Shift`,
+`Ctrl`), and whether with the `Middle` mouse button, which clicks anything the main
+one does but a card's ⋯. An action chosen from a menu has the keys held as it was
+chosen, by a click or Return. (A ⌃-click on a card is a right-click: it shows the
+card's menu.) There's a `Click` for a card itself, its `Dismiss` for its × (shown only if set), an
 action's `Click`, and a part's. A card's `Parts` are what in its body is clicked on
 its own, not as the card, such as a check with a `Click`: a kind of card of the app's
 marks each in its body with `data-click={ f.PartClickID(id) }` and the class
@@ -160,15 +168,17 @@ and can't add CSS.
 
 ### What the pages can do
 
-The bar page posts only `{action: "click", id}` (for a card, its × or a part of it),
+The bar page posts only `{action: "click", id, event}` (for a card, its × or a part
+of it, with `event` how it was clicked, `{alt, cmd, shift, ctrl, middle}`),
 `{action: "menu", id}` for a card's
 menu, and `{action: "ready"}` once loaded, checked strictly before it reaches a
 `Click`. It holds nothing but ids: it never names a url, path or command, so what a
 click does is only ever the app's `Click`. A card's menu is built from its actions in
 Go, not by the bar page; WebKit's own right-click menu never shows. A theme's menu
-page posts only `{action: "choose", id}`, with the index of the item chosen,
+page posts only `{action: "choose", id, event}`, with the index of the item chosen and
+the keys held,
 `{action: "close"}`, and `{action: "ready"}`, checked as strictly. A
-report page posts only `{action: "click", id}`, checked as strictly, and reaching only
+report page posts only `{action: "click", id, event}`, checked as strictly, and reaching only
 a `Click` in that report: never one on the bar or in another report. Its only other
 channel is to its own window, handled natively: `drag` (on a mouse-down in its title
 bar; a double-click zooms), `close`, `minimise` and `zoom`.

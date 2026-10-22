@@ -40,7 +40,7 @@ type Frame struct {
 	// Ends is when the card's time is up, for one that ends, such as a Timer; then
 	// the bar calls Complete, once, if it's set and the card is still on the bar.
 	Ends     time.Time
-	Complete Click
+	Complete func()
 	// Progress is how far along the card is, from 0 to 1, such as a Progress's. It's
 	// set on the card as --progress, for a theme to fill it; 0 is none.
 	Progress float64

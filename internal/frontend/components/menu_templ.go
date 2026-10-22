@@ -15,8 +15,9 @@ import "strconv"
 // page/menu.css, and its script page/menu.js.
 //
 // The page posts to window.webkit.messageHandlers.ledge only {action: "ready"} once
-// loaded, for the app to measure #menu and show it; {action: "choose", id}, with the
-// index of the item chosen, by a click or Return; and {action: "close"}, on Escape.
+// loaded, for the app to measure #menu and show it; {action: "choose", id, event},
+// with the index of the item chosen, by a click or Return, and the modifier keys held
+// as it was, {alt, cmd, shift, ctrl}; and {action: "close"}, on Escape.
 func MenuPage(themeCSS string, items []MenuItem) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -62,7 +63,7 @@ func MenuPage(themeCSS string, items []MenuItem) templ.Component {
 			var templ_7745c5c3_Var2 string
 			templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.Itoa(i))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/menu.templ`, Line: 26, Col: 34}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/menu.templ`, Line: 27, Col: 34}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 			if templ_7745c5c3_Err != nil {
@@ -75,7 +76,7 @@ func MenuPage(themeCSS string, items []MenuItem) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(colorName(item.Color))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/menu.templ`, Line: 27, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/menu.templ`, Line: 28, Col: 40}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 			if templ_7745c5c3_Err != nil {
@@ -88,7 +89,7 @@ func MenuPage(themeCSS string, items []MenuItem) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(templ.SafeCSS("--item-color: " + cssColor(item.Color)))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/menu.templ`, Line: 28, Col: 68}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/menu.templ`, Line: 29, Col: 68}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 			if templ_7745c5c3_Err != nil {
@@ -111,7 +112,7 @@ func MenuPage(themeCSS string, items []MenuItem) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(item.Title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/menu.templ`, Line: 32, Col: 73}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/menu.templ`, Line: 33, Col: 73}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {

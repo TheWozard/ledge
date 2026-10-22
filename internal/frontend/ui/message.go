@@ -11,10 +11,39 @@ import (
 	"github.com/TheWozard/ledge-frontend/shim"
 )
 
-// message is what a page posts: an action, and the id it applies to.
+// message is what a page posts: an action, the id it applies to, and for a click or a
+// choice from a menu, how it was made.
 type message struct {
 	Action string `json:"action"`
 	ID     string `json:"id"`
+	Event  *event `json:"event"`
+}
+
+// event is how something was clicked or chosen, as a page posts it: the modifier keys
+// held, and whether with the middle mouse button.
+type event struct {
+	Alt    bool `json:"alt"`
+	Cmd    bool `json:"cmd"`
+	Shift  bool `json:"shift"`
+	Ctrl   bool `json:"ctrl"`
+	Middle bool `json:"middle"`
+}
+
+// eventActions is the actions a message can have an event with.
+var eventActions = map[string]bool{"click": true, "choose": true}
+
+// clickEvent is how the message's click was made, or none for a message without.
+func (m message) clickEvent() components.ClickEvent {
+	if m.Event == nil {
+		return components.ClickEvent{}
+	}
+	return components.ClickEvent(*m.Event)
+}
+
+// modifiers is the modifier keys held as the message's choice was made.
+func (m message) modifiers() shim.Modifiers {
+	e := m.clickEvent()
+	return shim.Modifiers{Alt: e.Alt, Cmd: e.Cmd, Shift: e.Shift, Ctrl: e.Ctrl}
 }
 
 // barMessages is what the bar page can post, each action with whether it takes an
@@ -23,8 +52,9 @@ type message struct {
 var barMessages = map[string]bool{"ready": false, "click": true, "menu": true}
 
 // readMessage decodes one message from a page, refusing anything else: an action
-// that isn't one of actions, an unknown property, or an id with an action that takes
-// none, or none with one that does.
+// that isn't one of actions, an unknown property, an id with an action that takes
+// none, or none with one that does, or an event with an action that isn't a click or
+// a choice.
 func readMessage(data []byte, actions map[string]bool) (message, error) {
 	var m message
 	decoder := json.NewDecoder(bytes.NewReader(data))
@@ -43,6 +73,8 @@ func readMessage(data []byte, actions map[string]bool) (message, error) {
 		return m, fmt.Errorf("%s takes no id", m.Action)
 	case takesID && m.ID == "":
 		return m, fmt.Errorf("%s needs an id", m.Action)
+	case m.Event != nil && !eventActions[m.Action]:
+		return m, fmt.Errorf("%s takes no event", m.Action)
 	}
 	return m, nil
 }
@@ -69,15 +101,16 @@ func (b *Bar) handle(data []byte) {
 			log.Printf("ui: the bar clicked %q, which isn't on it", m.ID)
 			return
 		}
-		b.run(BarWindow, m.ID, m.ID, click)
+		b.run(BarWindow, m.ID, m.ID, click, m.clickEvent())
 	case "menu":
 		b.menu(m.ID)
 	}
 }
 
 // chooseFrom pops up a menu of items, in the theme's menu if it has one, or the
-// native one, and returns the index of the one chosen, or -1 if none was.
-func (b *Bar) chooseFrom(items []components.MenuItem) int {
+// native one, and returns what was chosen: the index of an item, or -1 for none, and
+// the keys held as it was.
+func (b *Bar) chooseFrom(items []components.MenuItem) shim.Chosen {
 	b.mu.Lock()
 	css := b.options.Theme.Menu
 	b.mu.Unlock()
@@ -95,8 +128,8 @@ func (b *Bar) chooseFrom(items []components.MenuItem) int {
 // id is id runs: its ⋯. It's apart from every click id, so it's never the card's own.
 func menuBusyID(id string) string { return "menu-" + id }
 
-// showMenu pops up a native menu and returns the index of the item chosen, or -1:
-// the shim's, or a test's in its place.
+// showMenu pops up a native menu and returns what was chosen from it: the shim's, or
+// a test's in its place.
 var showMenu = shim.ShowMenu
 
 // menu shows the menu of the card whose element id is id, as its theme draws it or
@@ -116,7 +149,8 @@ func (b *Bar) menu(id string) {
 		log.Printf("ui: the bar asked for the menu of %q, which has none", id)
 		return
 	}
-	chosen := b.chooseFrom(items)
+	choice := b.chooseFrom(items)
+	chosen := choice.Index
 	if chosen < 0 || chosen >= len(items) {
 		return
 	}
@@ -127,5 +161,7 @@ func (b *Bar) menu(id string) {
 		log.Printf("ui: %q was chosen from a menu, but isn't on the bar", items[chosen].ClickID)
 		return
 	}
-	b.run(BarWindow, items[chosen].ClickID, menuBusyID(id), click)
+	m := choice.Modifiers
+	b.run(BarWindow, items[chosen].ClickID, menuBusyID(id), click,
+		components.ClickEvent{Alt: m.Alt, Cmd: m.Cmd, Shift: m.Shift, Ctrl: m.Ctrl})
 }

@@ -50,7 +50,7 @@ func (e *endings) finish(id string, ends time.Time) bool {
 // hasn't already.
 func (b *Bar) complete(id string, ends time.Time) {
 	b.mu.Lock()
-	var complete components.Click
+	var complete func()
 	for _, card := range b.cards {
 		if frame := card.Frame(); frame.ID == id && frame.Ends.Equal(ends) && b.endings.finish(id, ends) {
 			complete = frame.Complete

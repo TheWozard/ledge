@@ -589,14 +589,21 @@ static NSImage *dot(NSColor *color) {
 @property BOOL reported;
 @end
 @implementation LedgeMenuTarget
-- (void)report:(int)index {
+- (void)report:(int)index modifiers:(int)modifiers {
     if (!self.reported) {
         self.reported = YES;
-        goLedgeMenuChosen(self.handle, index);
+        goLedgeMenuChosen(self.handle, index, modifiers);
     }
 }
+- (void)report:(int)index {
+    [self report:index modifiers:0];
+}
+// An item is chosen with the keys held then, as NSEvent has them.
 - (void)choose:(NSMenuItem *)item {
-    [self report:(int)item.tag];
+    NSEventModifierFlags flags = NSEvent.modifierFlags;
+    int modifiers = (flags & NSEventModifierFlagOption ? LedgeAlt : 0) | (flags & NSEventModifierFlagCommand ? LedgeCmd : 0)
+        | (flags & NSEventModifierFlagShift ? LedgeShift : 0) | (flags & NSEventModifierFlagControl ? LedgeCtrl : 0);
+    [self report:(int)item.tag modifiers:modifiers];
 }
 @end
 

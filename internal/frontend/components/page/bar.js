@@ -1,8 +1,18 @@
 const app = document.getElementById("app");
 
-// Everything the page tells the app: an action, and the id it applies to.
-function send(action, id) {
-  window.webkit.messageHandlers.ledge.postMessage(id == null ? { action } : { action, id });
+// Everything the page tells the app: an action, the id it applies to, and for a
+// click, how it was made.
+function send(action, id, event) {
+  const message = { action };
+  if (id != null) message.id = id;
+  if (event != null) message.event = event;
+  window.webkit.messageHandlers.ledge.postMessage(message);
+}
+
+// how is how a mouse event clicked: the modifier keys held, and whether with the
+// middle button.
+function how(event) {
+  return { alt: event.altKey, cmd: event.metaKey, shift: event.shiftKey, ctrl: event.ctrlKey, middle: event.button === 1 };
 }
 
 // update shows html, rendered by Go from BarContent, with its text escaped. It
@@ -42,18 +52,30 @@ function leave(node) {
 }
 
 // A click on a card's ⋯ asks for its menu. A click on anything else with
-// data-click posts its id: the innermost, so a click on the × or a part of the
-// card's body, such as a check, isn't also its card's. One on what's busy, its
-// Click still running from the last, posts nothing (and the app would drop it).
+// data-click posts its id, and how it was clicked: the innermost, so a click on the ×
+// or a part of the card's body, such as a check, isn't also its card's. One on
+// what's busy, its Click still running from the last, posts nothing (and the app
+// would drop it).
 app.addEventListener("click", event => {
   const menu = event.target.closest("button[data-menu]");
   if (menu) {
     send("menu", menu.dataset.menu);
     return;
   }
-  const target = event.target.closest("[data-click]");
-  if (target && !target.hasAttribute("data-busy")) send("click", target.dataset.click);
+  clicked(event);
 });
+
+// A click with the middle button is a click too, but never asks for a menu: on a
+// card's ⋯, it does nothing, rather than click the card.
+app.addEventListener("auxclick", event => {
+  if (event.button === 1 && !event.target.closest("button[data-menu]")) clicked(event);
+});
+
+// clicked posts a click on what event is on with data-click, if it isn't busy.
+function clicked(event) {
+  const target = event.target.closest("[data-click]");
+  if (target && !target.hasAttribute("data-busy")) send("click", target.dataset.click, how(event));
+}
 
 // setBusy marks data-busy what has each of ids, and takes it off everything else:
 // something clicked, by its data-click, while its Click runs, and a card's ⋯, by

@@ -31,16 +31,34 @@ var (
 var defaults = Options{Edge: "bottom", Height: 110, Level: "normal"} // the zero Theme: the default
 
 // recorder keeps the calls of the test Clicks and openURL: each Click's name, and
-// "url u".
+// "url u", and how each Click was last clicked.
 type recorder struct {
-	mu    sync.Mutex
-	calls []string
+	mu     sync.Mutex
+	calls  []string
+	events map[string]components.ClickEvent
 }
 
 func (r *recorder) add(call string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.calls = append(r.calls, call)
+}
+
+func (r *recorder) click(call string, event components.ClickEvent) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, call)
+	if r.events == nil {
+		r.events = map[string]components.ClickEvent{}
+	}
+	r.events[call] = event
+}
+
+// event is how the Click call was last clicked.
+func (r *recorder) event(call string) components.ClickEvent {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.events[call]
 }
 
 func (r *recorder) count(call string) int {
@@ -66,8 +84,10 @@ func (r *recorder) has(call string) bool {
 	return false
 }
 
-// record is a Click that records name.
-func record(name string) components.Click { return func() { calls.add(name) } }
+// record is a Click that records name, and how it was clicked.
+func record(name string) components.Click {
+	return func(e components.ClickEvent) { calls.click(name, e) }
+}
 
 func TestMain(m *testing.M) {
 	openURL = func(url string) { calls.add("url " + url) }

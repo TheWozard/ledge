@@ -36,4 +36,4 @@ func lacks(t *testing.T, html string, unwanted ...string) {
 }
 
 // nothing is a Click for a test that only renders.
-func nothing() {}
+func nothing(ClickEvent) {}

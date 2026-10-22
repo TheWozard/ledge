@@ -139,7 +139,10 @@ func (s *browserServer) menu(w http.ResponseWriter, r *http.Request) {
 // action takes what the bar page posts, as the app would, and replies with the bar's
 // content and any report a click opened, or the card whose menu was asked for.
 func (s *browserServer) action(w http.ResponseWriter, r *http.Request) {
-	var message struct{ Action, ID string }
+	var message struct {
+		Action, ID string
+		Event      components.ClickEvent
+	}
 	if err := json.NewDecoder(r.Body).Decode(&message); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -151,7 +154,7 @@ func (s *browserServer) action(w http.ResponseWriter, r *http.Request) {
 		reply["html"] = s.content()
 	case "click":
 		if click := components.Clicks(s.sample.shown())[message.ID]; click != nil {
-			click()
+			click(message.Event)
 		}
 		reply["html"] = s.content()
 		s.mu.Lock()

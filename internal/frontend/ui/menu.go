@@ -20,19 +20,22 @@ var menuMessages = map[string]bool{"ready": false, "choose": true, "close": fals
 // popup is the theme's menu that's open in MenuWindow, if any: one at a time.
 type popup struct {
 	mu      sync.Mutex
-	done    chan int // where what's chosen goes, or nil with none open
-	enabled []bool   // which of the open menu's items can be chosen
+	done    chan shim.Chosen // where what's chosen goes, or nil with none open
+	enabled []bool           // which of the open menu's items can be chosen
 }
+
+// noChoice is a menu closed without a choice.
+var noChoice = shim.Chosen{Index: -1}
 
 // open makes a menu of items, enabled as given, the one that's open, closing any that
 // was without a choice, and returns where what's chosen from it will go.
-func (p *popup) open(enabled []bool) chan int {
+func (p *popup) open(enabled []bool) chan shim.Chosen {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.done != nil {
-		p.done <- -1
+		p.done <- noChoice
 	}
-	p.done, p.enabled = make(chan int, 1), enabled
+	p.done, p.enabled = make(chan shim.Chosen, 1), enabled
 	return p.done
 }
 
@@ -43,28 +46,33 @@ func (p *popup) isOpen() bool {
 	return p.done != nil
 }
 
-// finish closes the open menu with chosen, the index of an item that can be chosen,
-// or -1 for none, and says whether it did: not with no menu open, nor with an item
-// that can't be chosen.
-func (p *popup) finish(chosen int) bool {
+// finish closes the open menu with chosen: the index of an item that can be chosen,
+// or -1 for none, and the keys held as it was. It says whether it did: not with no
+// menu open, nor with an item that can't be chosen.
+func (p *popup) finish(chosen shim.Chosen) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.done == nil || chosen >= len(p.enabled) || chosen >= 0 && !p.enabled[chosen] {
+	i := chosen.Index
+	if p.done == nil || i >= len(p.enabled) || i >= 0 && !p.enabled[i] {
 		return false
 	}
-	p.done <- max(chosen, -1)
+	if i < 0 {
+		chosen = noChoice
+	}
+	p.done <- chosen
 	p.done = nil
 	return true
 }
 
 // popupMenu shows items in the theme's menu, styled by css, at the mouse, and returns
-// the index of the one chosen, or -1 if none was: it's closed, a click elsewhere
+// what was chosen: the index of an item and the keys held, or -1 if none was: it's
+// closed, a click elsewhere
 // dismissed it, or another menu took its place.
-func (b *Bar) popupMenu(css string, items []components.MenuItem) int {
+func (b *Bar) popupMenu(css string, items []components.MenuItem) shim.Chosen {
 	var page strings.Builder
 	if err := components.MenuPage(css, items).Render(context.Background(), &page); err != nil {
 		log.Printf("ui: rendering a menu: %v", err)
-		return -1
+		return noChoice
 	}
 	enabled := make([]bool, len(items))
 	for i, item := range items {
@@ -99,19 +107,19 @@ func (b *Bar) handleMenuPage(data []byte) {
 		}
 		if err != nil || size[0] <= 0 || size[1] <= 0 {
 			log.Printf("ui: measuring the menu: %s, %v", value, err)
-			b.popup.finish(-1)
+			b.popup.finish(noChoice)
 			return
 		}
 		shim.ShowPopup(MenuWindow, size[0], size[1])
 	case "choose":
 		chosen, err := strconv.Atoi(m.ID)
-		if err != nil || chosen < 0 || !b.popup.finish(chosen) {
+		if err != nil || chosen < 0 || !b.popup.finish(shim.Chosen{Index: chosen, Modifiers: m.modifiers()}) {
 			log.Printf("ui: the menu chose %q, which can't be chosen", m.ID)
 			return
 		}
 		shim.HidePopup(MenuWindow)
 	case "close":
-		if b.popup.finish(-1) {
+		if b.popup.finish(noChoice) {
 			shim.HidePopup(MenuWindow)
 		}
 	}

@@ -7,9 +7,12 @@ package components
 // touched, so a card or action that's still there keeps its element, hover and
 // scroll. Its layout is page/bar.css, and its script page/bar.js.
 //
-// The page posts to window.webkit.messageHandlers.ledge only {action: "click", id}
-// when something clickable is clicked: a card, its ×, or an action. The id is
-// the one Clicks has for its Click; the page never holds anything but ids.
+// The page posts to window.webkit.messageHandlers.ledge only {action: "click", id,
+// event} when something clickable is clicked, with the main or middle button: a
+// card, its ×, or a part of it. The id is the one Clicks has for its Click, and
+// event is how it was clicked, {alt, cmd, shift, ctrl, middle}; the page never holds
+// anything but ids. It also posts {action: "menu", id} for a card's menu, and
+// {action: "ready"} once loaded.
 templ BarPage(themeCSS string, edge string) {
 	<!DOCTYPE html>
 	<html lang="en">

@@ -8,12 +8,21 @@ import (
 	"github.com/a-h/templ"
 )
 
-// Click is what clicking something on the bar, or in a report, does. The bar calls it
-// on a goroutine of its own. A nil Click isn't clickable.
+// Click is what clicking something on the bar, or in a report, does, given how it was
+// clicked. The bar calls it on a goroutine of its own. A nil Click isn't clickable.
 //
 // The page never holds a Click, only an id for it, made from the ids of the card or
 // action it's on, or a report's button's; Clicks and ReportClicks map them back.
-type Click func()
+type Click func(ClickEvent)
+
+// ClickEvent is how something was clicked: the modifier keys held, ⌥, ⌘, ⇧ and ⌃,
+// and whether with the middle mouse button rather than the main one. An action chosen
+// from a menu has the keys held as it was chosen, by a click or Return, and never the
+// middle button. (A ⌃-click on a card is a right-click: it shows the card's menu.)
+type ClickEvent struct {
+	Alt, Cmd, Shift, Ctrl bool
+	Middle                bool
+}
 
 // Clicks is every Click on cards, by the id the page has for it.
 func Clicks(cards []Card) map[string]Click {

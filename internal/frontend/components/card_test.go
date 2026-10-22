@@ -43,7 +43,7 @@ func TestCard(t *testing.T) {
 // clickable is in it.
 func TestClicks(t *testing.T) {
 	var got []string
-	click := func(name string) Click { return func() { got = append(got, name) } }
+	click := func(name string) Click { return func(ClickEvent) { got = append(got, name) } }
 	cards := []Basic{
 		{ID: "a", Click: click("a"), Dismiss: click("dismiss a"),
 			Actions: []Action{{ID: "q", Click: click("q")}, {ID: "none"}}},
@@ -57,7 +57,7 @@ func TestClicks(t *testing.T) {
 		}
 	}
 	for _, id := range []string{"card-a", "dismiss-a", "action-q"} {
-		clicks[id]()
+		clicks[id](ClickEvent{})
 	}
 	if len(clicks) != 3 || strings.Join(got, ",") != "a,dismiss a,q" {
 		t.Errorf("Clicks = %d of them, calling %v", len(clicks), got)
@@ -68,7 +68,7 @@ func TestClicks(t *testing.T) {
 // cards' parts share an id, whatever their ids have in them.
 func TestParts(t *testing.T) {
 	var got []string
-	click := func(name string) Click { return func() { got = append(got, name) } }
+	click := func(name string) Click { return func(ClickEvent) { got = append(got, name) } }
 	cards := []Card{
 		parts{id: "a-b", parts: []Part{{ID: "c", Click: click("a-b c")}, {ID: "none"}}},
 		parts{id: "a", parts: []Part{{ID: "b-c", Click: click("a b-c")}}},
@@ -78,7 +78,7 @@ func TestParts(t *testing.T) {
 		t.Fatalf("Clicks = %v", clicks)
 	}
 	for _, id := range []string{"part-3-a-b-c", "part-1-a-b-c"} {
-		clicks[id]()
+		clicks[id](ClickEvent{})
 	}
 	if strings.Join(got, ",") != "a-b c,a b-c" {
 		t.Errorf("the parts' Clicks called %v", got)

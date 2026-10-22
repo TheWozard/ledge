@@ -15,9 +15,12 @@ import templruntime "github.com/a-h/templ/runtime"
 // touched, so a card or action that's still there keeps its element, hover and
 // scroll. Its layout is page/bar.css, and its script page/bar.js.
 //
-// The page posts to window.webkit.messageHandlers.ledge only {action: "click", id}
-// when something clickable is clicked: a card, its ×, or an action. The id is
-// the one Clicks has for its Click; the page never holds anything but ids.
+// The page posts to window.webkit.messageHandlers.ledge only {action: "click", id,
+// event} when something clickable is clicked, with the main or middle button: a
+// card, its ×, or a part of it. The id is the one Clicks has for its Click, and
+// event is how it was clicked, {alt, cmd, shift, ctrl, middle}; the page never holds
+// anything but ids. It also posts {action: "menu", id} for a card's menu, and
+// {action: "ready"} once loaded.
 func BarPage(themeCSS string, edge string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -178,7 +181,7 @@ func card(f Frame, body templ.Component, fresh map[string]int) templ.Component {
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.ElementID())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 49, Col: 20}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 52, Col: 20}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var7)
 		if templ_7745c5c3_Err != nil {
@@ -209,7 +212,7 @@ func card(f Frame, body templ.Component, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.clickID())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 52, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 55, Col: 27}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var9)
 			if templ_7745c5c3_Err != nil {
@@ -228,7 +231,7 @@ func card(f Frame, body templ.Component, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.ElementID())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 55, Col: 28}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 58, Col: 28}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 			if templ_7745c5c3_Err != nil {
@@ -247,7 +250,7 @@ func card(f Frame, body templ.Component, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(color)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 58, Col: 21}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 61, Col: 21}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 			if templ_7745c5c3_Err != nil {
@@ -272,7 +275,7 @@ func card(f Frame, body templ.Component, fresh map[string]int) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(templ.SafeCSS(style))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 64, Col: 31}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 67, Col: 31}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -300,7 +303,7 @@ func card(f Frame, body templ.Component, fresh map[string]int) templ.Component {
 				var templ_7745c5c3_Var13 string
 				templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.ElementID())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 70, Col: 77}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 73, Col: 77}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var13)
 				if templ_7745c5c3_Err != nil {
@@ -319,7 +322,7 @@ func card(f Frame, body templ.Component, fresh map[string]int) templ.Component {
 				var templ_7745c5c3_Var14 string
 				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.dismissID())
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 73, Col: 81}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/bar.templ`, Line: 76, Col: 81}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var14)
 				if templ_7745c5c3_Err != nil {

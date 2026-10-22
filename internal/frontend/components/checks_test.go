@@ -43,7 +43,7 @@ func TestChecks(t *testing.T) {
 // clicked as the card.
 func TestClickableChecks(t *testing.T) {
 	var got []string
-	click := func(name string) Click { return func() { got = append(got, name) } }
+	click := func(name string) Click { return func(ClickEvent) { got = append(got, name) } }
 	card := Checks{Basic: Basic{ID: "ci", Title: "CI", Click: click("card")},
 		Checks: []Check{{Name: "build", State: "passed"}, {Name: "test", State: "failed", Click: click("test")}}}
 	html := render(t, BarContent([]Card{card}, nil))
@@ -54,7 +54,7 @@ func TestClickableChecks(t *testing.T) {
 	if len(clicks) != 2 || clicks["part-2-ci-test"] == nil {
 		t.Fatalf("Clicks = %v", clicks)
 	}
-	clicks["part-2-ci-test"]()
+	clicks["part-2-ci-test"](ClickEvent{})
 	if strings.Join(got, ",") != "test" {
 		t.Errorf("clicking the test check called %v", got)
 	}

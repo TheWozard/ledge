@@ -1,8 +1,12 @@
 const items = [...document.querySelectorAll(".menu-item")];
 
-// Everything the page tells the app: an action, and the id it applies to.
-function send(action, id) {
-  window.webkit.messageHandlers.ledge.postMessage(id == null ? { action } : { action, id });
+// Everything the page tells the app: an action, the id it applies to, and for a
+// choice, the modifier keys held as it was made.
+function send(action, id, event) {
+  const message = { action };
+  if (id != null) message.id = id;
+  if (event != null) message.event = event;
+  window.webkit.messageHandlers.ledge.postMessage(message);
 }
 
 // active is the item the mouse or the keys are on, or -1 for none.
@@ -26,14 +30,17 @@ function move(step) {
   }
 }
 
-// choose posts item i's index, if it can be chosen.
-function choose(i) {
-  if (enabled(i)) send("choose", String(i));
+// choose posts item i's index, if it can be chosen, with the modifier keys held as
+// event, a click or a key, chose it.
+function choose(i, event) {
+  if (enabled(i)) {
+    send("choose", String(i), { alt: event.altKey, cmd: event.metaKey, shift: event.shiftKey, ctrl: event.ctrlKey });
+  }
 }
 
 items.forEach((item, i) => {
   item.addEventListener("mouseenter", () => activate(enabled(i) ? i : -1));
-  item.addEventListener("click", () => choose(i));
+  item.addEventListener("click", event => choose(i, event));
 });
 document.addEventListener("mouseleave", () => activate(-1));
 
@@ -42,7 +49,7 @@ document.addEventListener("keydown", event => {
   switch (event.key) {
     case "ArrowDown": move(1); break;
     case "ArrowUp": move(-1); break;
-    case "Enter": case " ": choose(active); break;
+    case "Enter": case " ": choose(active, event); break;
     case "Escape": send("close"); break;
     default: return;
   }

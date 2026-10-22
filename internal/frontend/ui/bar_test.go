@@ -70,17 +70,17 @@ func TestRunOnce(t *testing.T) {
 	}
 	var runs atomic.Int32
 	started, release, done := make(chan bool), make(chan bool), make(chan bool)
-	slow := func() { runs.Add(1); started <- true; <-release }
-	go func() { b.run(BarWindow, "card-a", "card-a", slow); done <- true }()
+	slow := func(components.ClickEvent) { runs.Add(1); started <- true; <-release }
+	go func() { b.run(BarWindow, "card-a", "card-a", slow, components.ClickEvent{}); done <- true }()
 	<-started
-	go func() { b.run(BarWindow, "action-q", "menu-card-a", slow); done <- true }()
+	go func() { b.run(BarWindow, "action-q", "menu-card-a", slow, components.ClickEvent{}); done <- true }()
 	<-started
-	go func() { b.run(BarWindow, "action-r", "menu-card-a", slow); done <- true }()
+	go func() { b.run(BarWindow, "action-r", "menu-card-a", slow, components.ClickEvent{}); done <- true }()
 	<-started
 	if got := busy(); got != `setBusy(["card-a","menu-card-a"])` {
 		t.Errorf("while three run, %s", got)
 	}
-	b.run(BarWindow, "card-a", "card-a", func() { t.Error("a click on a running Click ran it again") })
+	b.run(BarWindow, "card-a", "card-a", func(components.ClickEvent) { t.Error("a click on a running Click ran it again") }, components.ClickEvent{})
 	close(release)
 	for range 3 {
 		<-done
@@ -88,7 +88,11 @@ func TestRunOnce(t *testing.T) {
 	if got := busy(); got != "setBusy([])" {
 		t.Errorf("once they're done, %s", got)
 	}
-	b.run(BarWindow, "card-a", "card-a", func() { runs.Add(1) })
+	b.run(BarWindow, "card-a", "card-a", func(e components.ClickEvent) {
+		if e.Alt {
+			runs.Add(1)
+		}
+	}, components.ClickEvent{Alt: true})
 	if runs.Load() != 4 {
 		t.Errorf("ran %d times, want 4", runs.Load())
 	}

@@ -65,7 +65,7 @@ func Open(options Options) (*Bar, error) {
 	})
 	shim.OnPopupDismissed(func(window int) {
 		if window == MenuWindow {
-			b.popup.finish(-1)
+			b.popup.finish(noChoice)
 		}
 	})
 	shim.LoadHTML(BarWindow, page)
@@ -147,11 +147,11 @@ type running struct {
 	clickID string
 }
 
-// run calls click, the Click with id clickID in window, the bar or a report, unless
-// it's already running: then the click is dropped. While it runs, the window's page
-// marks busy what has the id busyID: what was clicked, or the ⋯ of a card whose
-// action was chosen.
-func (b *Bar) run(window int, clickID, busyID string, click components.Click) {
+// run calls click, the Click with id clickID in window, the bar or a report, with
+// how it was clicked, unless it's already running: then the click is dropped. While
+// it runs, the window's page marks busy what has the id busyID: what was clicked, or
+// the ⋯ of a card whose action was chosen.
+func (b *Bar) run(window int, clickID, busyID string, click components.Click, event components.ClickEvent) {
 	key := running{window, clickID}
 	b.mu.Lock()
 	if _, ok := b.running[key]; ok {
@@ -171,7 +171,7 @@ func (b *Bar) run(window int, clickID, busyID string, click components.Click) {
 		b.markBusy(window)
 		b.mu.Unlock()
 	}()
-	click()
+	click(event)
 }
 
 // markBusy has window's page mark busy what's running in it: the bar's once it's

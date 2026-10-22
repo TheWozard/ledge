@@ -203,7 +203,7 @@ func (s *sample) longReport() []templ.Component {
 // take them or give them back, which replaces the block with how it is then. Call it
 // with s's lock held.
 func (s *sample) triage() templ.Component {
-	assign := func() {
+	assign := func(components.ClickEvent) {
 		s.mu.Lock()
 		s.assigned = !s.assigned
 		log.Printf("assigned %v", s.assigned)
@@ -219,38 +219,61 @@ func (s *sample) triage() templ.Component {
 		components.Buttons([]components.Button{{ID: "assign", Title: "Assign to me", Color: "blue", Click: assign}}))
 }
 
+// how is how a click was made, as the Clicks log it: "", or such as " with ⌥⌘" or
+// " with the middle button".
+func how(e components.ClickEvent) string {
+	var keys string
+	for _, k := range []struct {
+		held bool
+		key  string
+	}{{e.Ctrl, "⌃"}, {e.Alt, "⌥"}, {e.Shift, "⇧"}, {e.Cmd, "⌘"}} {
+		if k.held {
+			keys += k.key
+		}
+	}
+	switch {
+	case e.Middle && keys != "":
+		return " with the middle button and " + keys
+	case e.Middle:
+		return " with the middle button"
+	case keys != "":
+		return " with " + keys
+	}
+	return ""
+}
+
 // opens is a Click that shows id's report.
 func (s *sample) opens(id string) components.Click {
-	return func() {
-		log.Printf("open %s", id)
+	return func(e components.ClickEvent) {
+		log.Printf("open %s%s", id, how(e))
 		s.open(id)
 	}
 }
 
 // runs is a Click that logs running id, and does nothing else.
 func (s *sample) runs(id string) components.Click {
-	return func() { log.Printf("run %s", id) }
+	return func(e components.ClickEvent) { log.Printf("run %s%s", id, how(e)) }
 }
 
 // slowly is a Click that logs running id, and takes a couple of seconds about it, to
 // show it busy.
 func (s *sample) slowly(id string) components.Click {
-	return func() {
-		log.Printf("run %s", id)
+	return func(e components.ClickEvent) {
+		log.Printf("run %s%s", id, how(e))
 		time.Sleep(2 * time.Second)
 		log.Printf("ran %s", id)
 	}
 }
 
-// completes is a Click for when timer id is up, which logs it.
-func (s *sample) completes(id string) components.Click {
+// completes is what's done when timer id is up: it's logged.
+func (s *sample) completes(id string) func() {
 	return func() { log.Printf("complete %s", id) }
 }
 
 // dismisses is a Click that takes card id off the bar.
 func (s *sample) dismisses(id string) components.Click {
-	return func() {
-		log.Printf("dismiss %s", id)
+	return func(e components.ClickEvent) {
+		log.Printf("dismiss %s%s", id, how(e))
 		s.mu.Lock()
 		s.cards = slices.DeleteFunc(s.cards, func(c components.Basic) bool { return c.ID == id })
 		s.timers = slices.DeleteFunc(s.timers, func(t components.Timer) bool { return t.ID == id })

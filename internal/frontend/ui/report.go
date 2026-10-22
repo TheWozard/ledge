@@ -86,7 +86,7 @@ func (b *Bar) handleReport(window int, data []byte) {
 		log.Printf("ui: report window %d clicked %q, which isn't in it", window, m.ID)
 		return
 	}
-	b.run(window, m.ID, m.ID, click)
+	b.run(window, m.ID, m.ID, click, m.clickEvent())
 }
 
 // reportWindows is the window of each report that's open, by the id it was shown

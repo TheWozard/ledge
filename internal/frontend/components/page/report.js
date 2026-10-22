@@ -34,14 +34,21 @@ function replaceBlock(id, html) {
   for (const node of old) node.remove();
 }
 
-// A click on anything with data-click, such as a Buttons' button, posts its id: the
-// innermost. One on what's busy, its Click still running from the last, posts
+// A click on anything with data-click, such as a Buttons' button, with the main or
+// middle button, posts its id and how it was clicked: the modifier keys held, and
+// which button. One on what's busy, its Click still running from the last, posts
 // nothing (and the app would drop it).
-document.querySelector("article").addEventListener("click", event => {
+function clicked(event) {
   const target = event.target.closest("[data-click]");
   if (target && !target.hasAttribute("data-busy")) {
-    window.webkit.messageHandlers.ledge.postMessage({ action: "click", id: target.dataset.click });
+    const how = { alt: event.altKey, cmd: event.metaKey, shift: event.shiftKey, ctrl: event.ctrlKey, middle: event.button === 1 };
+    window.webkit.messageHandlers.ledge.postMessage({ action: "click", id: target.dataset.click, event: how });
   }
+}
+const article = document.querySelector("article");
+article.addEventListener("click", clicked);
+article.addEventListener("auxclick", event => {
+  if (event.button === 1) clicked(event);
 });
 
 // setBusy marks data-busy what has each of ids in its data-click, while its Click

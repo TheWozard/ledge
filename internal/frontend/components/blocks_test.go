@@ -52,7 +52,7 @@ func TestBlock(t *testing.T) {
 // ReportClicks, the Clicks are put in it, and those in a Block are the block's.
 func TestButtons(t *testing.T) {
 	var got []string
-	click := func(name string) Click { return func() { got = append(got, name) } }
+	click := func(name string) Click { return func(ClickEvent) { got = append(got, name) } }
 	var clicks ReportClicks
 	ctx := WithReportClicks(context.Background(), &clicks)
 	var html strings.Builder
@@ -72,8 +72,8 @@ func TestButtons(t *testing.T) {
 	if len(clicks.Clicks) != 2 || !slices.Equal(clicks.Blocks["more"], []string{"cancel"}) || len(clicks.Blocks) != 1 {
 		t.Fatalf("ReportClicks = %+v", clicks)
 	}
-	clicks.Clicks["rerun"]()
-	clicks.Clicks["cancel"]()
+	clicks.Clicks["rerun"](ClickEvent{})
+	clicks.Clicks["cancel"](ClickEvent{})
 	if strings.Join(got, ",") != "rerun,cancel" {
 		t.Errorf("the buttons' Clicks called %v", got)
 	}

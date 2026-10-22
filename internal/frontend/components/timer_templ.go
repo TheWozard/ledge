@@ -28,7 +28,7 @@ type Timer struct {
 	Basic
 	Start    time.Time // or the zero Time, for none
 	End      time.Time // or the zero Time, for none
-	Complete Click
+	Complete func()
 }
 
 // Frame is the frame of the timer's Basic card, of the kind "timer"; it ends at End,
