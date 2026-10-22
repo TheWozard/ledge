@@ -228,7 +228,7 @@ built-in themes', is linted with [Biome](https://biomejs.dev), set up in
 [biome.json](biome.json):
 
 ```sh
-go install github.com/a-h/templ/cmd/templ@v0.3.1001
+go install github.com/a-h/templ/cmd/templ@v0.3.1070
 brew install biome
 just generate      # templ generate
 just check-generated # fail if the committed *_templ.go are stale
