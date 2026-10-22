@@ -71,16 +71,16 @@ func TestRunOnce(t *testing.T) {
 	var runs atomic.Int32
 	started, release, done := make(chan bool), make(chan bool), make(chan bool)
 	slow := func(components.ClickEvent) { runs.Add(1); started <- true; <-release }
-	go func() { b.run(BarWindow, "card-a", "card-a", slow, components.ClickEvent{}); done <- true }()
+	go func() { b.run(BarWindow, "card/a/click", "card/a/click", slow, components.ClickEvent{}); done <- true }()
 	<-started
-	go func() { b.run(BarWindow, "action-q", "menu-card-a", slow, components.ClickEvent{}); done <- true }()
+	go func() { b.run(BarWindow, "action/a/q", "menu-card-a", slow, components.ClickEvent{}); done <- true }()
 	<-started
-	go func() { b.run(BarWindow, "action-r", "menu-card-a", slow, components.ClickEvent{}); done <- true }()
+	go func() { b.run(BarWindow, "action/a/r", "menu-card-a", slow, components.ClickEvent{}); done <- true }()
 	<-started
-	if got := busy(); got != `setBusy(["card-a","menu-card-a"])` {
+	if got := busy(); got != `setBusy(["card/a/click","menu-card-a"])` {
 		t.Errorf("while three run, %s", got)
 	}
-	b.run(BarWindow, "card-a", "card-a", func(components.ClickEvent) { t.Error("a click on a running Click ran it again") }, components.ClickEvent{})
+	b.run(BarWindow, "card/a/click", "card/a/click", func(components.ClickEvent) { t.Error("a click on a running Click ran it again") }, components.ClickEvent{})
 	close(release)
 	for range 3 {
 		<-done
@@ -88,7 +88,7 @@ func TestRunOnce(t *testing.T) {
 	if got := busy(); got != "setBusy([])" {
 		t.Errorf("once they're done, %s", got)
 	}
-	b.run(BarWindow, "card-a", "card-a", func(e components.ClickEvent) {
+	b.run(BarWindow, "card/a/click", "card/a/click", func(e components.ClickEvent) {
 		if e.Alt {
 			runs.Add(1)
 		}

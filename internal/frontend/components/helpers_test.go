@@ -17,6 +17,17 @@ func render(t *testing.T, c templ.Component) string {
 	return out.String()
 }
 
+// renderClicks renders c with Clicks, and returns them with the html.
+func renderClicks(t *testing.T, c templ.Component) (string, *Clicks) {
+	t.Helper()
+	var out strings.Builder
+	clicks := &Clicks{}
+	if err := c.Render(WithClicks(context.Background(), clicks), &out); err != nil {
+		t.Fatal(err)
+	}
+	return out.String(), clicks
+}
+
 func contains(t *testing.T, html string, wants ...string) {
 	t.Helper()
 	for _, want := range wants {

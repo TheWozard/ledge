@@ -25,21 +25,15 @@ type Check struct {
 // checkMarks is the mark shown before a check's name for each state.
 var checkMarks = map[string]string{"passed": "✓", "failed": "✗", "running": "●", "pending": "○", "skipped": "–"}
 
-// Frame is the frame of the checks card's Basic card, of the kind "checks", with a
-// part for each check that has a Click.
+// Frame is the frame of the checks card's Basic card, of the kind "checks".
 func (c Checks) Frame() Frame {
 	f := c.Basic.Frame()
 	f.Kind = "checks"
-	for _, check := range c.Checks {
-		if check.Click != nil {
-			f.Parts = append(f.Parts, Part{ID: check.Name, Click: check.Click})
-		}
-	}
 	return f
 }
 
 // Body is the card's title, its checks, and its description.
-func (c Checks) Body() templ.Component { return checksBody(c, c.Basic.Frame()) }
+func (c Checks) Body() templ.Component { return checksBody(c) }
 
 // checkState is state if it's a check's state, or "pending".
 func checkState(state string) string {
@@ -51,8 +45,8 @@ func checkState(state string) string {
 
 // checksBody is a Checks card's body: its title, then its checks, each its mark and
 // name, with its name and state as its tooltip, then its description. A check with a
-// Click is clickable, with the id of its part of the card, f.
-templ checksBody(c Checks, f Frame) {
+// Click is clickable on its own, its name its id.
+templ checksBody(c Checks) {
 	<span class="title">{ c.Title }</span>
 	if len(c.Checks) > 0 {
 		<div class="check-list">
@@ -60,7 +54,7 @@ templ checksBody(c Checks, f Frame) {
 				<span
 					if check.Click != nil {
 						class="check clickable"
-						data-click={ f.PartClickID(check.Name) }
+						data-click={ ClickID(ctx, check.Name, check.Click) }
 					} else {
 						class="check"
 					}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"slices"
 	"strings"
 	"testing"
@@ -20,14 +21,14 @@ func TestCard(t *testing.T) {
 	}
 	html := render(t, BarContent(Cards(cards), map[string]int{"card-plain": 0, "card-new": 1}))
 	contains(t, html,
-		`<li id="card-deploy" class="basic clickable" data-click="card-deploy" data-color="#e0362c" style="--card-color: #e0362c; --card-width: 240px;">`,
+		`<li id="card-deploy" class="basic clickable" data-click="card/deploy/click" data-color="#e0362c" style="--card-color: #e0362c; --card-width: 240px;">`,
 		`<span class="title">Plain</span>`,
 		// A colour that isn't #rrggbb is none.
 		`<li id="card-plain" class="basic" data-new style="--i: 0;">`,
 		`<li id="card-new" class="basic" data-color="#2f9e5b" data-new style="--card-color: #2f9e5b; --i: 1;">`,
 		`&lt;b&gt;Deploy&lt;/b&gt;`, `<div class="description">done</div>`,
 		// × shows only on a card that can be dismissed.
-		`<div class="card-buttons"><button class="dismiss clickable" title="Dismiss" data-click="dismiss-deploy">×</button></div>`)
+		`<div class="card-buttons"><button class="dismiss clickable" title="Dismiss" data-click="card/deploy/dismiss">×</button></div>`)
 	// Without actions, a card has no menu.
 	lacks(t, html, "<b>Deploy", "No events.", "data-menu", "actions")
 	lacks(t, html, "url(x)")
@@ -38,9 +39,9 @@ func TestCard(t *testing.T) {
 	contains(t, render(t, BarContent(nil, nil)), `<ul id="cards"></ul><div class="empty">No events.</div>`)
 }
 
-// Clicks has each Click on the cards by its id: a card's and its ×'s, which the page
-// posts, and its actions', which are chosen from its menu. Nothing that isn't
-// clickable is in it.
+// Rendered with Clicks, the bar puts in them each Click on the cards by the id the page
+// has for it: a card's and its ×'s. Nothing that isn't clickable is in them, nor are
+// the actions, which are chosen from the card's menu.
 func TestClicks(t *testing.T) {
 	var got []string
 	click := func(name string) Click { return func(ClickEvent) { got = append(got, name) } }
@@ -49,50 +50,62 @@ func TestClicks(t *testing.T) {
 			Actions: []Action{{ID: "q", Click: click("q")}, {ID: "none"}}},
 		{ID: "b"},
 	}
-	clicks := Clicks(Cards(cards))
-	html := render(t, BarContent(Cards(cards), nil))
-	for _, id := range []string{"card-a", "dismiss-a"} {
-		if !strings.Contains(html, `data-click="`+id+`"`) {
-			t.Errorf("the page has no data-click %q", id)
-		}
+	html, clicks := renderClicks(t, BarContent(Cards(cards), nil))
+	ids := []string{"card/a/click", "card/a/dismiss"}
+	if !slices.Equal(clicks.IDs(), ids) {
+		t.Fatalf("Clicks have %q, want %q", clicks.IDs(), ids)
 	}
-	for _, id := range []string{"card-a", "dismiss-a", "action-q"} {
-		clicks[id](ClickEvent{})
+	for _, id := range ids {
+		contains(t, html, `data-click="`+id+`"`)
+		clicks.Click(id)(ClickEvent{})
 	}
-	if len(clicks) != 3 || strings.Join(got, ",") != "a,dismiss a,q" {
-		t.Errorf("Clicks = %d of them, calling %v", len(clicks), got)
+	if strings.Join(got, ",") != "a,dismiss a" {
+		t.Errorf("the Clicks called %v", got)
 	}
 }
 
-// A card's parts are in Clicks by their PartClickID, those with a Click, and no two
-// cards' parts share an id, whatever their ids have in them.
+// A card's body can have parts clicked on their own, by ids of its own: no two
+// cards' parts share an id, whatever their ids have in them, and none is ever the
+// frame's, whatever it's called.
 func TestParts(t *testing.T) {
 	var got []string
 	click := func(name string) Click { return func(ClickEvent) { got = append(got, name) } }
 	cards := []Card{
-		parts{id: "a-b", parts: []Part{{ID: "c", Click: click("a-b c")}, {ID: "none"}}},
-		parts{id: "a", parts: []Part{{ID: "b-c", Click: click("a b-c")}}},
+		parts{id: "a/b", parts: map[string]Click{"c": click("a/b c"), "click": click("a/b click")}},
+		parts{id: "a", parts: map[string]Click{"b/c": click("a b/c"), "none": nil}},
 	}
-	clicks := Clicks(cards)
-	if len(clicks) != 2 {
-		t.Fatalf("Clicks = %v", clicks)
+	html, clicks := renderClicks(t, BarContent(cards, nil))
+	ids := []string{"body/a%2Fb/c", "body/a%2Fb/click", "body/a/b%2Fc"}
+	if !slices.Equal(clicks.IDs(), ids) {
+		t.Fatalf("Clicks have %q, want %q", clicks.IDs(), ids)
 	}
-	for _, id := range []string{"part-3-a-b-c", "part-1-a-b-c"} {
-		clicks[id](ClickEvent{})
+	contains(t, html, `data-click="body/a/none"`)
+	for _, id := range ids {
+		clicks.Click(id)(ClickEvent{})
 	}
-	if strings.Join(got, ",") != "a-b c,a b-c" {
+	if strings.Join(got, ",") != "a/b c,a/b click,a b/c" {
 		t.Errorf("the parts' Clicks called %v", got)
 	}
 }
 
-// parts is a kind of card for TestParts: nothing but its parts.
+// parts is a kind of card for TestParts: nothing but its parts, by their ids.
 type parts struct {
 	id    string
-	parts []Part
+	parts map[string]Click
 }
 
-func (p parts) Frame() Frame          { return Frame{ID: p.id, Parts: p.parts} }
-func (p parts) Body() templ.Component { return templ.NopComponent }
+func (p parts) Frame() Frame { return Frame{ID: p.id} }
+
+func (p parts) Body() templ.Component {
+	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
+		for _, id := range slices.Sorted(maps.Keys(p.parts)) {
+			if _, err := fmt.Fprintf(w, `<span data-click="%s"></span>`, ClickID(ctx, id, p.parts[id])); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
 
 // progress is a kind of card for TestKinds: how far along something is.
 type progress struct {
@@ -124,15 +137,15 @@ func TestKinds(t *testing.T) {
 		`<li id="card-basic" class="basic">`,
 		`<li id="card-build" class="progress" data-menu="card-build"><div class="card-buttons"><button class="menu clickable" title="Actions" data-menu="card-build">⋯</button> </div><div class="done">40%</div></li>`,
 		`<li id="card-odd" class="" data-menu="card-odd">`)
-	if clicks := Clicks(cards); clicks["action-build-stop"] == nil || len(clicks) != 2 {
-		t.Errorf("the progress cards' actions' Clicks = %v", clicks)
+	if click := cards[1].Frame().Action("action/build/build-stop"); click == nil {
+		t.Error("the progress card's action has no Click")
 	}
 }
 
 // A card's actions are its menu, not on the page: the card has data-menu, and a ⋯
 // before its × to ask for the menu too. Its Menu is an item for each action, in
 // order: its title, its colour as the page would name it, whether it can be
-// chosen, and the id of its Click.
+// chosen, and its id, with its card's in it.
 func TestMenu(t *testing.T) {
 	card := Basic{ID: "card", Title: "Card", Description: "Desc", Click: nothing, Dismiss: nothing, Actions: []Action{
 		{ID: "aws", Title: "AWS", Color: "green", Click: nothing},
@@ -141,18 +154,37 @@ func TestMenu(t *testing.T) {
 	}}
 	html := render(t, BarContent([]Card{card}, nil))
 	contains(t, html,
-		`<li id="card-card" class="basic clickable" data-click="card-card" data-menu="card-card">`,
+		`<li id="card-card" class="basic clickable" data-click="card/card/click" data-menu="card-card">`,
 		`<div class="card-buttons"><button class="menu clickable" title="Actions" data-menu="card-card">⋯</button> `+
-			`<button class="dismiss clickable" title="Dismiss" data-click="dismiss-card">×</button></div>`)
-	lacks(t, html, "AWS", "CI", "action-")
+			`<button class="dismiss clickable" title="Dismiss" data-click="card/card/dismiss">×</button></div>`)
+	lacks(t, html, "AWS", "CI", "action/")
 	want := []MenuItem{
-		{Title: "AWS", Color: "green", Enabled: true, ClickID: "action-aws"},
-		{Title: "<CI>", Color: "#9b59b6", Enabled: true, ClickID: "action-ci"},
+		{Title: "AWS", Color: "green", Enabled: true, ID: "action/card/aws"},
+		{Title: "<CI>", Color: "#9b59b6", Enabled: true, ID: "action/card/ci"},
 		// A colour that isn't one is gray, and one without a Click can't be chosen.
-		{Title: "Bad", Color: "gray", ClickID: "action-bad"},
+		{Title: "Bad", Color: "gray", ID: "action/card/bad"},
 	}
 	if got := card.Frame().Menu(); !slices.Equal(got, want) {
 		t.Errorf("Menu() = %+v, want %+v", got, want)
+	}
+}
+
+// Action is the Click of the action an item of the card's menu is for, by the item's
+// id; two cards' actions with the same id are each their own card's.
+func TestAction(t *testing.T) {
+	var got []string
+	click := func(name string) Click { return func(ClickEvent) { got = append(got, name) } }
+	a := Basic{ID: "a", Actions: []Action{{ID: "rerun", Click: click("a rerun")}, {ID: "info"}}}.Frame()
+	b := Basic{ID: "b", Actions: []Action{{ID: "rerun", Click: click("b rerun")}}}.Frame()
+	a.Action(a.Menu()[0].ID)(ClickEvent{})
+	b.Action(b.Menu()[0].ID)(ClickEvent{})
+	if strings.Join(got, ",") != "a rerun,b rerun" {
+		t.Errorf("the actions' Clicks called %v", got)
+	}
+	for _, id := range []string{a.Menu()[1].ID, b.Menu()[0].ID, "rerun", ""} {
+		if a.Action(id) != nil {
+			t.Errorf("a.Action(%q) has a Click", id)
+		}
 	}
 }
 

@@ -1,7 +1,6 @@
 package components
 
 import (
-	"context"
 	"slices"
 	"strings"
 	"testing"
@@ -48,37 +47,44 @@ func TestBlock(t *testing.T) {
 }
 
 // A Buttons' button shows its title escaped, with its colour; one with a Click has
-// the id ReportClick gave it, and one without is disabled. Rendered with
-// ReportClicks, the Clicks are put in it, and those in a Block are the block's.
+// the id ClickID gave it, and one without is disabled. Rendered with Clicks, the
+// Clicks are put in them, and those in a Block are the block's, so ids can be the
+// same in two.
 func TestButtons(t *testing.T) {
 	var got []string
 	click := func(name string) Click { return func(ClickEvent) { got = append(got, name) } }
-	var clicks ReportClicks
-	ctx := WithReportClicks(context.Background(), &clicks)
-	var html strings.Builder
-	for _, block := range []templ.Component{
+	html, clicks := renderClicks(t, ReportPage("", "Report", []templ.Component{
 		Buttons([]Button{{ID: "rerun", Title: "<Rerun>", Color: "yellow", Click: click("rerun")}, {ID: "off", Title: "Off", Color: "purple"}}),
 		Block("more", Buttons([]Button{{ID: "cancel", Title: "Cancel", Color: "#e0362c", Click: click("cancel")}})),
-	} {
-		if err := block.Render(ctx, &html); err != nil {
-			t.Fatal(err)
-		}
-	}
-	contains(t, html.String(),
+		Block("again", Buttons([]Button{{ID: "cancel", Title: "Cancel", Click: click("cancel again")}})),
+	}))
+	contains(t, html,
 		`<div class="buttons"><button type="button" data-color="yellow" style="--button: var(--c-yellow);" class="button clickable" data-click="rerun"><span class="button-dot"></span>&lt;Rerun&gt;</button>`,
 		`<button type="button" data-color="gray" style="--button: var(--c-gray);" class="button" disabled><span class="button-dot"></span>Off</button>`,
-		`data-color="#e0362c" style="--button: #e0362c;" class="button clickable" data-click="cancel">`)
-	lacks(t, html.String(), "<Rerun>", `data-click="off"`)
-	if len(clicks.Clicks) != 2 || !slices.Equal(clicks.Blocks["more"], []string{"cancel"}) || len(clicks.Blocks) != 1 {
-		t.Fatalf("ReportClicks = %+v", clicks)
+		`data-color="#e0362c" style="--button: #e0362c;" class="button clickable" data-click="block/more/cancel">`,
+		`class="button clickable" data-click="block/again/cancel">`)
+	lacks(t, html, "<Rerun>", `data-click="off"`)
+	ids := []string{"block/again/cancel", "block/more/cancel", "rerun"}
+	if !slices.Equal(clicks.IDs(), ids) {
+		t.Fatalf("Clicks have %q, want %q", clicks.IDs(), ids)
 	}
-	clicks.Clicks["rerun"](ClickEvent{})
-	clicks.Clicks["cancel"](ClickEvent{})
-	if strings.Join(got, ",") != "rerun,cancel" {
+	for _, id := range ids {
+		clicks.Click(id)(ClickEvent{})
+	}
+	if strings.Join(got, ",") != "cancel again,cancel,rerun" {
 		t.Errorf("the buttons' Clicks called %v", got)
 	}
 
-	// Rendered without ReportClicks, as on the bar, a button has its id, and nothing
-	// takes its Click.
+	// Replacing a block's Clicks takes away those it had and leaves the rest; a block
+	// rendered without any takes away all it had.
+	_, more := renderClicks(t, Block("more", Buttons([]Button{{ID: "approve", Title: "Approve", Click: click("approve")}})))
+	_, again := renderClicks(t, Block("again", Paragraph("Done.")))
+	clicks.Replace(more)
+	clicks.Replace(again)
+	if ids := []string{"block/more/approve", "rerun"}; !slices.Equal(clicks.IDs(), ids) {
+		t.Errorf("replaced, the Clicks have %q, want %q", clicks.IDs(), ids)
+	}
+
+	// Rendered without Clicks, a button has its id, and nothing takes its Click.
 	contains(t, render(t, Buttons([]Button{{ID: "x", Title: "X", Click: click("x")}})), `data-click="x"`)
 }

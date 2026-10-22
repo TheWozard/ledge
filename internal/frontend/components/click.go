@@ -2,8 +2,10 @@ package components
 
 import (
 	"context"
-	"fmt"
 	"io"
+	"maps"
+	"net/url"
+	"slices"
 
 	"github.com/a-h/templ"
 )
@@ -11,8 +13,8 @@ import (
 // Click is what clicking something on the bar, or in a report, does, given how it was
 // clicked. The bar calls it on a goroutine of its own. A nil Click isn't clickable.
 //
-// The page never holds a Click, only an id for it, made from the ids of the card or
-// action it's on, or a report's button's; Clicks and ReportClicks map them back.
+// The page never holds a Click, only an id for it, which ClickID gives out as the page
+// is rendered; Clicks maps them back.
 type Click func(ClickEvent)
 
 // ClickEvent is how something was clicked: the modifier keys held, ⌥, ⌘, ⇧ and ⌃,
@@ -24,92 +26,101 @@ type ClickEvent struct {
 	Middle                bool
 }
 
-// Clicks is every Click on cards, by the id the page has for it.
-func Clicks(cards []Card) map[string]Click {
-	clicks := map[string]Click{}
-	for _, c := range cards {
-		f := c.Frame()
-		if f.Click != nil {
-			clicks[f.clickID()] = f.Click
+// Clicks is the Clicks on a page, put there by ClickID as it's rendered with
+// WithClicks: each by the id the page has for it, and the ids each scope put there,
+// a card's or a report's Block's, so a scope's can be replaced with Replace. The zero
+// Clicks is empty and ready to use.
+type Clicks struct {
+	byID    map[string]Click
+	byScope map[scope][]string
+}
+
+// scope is what the Clicks rendered in it belong to: a card's frame ("card") or its
+// body ("body"), or a report's Block ("block"), with the id of the card or block. The
+// zero scope is what's in none, such as a report's blocks without an id.
+type scope struct{ kind, id string }
+
+// Click is the Click with id, or nil.
+func (c *Clicks) Click(id string) Click { return c.byID[id] }
+
+// IDs is the ids of the Clicks, sorted.
+func (c *Clicks) IDs() []string { return slices.Sorted(maps.Keys(c.byID)) }
+
+// Replace replaces the Clicks of each scope from was rendered in by from's.
+func (c *Clicks) Replace(from *Clicks) {
+	for s, ids := range from.byScope {
+		for _, id := range c.byScope[s] {
+			delete(c.byID, id)
 		}
-		if f.Dismiss != nil {
-			clicks[f.dismissID()] = f.Dismiss
-		}
-		for _, q := range f.Actions {
-			if q.Click != nil {
-				clicks[q.clickID()] = q.Click
-			}
-		}
-		for _, p := range f.Parts {
-			if p.Click != nil {
-				clicks[f.PartClickID(p.ID)] = p.Click
-			}
+		for _, id := range ids {
+			c.add(s, id, from.byID[id])
 		}
 	}
-	return clicks
 }
 
-// clickID, dismissID and the action's clickID are the ids for their Clicks. A
-// card's is its element id; the ×'s and an action's are its id with a prefix of
-// their own, so none can collide. The page posts a card's and its ×'s; an action's is
-// chosen from its card's menu, which the bar shows.
-func (f Frame) clickID() string   { return f.ElementID() }
-func (f Frame) dismissID() string { return "dismiss-" + f.ID }
-func (q Action) clickID() string  { return "action-" + q.ID }
-
-// PartClickID is the id for the Click of the card's part partID, for its body to put
-// in data-click. It has its card's id's length in it, so no two cards' parts share
-// one: card "a-b"'s part "c" is "part-3-a-b-c", and card "a"'s part "b-c" is
-// "part-1-a-b-c".
-func (f Frame) PartClickID(partID string) string {
-	return fmt.Sprintf("part-%d-%s-%s", len(f.ID), f.ID, partID)
+// enter notes that s has been rendered, even if nothing in it is clickable, so
+// Replace takes away what it had.
+func (c *Clicks) enter(s scope) {
+	if c.byScope == nil {
+		c.byScope = map[scope][]string{}
+	}
+	if _, ok := c.byScope[s]; !ok {
+		c.byScope[s] = nil
+	}
 }
 
-// ReportClicks is the Clicks in a report, put there by ReportClick as its blocks are
-// rendered with WithReportClicks: each by the id the page has for it, and the ids of
-// those in each Block, by its id, so a block's can be replaced with it.
-type ReportClicks struct {
-	Clicks map[string]Click
-	Blocks map[string][]string
+// add puts click in c as id, in scope s.
+func (c *Clicks) add(s scope, id string, click Click) {
+	if c.byID == nil {
+		c.byID = map[string]Click{}
+	}
+	c.enter(s)
+	c.byID[id] = click
+	c.byScope[s] = append(c.byScope[s], id)
 }
 
-// reportClicksKey and blockKey are the context keys of the ReportClicks a report is
-// rendered with, and of the Block what's in it is rendered in.
+// clicksKey and scopeKey are the context keys of the Clicks a page is rendered with,
+// and of the scope what's in it is rendered in.
 type (
-	reportClicksKey struct{}
-	blockKey        struct{}
+	clicksKey struct{}
+	scopeKey  struct{}
 )
 
-// WithReportClicks is ctx with clicks, for ReportClick to put the Clicks of what's
-// rendered with it in.
-func WithReportClicks(ctx context.Context, clicks *ReportClicks) context.Context {
-	return context.WithValue(ctx, reportClicksKey{}, clicks)
+// WithClicks is ctx with clicks, for ClickID to put the Clicks of what's rendered with
+// it in.
+func WithClicks(ctx context.Context, clicks *Clicks) context.Context {
+	return context.WithValue(ctx, clicksKey{}, clicks)
 }
 
-// ReportClick puts click in the ReportClicks ctx has, as id, unique in its report,
-// and returns the id for the page to have for it, in data-click, such as on a
-// Buttons' button. Rendered without any, as on the bar, the click goes nowhere.
-func ReportClick(ctx context.Context, id string, click Click) string {
-	clicks, ok := ctx.Value(reportClicksKey{}).(*ReportClicks)
-	if !ok || click == nil {
-		return id
+// ClickID puts click in the Clicks ctx has, as id, unique in what it's rendered in: a
+// card's body, a report's Block, or the rest of a report. It returns the id for the
+// page to have for it, in data-click, such as on a Buttons' button or a check: id
+// with the scope it's in, so two cards, or two blocks, can use the same ids.
+// Rendered without any Clicks, the click goes nowhere.
+func ClickID(ctx context.Context, id string, click Click) string {
+	s, _ := ctx.Value(scopeKey{}).(scope)
+	full := pageID(s, id)
+	if clicks, ok := ctx.Value(clicksKey{}).(*Clicks); ok && click != nil {
+		clicks.add(s, full, click)
 	}
-	if clicks.Clicks == nil {
-		clicks.Clicks = map[string]Click{}
-	}
-	clicks.Clicks[id] = click
-	if block, ok := ctx.Value(blockKey{}).(string); ok {
-		if clicks.Blocks == nil {
-			clicks.Blocks = map[string][]string{}
-		}
-		clicks.Blocks[block] = append(clicks.Blocks[block], id)
-	}
-	return id
+	return full
 }
 
-// inBlock is block rendered in the Block with id, so the Clicks in it are its.
-func inBlock(id string, block templ.Component) templ.Component {
+// pageID is the page's id for id in s: kind/scope/id, each escaped so none has a /
+// in it, or only id, escaped, for what's in no scope. No two are the same.
+func pageID(s scope, id string) string {
+	if s == (scope{}) {
+		return url.PathEscape(id)
+	}
+	return url.PathEscape(s.kind) + "/" + url.PathEscape(s.id) + "/" + url.PathEscape(id)
+}
+
+// inScope is c rendered in s, so the Clicks in it are s's.
+func inScope(s scope, c templ.Component) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
-		return block.Render(context.WithValue(ctx, blockKey{}, id), w)
+		if clicks, ok := ctx.Value(clicksKey{}).(*Clicks); ok {
+			clicks.enter(s)
+		}
+		return c.Render(context.WithValue(ctx, scopeKey{}, s), w)
 	})
 }

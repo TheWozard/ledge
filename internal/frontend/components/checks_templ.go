@@ -33,21 +33,15 @@ type Check struct {
 // checkMarks is the mark shown before a check's name for each state.
 var checkMarks = map[string]string{"passed": "✓", "failed": "✗", "running": "●", "pending": "○", "skipped": "–"}
 
-// Frame is the frame of the checks card's Basic card, of the kind "checks", with a
-// part for each check that has a Click.
+// Frame is the frame of the checks card's Basic card, of the kind "checks".
 func (c Checks) Frame() Frame {
 	f := c.Basic.Frame()
 	f.Kind = "checks"
-	for _, check := range c.Checks {
-		if check.Click != nil {
-			f.Parts = append(f.Parts, Part{ID: check.Name, Click: check.Click})
-		}
-	}
 	return f
 }
 
 // Body is the card's title, its checks, and its description.
-func (c Checks) Body() templ.Component { return checksBody(c, c.Basic.Frame()) }
+func (c Checks) Body() templ.Component { return checksBody(c) }
 
 // checkState is state if it's a check's state, or "pending".
 func checkState(state string) string {
@@ -59,8 +53,8 @@ func checkState(state string) string {
 
 // checksBody is a Checks card's body: its title, then its checks, each its mark and
 // name, with its name and state as its tooltip, then its description. A check with a
-// Click is clickable, with the id of its part of the card, f.
-func checksBody(c Checks, f Frame) templ.Component {
+// Click is clickable on its own, its name its id.
+func checksBody(c Checks) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -88,7 +82,7 @@ func checksBody(c Checks, f Frame) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(c.Title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/checks.templ`, Line: 56, Col: 30}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/checks.templ`, Line: 50, Col: 30}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -114,9 +108,9 @@ func checksBody(c Checks, f Frame) templ.Component {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var3 string
-					templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(f.PartClickID(check.Name))
+					templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(ClickID(ctx, check.Name, check.Click))
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/checks.templ`, Line: 63, Col: 44}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/checks.templ`, Line: 57, Col: 56}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 					if templ_7745c5c3_Err != nil {
@@ -139,7 +133,7 @@ func checksBody(c Checks, f Frame) templ.Component {
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(checkState(check.State))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/checks.templ`, Line: 67, Col: 41}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/checks.templ`, Line: 61, Col: 41}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 				if templ_7745c5c3_Err != nil {
@@ -152,7 +146,7 @@ func checksBody(c Checks, f Frame) templ.Component {
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(check.Name + ": " + checkState(check.State))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/checks.templ`, Line: 68, Col: 56}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/checks.templ`, Line: 62, Col: 56}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 				if templ_7745c5c3_Err != nil {
@@ -165,7 +159,7 @@ func checksBody(c Checks, f Frame) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(checkMarks[checkState(check.State)])
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/checks.templ`, Line: 69, Col: 67}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/checks.templ`, Line: 63, Col: 67}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -178,7 +172,7 @@ func checksBody(c Checks, f Frame) templ.Component {
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(check.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/checks.templ`, Line: 69, Col: 88}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/checks.templ`, Line: 63, Col: 88}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -202,7 +196,7 @@ func checksBody(c Checks, f Frame) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(c.Description)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/checks.templ`, Line: 74, Col: 42}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/checks.templ`, Line: 68, Col: 42}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {

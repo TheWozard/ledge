@@ -531,7 +531,7 @@ func Link(text string, url string) templ.Component {
 
 // Button is a button in a report's Buttons: its title, with a dot in its colour (a
 // theme's named colour or #rrggbb; anything else is gray). Its ID is the app's,
-// unique in its report.
+// unique in its Block, or among the report's buttons in none.
 type Button struct {
 	ID    string
 	Title string
@@ -606,9 +606,9 @@ func Buttons(buttons []Button) templ.Component {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var27 string
-				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.ResolveAttributeValue(ReportClick(ctx, button.ID, button.Click))
+				templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.ResolveAttributeValue(ClickID(ctx, button.ID, button.Click))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 121, Col: 59}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 121, Col: 55}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var27)
 				if templ_7745c5c3_Err != nil {
@@ -692,7 +692,7 @@ func Block(id string, block templ.Component) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = inBlock(id, block).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = inScope(scope{"block", id}, block).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

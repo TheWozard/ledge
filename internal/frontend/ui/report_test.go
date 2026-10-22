@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -136,18 +138,18 @@ func TestReportClicks(t *testing.T) {
 	evalIn(t, w, `document.querySelector(".button[disabled]").click(), true`)
 
 	// A slow one is busy until it's done, and a click on it meanwhile is dropped.
-	evalIn(t, w, button("slow")+`.click(), true`)
-	waitIn(t, w, button("slow")+`.hasAttribute("data-busy")`, "true")
+	evalIn(t, w, button("block/more/slow")+`.click(), true`)
+	waitIn(t, w, button("block/more/slow")+`.hasAttribute("data-busy")`, "true")
 	before := logs.Len()
-	evalIn(t, w, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "slow"}), true`)
+	evalIn(t, w, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "block/more/slow"}), true`)
 	eventually(t, "the click on slow to be dropped", func() bool { return strings.Contains(logs.String()[before:], "still running") })
 	close(release)
-	waitIn(t, w, button("slow")+`.hasAttribute("data-busy")`, "false")
+	waitIn(t, w, button("block/more/slow")+`.hasAttribute("data-busy")`, "false")
 
 	// The page can post only clicks, and only of its own Clicks.
 	before = logs.Len()
 	for _, message := range []string{
-		`{action: "click", id: "card-bar"}`, `{action: "menu", id: "card-bar"}`, `{action: "click", id: "off"}`,
+		`{action: "click", id: "card/bar/click"}`, `{action: "menu", id: "card-bar"}`, `{action: "click", id: "off"}`,
 	} {
 		evalIn(t, w, `window.webkit.messageHandlers.ledge.postMessage(`+message+`), true`)
 	}
@@ -161,14 +163,14 @@ func TestReportClicks(t *testing.T) {
 	})); !open || err != nil {
 		t.Fatalf("ShowReportBlock = %v, %v", open, err)
 	}
-	waitIn(t, w, button("stop")+` !== null`, "true")
-	evalIn(t, w, button("stop")+`.dispatchEvent(new MouseEvent("auxclick", {bubbles: true, button: 1})), true`)
+	waitIn(t, w, button("block/more/stop")+` !== null`, "true")
+	evalIn(t, w, button("block/more/stop")+`.dispatchEvent(new MouseEvent("auxclick", {bubbles: true, button: 1})), true`)
 	eventually(t, "stop", func() bool { return calls.has("stop") })
 	if got, want := calls.event("stop"), (components.ClickEvent{Middle: true}); got != want {
 		t.Errorf("a middle click on Stop was %+v, want %+v", got, want)
 	}
 	before = logs.Len()
-	evalIn(t, w, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "slow"}), true`)
+	evalIn(t, w, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "block/more/slow"}), true`)
 	eventually(t, "the click on slow to be dropped", func() bool { return strings.Contains(logs.String()[before:], "isn't in it") })
 	time.Sleep(200 * time.Millisecond)
 	if calls.count("slow") != 1 || calls.has("open bar") || calls.count("go") != 1 {
@@ -268,16 +270,13 @@ func TestReportWindowPerID(t *testing.T) {
 func TestReportWindowClicks(t *testing.T) {
 	r := newReportWindows()
 	nothing := func(components.ClickEvent) {}
-	w := r.show("a", &components.ReportClicks{
-		Clicks: map[string]components.Click{"top": nothing, "old": nothing},
-		Blocks: map[string][]string{"block": {"old"}},
-	})
-	other := r.show("b", &components.ReportClicks{})
-	r.replaceBlock(w, "block", &components.ReportClicks{
-		Clicks: map[string]components.Click{"new": nothing},
-		Blocks: map[string][]string{"block": {"new"}},
-	})
-	for id, want := range map[string]bool{"top": true, "old": false, "new": true} {
+	buttons := func(id string) templ.Component {
+		return components.Buttons([]components.Button{{ID: id, Title: id, Click: nothing}})
+	}
+	w := r.show("a", clicksOf(t, buttons("top"), components.Block("block", buttons("old"))))
+	other := r.show("b", &components.Clicks{})
+	r.replaceBlock(w, clicksOf(t, components.Block("block", buttons("new"))))
+	for id, want := range map[string]bool{"top": true, "block/block/old": false, "block/block/new": true} {
 		if got := r.click(w, id) != nil; got != want {
 			t.Errorf("a's %q is there: %v, want %v", id, got, want)
 		}
@@ -289,6 +288,19 @@ func TestReportWindowClicks(t *testing.T) {
 	if r.click(w, "top") != nil {
 		t.Error("a closed still has its Clicks")
 	}
+}
+
+// clicksOf is the Clicks in blocks.
+func clicksOf(t *testing.T, blocks ...templ.Component) *components.Clicks {
+	t.Helper()
+	clicks := &components.Clicks{}
+	ctx := components.WithClicks(context.Background(), clicks)
+	for _, block := range blocks {
+		if err := block.Render(ctx, io.Discard); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return clicks
 }
 
 func TestNavigate(t *testing.T) {

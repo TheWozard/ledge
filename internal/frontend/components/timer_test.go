@@ -14,15 +14,15 @@ func TestTimer(t *testing.T) {
 		Start: start, End: start.Add(90*time.Second + 500*time.Millisecond), Complete: func() {}}
 	html := render(t, BarContent([]Card{timer}, nil))
 	contains(t, html,
-		`<li id="card-tea" class="timer clickable" data-click="card-tea" data-color="#3b82f6"`,
+		`<li id="card-tea" class="timer clickable" data-click="card/tea/click" data-color="#3b82f6"`,
 		`<span class="title">&lt;b&gt;Tea&lt;/b&gt;</span>`,
 		fmt.Sprintf(`<div class="reading-value time-left" data-start="%d" data-end="%d">1:31</div>`, start.UnixMilli(), timer.End.UnixMilli()),
-		`data-click="dismiss-tea"`)
+		`data-click="card/tea/dismiss"`)
 	if f := timer.Frame(); !f.Ends.Equal(timer.End) || f.Complete == nil {
 		t.Errorf("the timer's frame ends %v, with Complete %v", f.Ends, f.Complete != nil)
 	}
-	if clicks := Clicks([]Card{timer}); len(clicks) != 2 {
-		t.Errorf("the timer has %d Clicks, want its own and its ×'s", len(clicks))
+	if _, clicks := renderClicks(t, BarContent([]Card{timer}, nil)); len(clicks.IDs()) != 2 {
+		t.Errorf("the timer has Clicks %q, want its own and its ×'s", clicks.IDs())
 	}
 }
 
@@ -42,7 +42,7 @@ func TestUpcomingTimer(t *testing.T) {
 		// Its action, to join the meeting, is in its menu.
 		`data-menu="card-standup"`)
 	lacks(t, html, "data-start")
-	if clicks := Clicks([]Card{timer}); clicks["action-join"] == nil {
+	if timer.Frame().Action("action/standup/join") == nil {
 		t.Error("the timer's action has no Click")
 	}
 }

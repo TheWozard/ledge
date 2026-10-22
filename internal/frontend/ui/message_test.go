@@ -92,7 +92,7 @@ func TestClicks(t *testing.T) {
 	// Once a render takes a card off, a click on it is dropped.
 	before := logs.Len()
 	testBar.Render(components.Cards([]components.Basic{{ID: "card-still", Title: "Still"}}))
-	eval(t, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "card-card-open"}), true`)
+	eval(t, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "card/card-open/click"}), true`)
 	eventually(t, "the click to be dropped", func() bool { return strings.Contains(logs.String()[before:], "isn't on it") })
 }
 
@@ -180,7 +180,7 @@ func TestBusy(t *testing.T) {
 	// dropped.
 	testBar.Render(components.Cards(cards))
 	before := logs.Len()
-	eval(t, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "card-busy"}), true`)
+	eval(t, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "card/busy/click"}), true`)
 	eventually(t, "the click to be dropped", func() bool { return strings.Contains(logs.String()[before:], "still running") })
 	if got := eval(t, `document.getElementById("card-busy").hasAttribute("data-busy")`); got != "true" {
 		t.Error("a render took the card's busy mark off")
@@ -217,8 +217,9 @@ func TestBusyMenu(t *testing.T) {
 
 // In a theme without a menu of its own, a right-click on a card with actions, or a
 // click on its ⋯, pops up the native menu of them, each with its colour, and greyed
-// out without a Click. Choosing one calls its Click, and not its card's; choosing
-// nothing does nothing; and choosing one a render has since taken off is dropped.
+// out without a Click. Choosing one calls its Click, and not its card's nor another
+// card's action with the same id; choosing nothing does nothing; and choosing one a
+// render has since taken off is dropped.
 // WebKit's own menu never shows. No real menu opens: one that records it, and chooses
 // what it's told to, stands in.
 func TestNativeMenus(t *testing.T) {
@@ -243,9 +244,10 @@ func TestNativeMenus(t *testing.T) {
 			{ID: "run", Title: "Run", Color: "green", Click: record("run run")}, {ID: "info", Title: "Info"},
 		}},
 		{ID: "plain", Title: "Plain"},
+		{ID: "other", Title: "Other", Actions: []components.Action{{ID: "run", Title: "Run", Click: record("run other")}}},
 	}
 	show(t, cards)
-	waitFor(t, `document.querySelectorAll("li").length`, "2")
+	waitFor(t, `document.querySelectorAll("li").length`, "3")
 
 	// A right-click chooses Run.
 	if got := rightClick(t, "card-m"); got != "false" {
@@ -260,8 +262,8 @@ func TestNativeMenus(t *testing.T) {
 		t.Errorf("the menu was %+v, want %+v", menus[0], want)
 	}
 	mu.Unlock()
-	if time.Sleep(200 * time.Millisecond); calls.has("open m") {
-		t.Error("choosing from the menu also opened its card")
+	if time.Sleep(200 * time.Millisecond); calls.has("open m") || calls.has("run other") {
+		t.Error("choosing from the menu also opened its card, or ran another card's action")
 	}
 
 	// The ⋯ opens it too; choosing nothing does nothing.

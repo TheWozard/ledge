@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"log"
-	"maps"
 	"net/url"
 	"strings"
 	"sync"
@@ -27,12 +26,12 @@ func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	t := b.options.Theme
 	b.mu.Unlock()
 	var page bytes.Buffer
-	var clicks components.ReportClicks
-	ctx := components.WithReportClicks(context.Background(), &clicks)
+	clicks := &components.Clicks{}
+	ctx := components.WithClicks(context.Background(), clicks)
 	if err := components.ReportPage(t.Report, title, blocks).Render(ctx, &page); err != nil {
 		return err
 	}
-	window := b.reports.show(id, &clicks)
+	window := b.reports.show(id, clicks)
 	shim.CreateWindow(window, title, 900, 700)
 	shim.SetTitle(window, title)
 	shim.SetAppearance(window, t.Frame.Appearance)
@@ -53,12 +52,12 @@ func (b *Bar) ShowReportBlock(id, blockID string, block templ.Component) (bool, 
 		return false, nil
 	}
 	var html strings.Builder
-	var clicks components.ReportClicks
-	ctx := components.WithReportClicks(context.Background(), &clicks)
+	clicks := &components.Clicks{}
+	ctx := components.WithClicks(context.Background(), clicks)
 	if err := components.Block(blockID, block).Render(ctx, &html); err != nil {
 		return true, err
 	}
-	b.reports.replaceBlock(window, blockID, &clicks)
+	b.reports.replaceBlock(window, clicks)
 	// Marshalled, the id and html are JS strings; <, > and & are escaped in them.
 	idJS, _ := json.Marshal(blockID)
 	htmlJS, _ := json.Marshal(html.String())
@@ -94,19 +93,19 @@ func (b *Bar) handleReport(window int, data []byte) {
 type reportWindows struct {
 	mu     sync.Mutex
 	byID   map[string]int
-	clicks map[int]*components.ReportClicks // by window
+	clicks map[int]*components.Clicks // by window
 	last   int                              // the last window id given out
 }
 
 // newReportWindows is no report windows yet; the first will take the id after the
 // menu's.
 func newReportWindows() *reportWindows {
-	return &reportWindows{byID: map[string]int{}, clicks: map[int]*components.ReportClicks{}, last: MenuWindow}
+	return &reportWindows{byID: map[string]int{}, clicks: map[int]*components.Clicks{}, last: MenuWindow}
 }
 
 // show is id's report window, given a new one if it hasn't got one open, now with
 // clicks, the Clicks in what it shows, in place of any it had.
-func (r *reportWindows) show(id string, clicks *components.ReportClicks) int {
+func (r *reportWindows) show(id string, clicks *components.Clicks) int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	window, ok := r.byID[id]
@@ -119,26 +118,14 @@ func (r *reportWindows) show(id string, clicks *components.ReportClicks) int {
 	return window
 }
 
-// replaceBlock gives window's report clicks, the Clicks in its block blockID, in
-// place of those the block had.
-func (r *reportWindows) replaceBlock(window int, blockID string, clicks *components.ReportClicks) {
+// replaceBlock gives window's report clicks, the Clicks in a block, in place of those
+// the block had.
+func (r *reportWindows) replaceBlock(window int, clicks *components.Clicks) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	all := r.clicks[window]
-	if all == nil {
-		return
+	if all := r.clicks[window]; all != nil {
+		all.Replace(clicks)
 	}
-	for _, id := range all.Blocks[blockID] {
-		delete(all.Clicks, id)
-	}
-	if all.Clicks == nil {
-		all.Clicks = map[string]components.Click{}
-	}
-	if all.Blocks == nil {
-		all.Blocks = map[string][]string{}
-	}
-	maps.Copy(all.Clicks, clicks.Clicks)
-	all.Blocks[blockID] = clicks.Blocks[blockID]
 }
 
 // click is the Click with id in window's report, or nil.
@@ -146,7 +133,7 @@ func (r *reportWindows) click(window int, id string) components.Click {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if all := r.clicks[window]; all != nil {
-		return all.Clicks[id]
+		return all.Click(id)
 	}
 	return nil
 }

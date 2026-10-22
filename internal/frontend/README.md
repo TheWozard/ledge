@@ -121,12 +121,13 @@ goroutine with how it was clicked: the modifier keys held (`Alt`, `Cmd`, `Shift`
 one does but a card's ⋯. An action chosen from a menu has the keys held as it was
 chosen, by a click or Return. (A ⌃-click on a card is a right-click: it shows the
 card's menu.) There's a `Click` for a card itself, its `Dismiss` for its × (shown only if set), an
-action's `Click`, and a part's. A card's `Parts` are what in its body is clicked on
-its own, not as the card, such as a check with a `Click`: a kind of card of the app's
-marks each in its body with `data-click={ f.PartClickID(id) }` and the class
-`clickable`. The bar gives each `Click` an id, made from the card's, action's and
-part's ids, so the app never handles click ids itself; a click on something a later
-`Render` took off is dropped. While a `Click` runs, what was clicked has `data-busy`
+action's `Click`, and one for anything in a card's body clicked on its own, not as the
+card, such as a check with a `Click`: a kind of card of the app's marks each in its
+body with `data-click={ components.ClickID(ctx, id, click) }` and the class
+`clickable`, with an id unique within its card. The page has an id for each `Click`,
+made from the card's id and its own, so two cards can use the same ids, and the app
+never handles the page's ids itself; a click on something a later `Render` took off
+is dropped. While a `Click` runs, what was clicked has `data-busy`
 (a card's ⋯ has it while one of its actions runs), for a theme to show, and a click
 on it meanwhile is dropped, so a double-click doesn't run it twice.
 
@@ -147,8 +148,9 @@ report's scroll and doesn't bring its window forward. What's clicked in a report
 such as a `Buttons`' button, calls its `Click` as one on the bar does, busy while it
 runs, until the report is shown again or closed; a block replaced with
 `ShowReportBlock` brings its own. A block of the app's can have clickable things too:
-`components.ReportClick(ctx, id, click)`, called as it renders, gives the id to put
-in `data-click`. The built-in blocks:
+`components.ClickID(ctx, id, click)`, called as it renders, gives the id to put in
+`data-click`. An id is unique within its `Block`, or among the report's clickable
+things in none. The built-in blocks:
 
 | Block | Shows |
 |---|---|

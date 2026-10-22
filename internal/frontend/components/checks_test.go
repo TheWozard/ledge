@@ -1,6 +1,7 @@
 package components
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -38,23 +39,22 @@ func TestChecks(t *testing.T) {
 	}
 }
 
-// A check with a Click is a part of its card, clicked on its own: it's clickable,
-// with its part's id, and Clicks has it apart from the card's. One without is
-// clicked as the card.
+// A check with a Click is clicked on its own, not as its card: it's clickable, its
+// name its id in the card's body, and the Clicks have it apart from the card's. One
+// without is clicked as the card.
 func TestClickableChecks(t *testing.T) {
 	var got []string
 	click := func(name string) Click { return func(ClickEvent) { got = append(got, name) } }
 	card := Checks{Basic: Basic{ID: "ci", Title: "CI", Click: click("card")},
 		Checks: []Check{{Name: "build", State: "passed"}, {Name: "test", State: "failed", Click: click("test")}}}
-	html := render(t, BarContent([]Card{card}, nil))
+	html, clicks := renderClicks(t, BarContent([]Card{card}, nil))
 	contains(t, html,
 		`<span class="check" data-state="passed" title="build: passed">`,
-		`<span class="check clickable" data-click="part-2-ci-test" data-state="failed" title="test: failed">`)
-	clicks := Clicks([]Card{card})
-	if len(clicks) != 2 || clicks["part-2-ci-test"] == nil {
-		t.Fatalf("Clicks = %v", clicks)
+		`<span class="check clickable" data-click="body/ci/test" data-state="failed" title="test: failed">`)
+	if ids := clicks.IDs(); !slices.Equal(ids, []string{"body/ci/test", "card/ci/click"}) {
+		t.Fatalf("Clicks have %q", ids)
 	}
-	clicks["part-2-ci-test"](ClickEvent{})
+	clicks.Click("body/ci/test")(ClickEvent{})
 	if strings.Join(got, ",") != "test" {
 		t.Errorf("clicking the test check called %v", got)
 	}

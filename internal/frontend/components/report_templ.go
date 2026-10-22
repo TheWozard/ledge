@@ -19,7 +19,7 @@ import templruntime "github.com/a-h/templ/runtime"
 //
 // The page posts to window.webkit.messageHandlers.ledge only {action: "click", id,
 // event} when something with data-click is clicked, with the main or middle button,
-// such as a Buttons' button: the id is one ReportClick gave out as it was rendered,
+// such as a Buttons' button: the id is one ClickID gave out as it was rendered,
 // and event how it was clicked, as on the bar. All it can ask of its window, through
 // its "frame" handler (see the shim), is: a mouse-down on the title bar starts a drag
 // (the second of a double-click zooms), and the title bar's buttons, when a theme

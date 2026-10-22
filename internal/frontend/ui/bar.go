@@ -22,7 +22,7 @@ type Bar struct {
 
 	mu      sync.Mutex
 	cards   []components.Card
-	clicks  map[string]components.Click // the Clicks on cards, by the page's id for them
+	clicks  *components.Clicks          // the Clicks on the cards as last drawn
 	running map[running]string          // the Clicks running, each with the id its page marks busy for it
 	shown   map[string]bool             // the element ids of the cards on the bar, to tell which are new
 	ready   bool                        // the page has loaded and can take updates
@@ -46,7 +46,7 @@ func Open(options Options) (*Bar, error) {
 		opened.Store(false)
 		return nil, err
 	}
-	b := &Bar{options: options, shown: map[string]bool{}, reports: newReportWindows()}
+	b := &Bar{options: options, clicks: &components.Clicks{}, shown: map[string]bool{}, reports: newReportWindows()}
 	shim.CreateBar(BarWindow)
 	shim.SetLevel(BarWindow, options.Level)
 	b.Place()
@@ -96,7 +96,6 @@ func barPage(options *Options) (string, error) {
 func (b *Bar) Render(cards []components.Card) {
 	b.mu.Lock()
 	b.cards = slices.Clone(cards)
-	b.clicks = components.Clicks(b.cards)
 	b.endings.schedule(b.cards, b.complete)
 	b.mu.Unlock()
 	b.draw()
@@ -114,14 +113,14 @@ func (b *Bar) RenderCard(card components.Card) bool {
 		return false
 	}
 	b.cards[i] = card
-	b.clicks = components.Clicks(b.cards)
 	b.endings.schedule(b.cards, b.complete)
 	b.mu.Unlock()
 	b.draw()
 	return true
 }
 
-// draw renders what the bar has into its page, once the page is ready.
+// draw renders what the bar has into its page, once the page is ready, and from then
+// its clicks call the Clicks it was drawn with.
 func (b *Bar) draw() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -131,10 +130,13 @@ func (b *Bar) draw() {
 	var fresh map[string]int
 	fresh, b.shown = arrivals(b.cards, b.shown)
 	var html strings.Builder
-	if err := components.BarContent(b.cards, fresh).Render(context.Background(), &html); err != nil {
+	clicks := &components.Clicks{}
+	ctx := components.WithClicks(context.Background(), clicks)
+	if err := components.BarContent(b.cards, fresh).Render(ctx, &html); err != nil {
 		log.Printf("ui: rendering the bar: %v", err)
 		return
 	}
+	b.clicks = clicks
 	// Marshalled, the html is a JS string; <, > and & are escaped in it.
 	js, _ := json.Marshal(html.String())
 	// The busy marks go with it, in one go, so what's busy never shows otherwise.

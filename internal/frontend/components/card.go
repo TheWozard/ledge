@@ -21,8 +21,9 @@ type Card interface {
 	Frame() Frame
 	// Body is what's in the card, above its actions. Like everything on the bar, it
 	// should show strings as text, which templ does unless told otherwise. A click on
-	// it is a click on the card, but on one of the frame's Parts, which the body
-	// marks with data-click={ f.PartClickID(id) }, it's a click on that part alone.
+	// it is a click on the card, but on a part of it the body marks with
+	// data-click={ ClickID(ctx, id, click) }, and the class clickable, it's a click on
+	// that part alone: id is the part's, unique within its card.
 	Body() templ.Component
 }
 
@@ -44,17 +45,6 @@ type Frame struct {
 	// Progress is how far along the card is, from 0 to 1, such as a Progress's. It's
 	// set on the card as --progress, for a theme to fill it; 0 is none.
 	Progress float64
-	// Parts are what in the card's body can be clicked on its own, such as each of a
-	// Checks card's checks.
-	Parts []Part
-}
-
-// Part is something in a card's body that's clicked on its own, not as the card: its
-// ID is the app's, unique within its card, and the body marks it with its card's
-// PartClickID for it, and the class clickable.
-type Part struct {
-	ID    string
-	Click Click
 }
 
 // Cards is cards of one kind as Cards, to Render.
@@ -109,8 +99,7 @@ func (f Frame) style(fresh map[string]int) string {
 
 // Action is something to do about a card without opening it: an item in the card's
 // menu, its title with a dot in its colour (a theme's named colour or #rrggbb;
-// anything else is gray). Its ID is the app's, like a card's, and is unique across
-// the bar.
+// anything else is gray). Its ID is the app's, unique within its card.
 type Action struct {
 	ID    string
 	Title string
@@ -125,16 +114,28 @@ type MenuItem struct {
 	Title   string
 	Color   string // a named colour or #rrggbb, as colorName has it
 	Enabled bool   // whether it can be chosen: it has a Click
-	ClickID string // the id Clicks has for its Click
+	ID      string // its action's, with its card's, so it's unique on the bar
 }
 
 // Menu is the card's menu: an item for each of its actions, in order.
 func (f Frame) Menu() []MenuItem {
 	items := make([]MenuItem, len(f.Actions))
 	for i, q := range f.Actions {
-		items[i] = MenuItem{Title: q.Title, Color: colorName(q.Color), Enabled: q.Click != nil, ClickID: q.clickID()}
+		items[i] = MenuItem{Title: q.Title, Color: colorName(q.Color), Enabled: q.Click != nil,
+			ID: pageID(scope{"action", f.ID}, q.ID)}
 	}
 	return items
+}
+
+// Action is the Click of the action of the card that the item of its menu with id is
+// for, or nil if it has none.
+func (f Frame) Action(id string) Click {
+	for i, item := range f.Menu() {
+		if item.ID == id {
+			return f.Actions[i].Click
+		}
+	}
+	return nil
 }
 
 // entering is the style that gives a new card its place among the new ones.

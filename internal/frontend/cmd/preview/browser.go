@@ -66,13 +66,14 @@ type browserServer struct {
 	sample *sample
 
 	mu      sync.Mutex
-	opening string // the report a click opened, to send back with its reply
+	opening string             // the report a click opened, to send back with its reply
+	clicks  *components.Clicks // the Clicks on the bar as last sent
 }
 
 // serveBrowser serves sample on addr, as browserServer says, and opens it in the
 // browser.
 func serveBrowser(addr, name string, load func() (theme.Theme, error), sample *sample) {
-	s := &browserServer{name: name, load: load, sample: sample}
+	s := &browserServer{name: name, load: load, sample: sample, clicks: &components.Clicks{}}
 	sample.open = func(id string) {
 		s.mu.Lock()
 		s.opening = id
@@ -153,7 +154,10 @@ func (s *browserServer) action(w http.ResponseWriter, r *http.Request) {
 	case "ready":
 		reply["html"] = s.content()
 	case "click":
-		if click := components.Clicks(s.sample.shown())[message.ID]; click != nil {
+		s.mu.Lock()
+		click := s.clicks.Click(message.ID)
+		s.mu.Unlock()
+		if click != nil {
 			click(message.Event)
 		}
 		reply["html"] = s.content()
@@ -186,12 +190,17 @@ func (s *browserServer) page(w http.ResponseWriter, render func(theme.Theme) tem
 	fmt.Fprint(w, strings.Replace(buf.String(), "<head>", "<head>"+stub, 1))
 }
 
-// content is the bar's content: the sample's cards.
+// content is the bar's content: the sample's cards. From then, a click calls the
+// Clicks it was rendered with.
 func (s *browserServer) content() string {
 	shown := s.sample.shown()
 	var buf bytes.Buffer
-	if err := components.BarContent(shown, map[string]int{}).Render(context.Background(), &buf); err != nil {
+	clicks := &components.Clicks{}
+	if err := components.BarContent(shown, map[string]int{}).Render(components.WithClicks(context.Background(), clicks), &buf); err != nil {
 		log.Print(err)
 	}
+	s.mu.Lock()
+	s.clicks = clicks
+	s.mu.Unlock()
 	return buf.String()
 }

@@ -95,7 +95,7 @@ func (b *Bar) handle(data []byte) {
 		b.draw()
 	case "click":
 		b.mu.Lock()
-		click := b.clicks[m.ID]
+		click := b.clicks.Click(m.ID)
 		b.mu.Unlock()
 		if click == nil {
 			log.Printf("ui: the bar clicked %q, which isn't on it", m.ID)
@@ -135,7 +135,8 @@ var showMenu = shim.ShowMenu
 // menu shows the menu of the card whose element id is id, as its theme draws it or
 // natively for a theme without one, and calls the Click of the action chosen from it,
 // its ⋯ busy while it runs. The card's actions are those it had when it was asked for;
-// one a render has since taken off the bar is dropped, as a click on it would be.
+// one a render has since taken off the bar is dropped, as a click on it would be, and
+// one a render has changed calls its new Click.
 func (b *Bar) menu(id string) {
 	b.mu.Lock()
 	var items []components.MenuItem
@@ -154,14 +155,20 @@ func (b *Bar) menu(id string) {
 	if chosen < 0 || chosen >= len(items) {
 		return
 	}
+	item := items[chosen].ID
 	b.mu.Lock()
-	click := b.clicks[items[chosen].ClickID]
+	var click components.Click
+	for _, card := range b.cards {
+		if frame := card.Frame(); frame.ElementID() == id {
+			click = frame.Action(item)
+		}
+	}
 	b.mu.Unlock()
 	if click == nil {
-		log.Printf("ui: %q was chosen from a menu, but isn't on the bar", items[chosen].ClickID)
+		log.Printf("ui: %q was chosen from a menu, but isn't on the bar", item)
 		return
 	}
 	m := choice.Modifiers
-	b.run(BarWindow, items[chosen].ClickID, menuBusyID(id), click,
+	b.run(BarWindow, item, menuBusyID(id), click,
 		components.ClickEvent{Alt: m.Alt, Cmd: m.Cmd, Shift: m.Shift, Ctrl: m.Ctrl})
 }
