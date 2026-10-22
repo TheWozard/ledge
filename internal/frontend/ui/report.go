@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"log"
+	"maps"
 	"net/url"
 	"strings"
 	"sync"
@@ -18,16 +20,19 @@ import (
 // brings it forward. Each id has its own window: showing an id again replaces what
 // its window shows, and one that's been closed opens anew. id is the app's, such as
 // the card or action the report is for. A block is any component; components
-// has the usual ones.
+// has the usual ones. Clicking what's in them, such as a Buttons' button, calls its
+// Click, as one on the bar does, until the report is shown again or closed.
 func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	b.mu.Lock()
 	t := b.options.Theme
 	b.mu.Unlock()
 	var page bytes.Buffer
-	if err := components.ReportPage(t.Report, title, blocks).Render(context.Background(), &page); err != nil {
+	var clicks components.ReportClicks
+	ctx := components.WithReportClicks(context.Background(), &clicks)
+	if err := components.ReportPage(t.Report, title, blocks).Render(ctx, &page); err != nil {
 		return err
 	}
-	window := b.reports.window(id)
+	window := b.reports.show(id, &clicks)
 	shim.CreateWindow(window, title, 900, 700)
 	shim.SetTitle(window, title)
 	shim.SetAppearance(window, t.Frame.Appearance)
@@ -48,32 +53,60 @@ func (b *Bar) ShowReportBlock(id, blockID string, block templ.Component) (bool, 
 		return false, nil
 	}
 	var html strings.Builder
-	if err := components.Block(blockID, block).Render(context.Background(), &html); err != nil {
+	var clicks components.ReportClicks
+	ctx := components.WithReportClicks(context.Background(), &clicks)
+	if err := components.Block(blockID, block).Render(ctx, &html); err != nil {
 		return true, err
 	}
+	b.reports.replaceBlock(window, blockID, &clicks)
 	// Marshalled, the id and html are JS strings; <, > and & are escaped in them.
 	idJS, _ := json.Marshal(blockID)
 	htmlJS, _ := json.Marshal(html.String())
-	shim.Eval(window, "replaceBlock("+string(idJS)+", "+string(htmlJS)+")")
+	// The busy marks go with it, as the block's new elements haven't any.
+	b.mu.Lock()
+	shim.Eval(window, "replaceBlock("+string(idJS)+", "+string(htmlJS)+"); "+b.busyJS(window))
+	b.mu.Unlock()
 	return true, nil
 }
 
+// reportMessages is what a report's page can post, each action with whether it takes
+// an id: only "click", with the id of a Click in it.
+var reportMessages = map[string]bool{"click": true}
+
+// handleReport carries out one message from the page in report window window: a click
+// calls the Click with that id in it, if it has one.
+func (b *Bar) handleReport(window int, data []byte) {
+	m, err := readMessage(data, reportMessages)
+	if err != nil {
+		log.Printf("ui: report window %d sent %s: %v", window, data, err)
+		return
+	}
+	click := b.reports.click(window, m.ID)
+	if click == nil {
+		log.Printf("ui: report window %d clicked %q, which isn't in it", window, m.ID)
+		return
+	}
+	b.run(window, m.ID, m.ID, click)
+}
+
 // reportWindows is the window of each report that's open, by the id it was shown
-// with. Each report has its own window, its id never reused.
+// with, and the Clicks in each. Each report has its own window, its id never reused.
 type reportWindows struct {
-	mu   sync.Mutex
-	byID map[string]int
-	last int // the last window id given out
+	mu     sync.Mutex
+	byID   map[string]int
+	clicks map[int]*components.ReportClicks // by window
+	last   int                              // the last window id given out
 }
 
 // newReportWindows is no report windows yet; the first will take the id after the
 // menu's.
 func newReportWindows() *reportWindows {
-	return &reportWindows{byID: map[string]int{}, last: MenuWindow}
+	return &reportWindows{byID: map[string]int{}, clicks: map[int]*components.ReportClicks{}, last: MenuWindow}
 }
 
-// window is id's report window, given a new one if it hasn't got one open.
-func (r *reportWindows) window(id string) int {
+// show is id's report window, given a new one if it hasn't got one open, now with
+// clicks, the Clicks in what it shows, in place of any it had.
+func (r *reportWindows) show(id string, clicks *components.ReportClicks) int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	window, ok := r.byID[id]
@@ -82,7 +115,40 @@ func (r *reportWindows) window(id string) int {
 		window = r.last
 		r.byID[id] = window
 	}
+	r.clicks[window] = clicks
 	return window
+}
+
+// replaceBlock gives window's report clicks, the Clicks in its block blockID, in
+// place of those the block had.
+func (r *reportWindows) replaceBlock(window int, blockID string, clicks *components.ReportClicks) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	all := r.clicks[window]
+	if all == nil {
+		return
+	}
+	for _, id := range all.Blocks[blockID] {
+		delete(all.Clicks, id)
+	}
+	if all.Clicks == nil {
+		all.Clicks = map[string]components.Click{}
+	}
+	if all.Blocks == nil {
+		all.Blocks = map[string][]string{}
+	}
+	maps.Copy(all.Clicks, clicks.Clicks)
+	all.Blocks[blockID] = clicks.Blocks[blockID]
+}
+
+// click is the Click with id in window's report, or nil.
+func (r *reportWindows) click(window int, id string) components.Click {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if all := r.clicks[window]; all != nil {
+		return all.Clicks[id]
+	}
+	return nil
 }
 
 // open is id's report window, if it has one open.
@@ -102,6 +168,7 @@ func (r *reportWindows) closed(window int) {
 			delete(r.byID, id)
 		}
 	}
+	delete(r.clicks, window)
 }
 
 // navigate says whether a window may go to target. Every window only ever shows the

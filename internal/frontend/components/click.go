@@ -1,12 +1,18 @@
 package components
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+	"io"
 
-// Click is what clicking something on the bar does. The bar calls it on a goroutine
-// of its own. A nil Click isn't clickable.
+	"github.com/a-h/templ"
+)
+
+// Click is what clicking something on the bar, or in a report, does. The bar calls it
+// on a goroutine of its own. A nil Click isn't clickable.
 //
 // The page never holds a Click, only an id for it, made from the ids of the card or
-// action it's on; Clicks maps them back.
+// action it's on, or a report's button's; Clicks and ReportClicks map them back.
 type Click func()
 
 // Clicks is every Click on cards, by the id the page has for it.
@@ -48,4 +54,53 @@ func (q Action) clickID() string  { return "action-" + q.ID }
 // "part-1-a-b-c".
 func (f Frame) PartClickID(partID string) string {
 	return fmt.Sprintf("part-%d-%s-%s", len(f.ID), f.ID, partID)
+}
+
+// ReportClicks is the Clicks in a report, put there by ReportClick as its blocks are
+// rendered with WithReportClicks: each by the id the page has for it, and the ids of
+// those in each Block, by its id, so a block's can be replaced with it.
+type ReportClicks struct {
+	Clicks map[string]Click
+	Blocks map[string][]string
+}
+
+// reportClicksKey and blockKey are the context keys of the ReportClicks a report is
+// rendered with, and of the Block what's in it is rendered in.
+type (
+	reportClicksKey struct{}
+	blockKey        struct{}
+)
+
+// WithReportClicks is ctx with clicks, for ReportClick to put the Clicks of what's
+// rendered with it in.
+func WithReportClicks(ctx context.Context, clicks *ReportClicks) context.Context {
+	return context.WithValue(ctx, reportClicksKey{}, clicks)
+}
+
+// ReportClick puts click in the ReportClicks ctx has, as id, unique in its report,
+// and returns the id for the page to have for it, in data-click, such as on a
+// Buttons' button. Rendered without any, as on the bar, the click goes nowhere.
+func ReportClick(ctx context.Context, id string, click Click) string {
+	clicks, ok := ctx.Value(reportClicksKey{}).(*ReportClicks)
+	if !ok || click == nil {
+		return id
+	}
+	if clicks.Clicks == nil {
+		clicks.Clicks = map[string]Click{}
+	}
+	clicks.Clicks[id] = click
+	if block, ok := ctx.Value(blockKey{}).(string); ok {
+		if clicks.Blocks == nil {
+			clicks.Blocks = map[string][]string{}
+		}
+		clicks.Blocks[block] = append(clicks.Blocks[block], id)
+	}
+	return id
+}
+
+// inBlock is block rendered in the Block with id, so the Clicks in it are its.
+func inBlock(id string, block templ.Component) templ.Component {
+	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
+		return block.Render(context.WithValue(ctx, blockKey{}, id), w)
+	})
 }

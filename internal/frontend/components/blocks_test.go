@@ -1,6 +1,8 @@
 package components
 
 import (
+	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -43,4 +45,40 @@ func TestBlocks(t *testing.T) {
 func TestBlock(t *testing.T) {
 	html := render(t, Block(`"x"`, Paragraph("<b>")))
 	contains(t, html, `<template data-block="&#34;x&#34;"><p>&lt;b&gt;</p></template>`)
+}
+
+// A Buttons' button shows its title escaped, with its colour; one with a Click has
+// the id ReportClick gave it, and one without is disabled. Rendered with
+// ReportClicks, the Clicks are put in it, and those in a Block are the block's.
+func TestButtons(t *testing.T) {
+	var got []string
+	click := func(name string) Click { return func() { got = append(got, name) } }
+	var clicks ReportClicks
+	ctx := WithReportClicks(context.Background(), &clicks)
+	var html strings.Builder
+	for _, block := range []templ.Component{
+		Buttons([]Button{{ID: "rerun", Title: "<Rerun>", Color: "yellow", Click: click("rerun")}, {ID: "off", Title: "Off", Color: "purple"}}),
+		Block("more", Buttons([]Button{{ID: "cancel", Title: "Cancel", Color: "#e0362c", Click: click("cancel")}})),
+	} {
+		if err := block.Render(ctx, &html); err != nil {
+			t.Fatal(err)
+		}
+	}
+	contains(t, html.String(),
+		`<div class="buttons"><button type="button" data-color="yellow" style="--button: var(--c-yellow);" class="button clickable" data-click="rerun"><span class="button-dot"></span>&lt;Rerun&gt;</button>`,
+		`<button type="button" data-color="gray" style="--button: var(--c-gray);" class="button" disabled><span class="button-dot"></span>Off</button>`,
+		`data-color="#e0362c" style="--button: #e0362c;" class="button clickable" data-click="cancel">`)
+	lacks(t, html.String(), "<Rerun>", `data-click="off"`)
+	if len(clicks.Clicks) != 2 || !slices.Equal(clicks.Blocks["more"], []string{"cancel"}) || len(clicks.Blocks) != 1 {
+		t.Fatalf("ReportClicks = %+v", clicks)
+	}
+	clicks.Clicks["rerun"]()
+	clicks.Clicks["cancel"]()
+	if strings.Join(got, ",") != "rerun,cancel" {
+		t.Errorf("the buttons' Clicks called %v", got)
+	}
+
+	// Rendered without ReportClicks, as on the bar, a button has its id, and nothing
+	// takes its Click.
+	contains(t, render(t, Buttons([]Button{{ID: "x", Title: "X", Click: click("x")}})), `data-click="x"`)
 }

@@ -41,8 +41,9 @@ void ledgeHidePopup(int window);
 // ledgeCreateWindow creates `window` as a titled window, if it doesn't exist yet,
 // down and to the right of the last one. Its page fills the window under a
 // see-through title bar that shows only the close, minimise and zoom buttons, so the
-// page draws its own title. The page can't post anything to Go; its "frame" handler
-// only moves, closes, minimises or zooms its window. Closing it destroys it, and is
+// page draws its own title. The page posts to Go through its "ledge" handler, as the
+// bar's does; its "frame" handler only moves, closes, minimises or zooms its window,
+// natively. Closing it destroys it, and is
 // reported to goLedgeWindowClosed; `window` can then be created again.
 void ledgeCreateWindow(int window, const char *title, double width, double height);
 // ledgeShowWindow brings a window to the front and activates the app, so it takes focus.

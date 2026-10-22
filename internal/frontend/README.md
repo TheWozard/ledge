@@ -49,7 +49,7 @@ func must[T any](v T, err error) T {
 
 | Package | What it is |
 |---|---|
-| `ui` | the bar and report windows: `Open` places the bar and loads its page, `Render` shows cards and `RenderCard` replaces one by its ID, `ShowReport` shows a report in its id's own window and `ShowReportBlock` replaces one block in it; clicks call the cards' `Click`s, and a card's right-click menu its actions' |
+| `ui` | the bar and report windows: `Open` places the bar and loads its page, `Render` shows cards and `RenderCard` replaces one by its ID, `ShowReport` shows a report in its id's own window and `ShowReportBlock` replaces one block in it; clicks call the cards' `Click`s, a card's right-click menu its actions', and a report's buttons theirs |
 | `components` | the templ components: the pages (`BarPage`, `ReportPage`), the bar's contents (`BarContent`, from `Card`s of any kind, such as the built-in `Basic`, and their `Action`s), and the report blocks |
 | `theme` | a `Theme`: the bar's and report window's stylesheets, fonts inlined, and how the report window's frame looks; `ReadSet` finds the themes in any files, `Load` reads one, `Builtin` is one of the built-in themes |
 | `shim` | the native layer (cgo + Objective-C): windows and WKWebView, and nothing else |
@@ -118,7 +118,9 @@ its own, not as the card, such as a check with a `Click`: a kind of card of the 
 marks each in its body with `data-click={ f.PartClickID(id) }` and the class
 `clickable`. The bar gives each `Click` an id, made from the card's, action's and
 part's ids, so the app never handles click ids itself; a click on something a later
-`Render` took off is dropped.
+`Render` took off is dropped. While a `Click` runs, what was clicked has `data-busy`
+(a card's ⋯ has it while one of its actions runs), for a theme to show, and a click
+on it meanwhile is dropped, so a double-click doesn't run it twice.
 
 A card's actions are things to do about it without opening a report, in a menu:
 right-clicking the card, or clicking its ⋯ (shown only if it has some), pops it up
@@ -133,8 +135,12 @@ such as the card it's about. Each id has its own window: showing the same id aga
 replaces what's in it, and closing it destroys it, so the next `ShowReport` for that id
 opens a new one. New windows open down and to the right of the last. A block wrapped in
 `Block(id, block)` can be replaced on its own with `ShowReportBlock`, which keeps the
-report's scroll and doesn't bring its window forward. The built-in
-blocks:
+report's scroll and doesn't bring its window forward. What's clicked in a report,
+such as a `Buttons`' button, calls its `Click` as one on the bar does, busy while it
+runs, until the report is shown again or closed; a block replaced with
+`ShowReportBlock` brings its own. A block of the app's can have clickable things too:
+`components.ReportClick(ctx, id, click)`, called as it renders, gives the id to put
+in `data-click`. The built-in blocks:
 
 | Block | Shows |
 |---|---|
@@ -146,6 +152,7 @@ blocks:
 | `Code(text)` | fixed-width text that scrolls sideways |
 | `Note(text, color)` | a callout in a colour |
 | `Link(text, url)` | a link; clicking it opens it in the browser if it's http(s) |
+| `Buttons([]Button)` | a row of buttons, each with a dot in its colour, calling its `Click`; one without is disabled |
 
 Every string is escaped by templ, so text can't add markup. Colours are a theme's named
 colours (`green`, `yellow`, `red`, `blue`, `gray`) or `#rrggbb`; anything else is gray,
@@ -160,10 +167,11 @@ menu, and `{action: "ready"}` once loaded, checked strictly before it reaches a
 click does is only ever the app's `Click`. A card's menu is built from its actions in
 Go, not by the bar page; WebKit's own right-click menu never shows. A theme's menu
 page posts only `{action: "choose", id}`, with the index of the item chosen,
-`{action: "close"}`, and `{action: "ready"}`, checked as strictly. The
-report page can't post to the app at all. Its only channel is to its own window,
-handled natively: `drag` (on a mouse-down in its title bar; a double-click zooms),
-`close`, `minimise` and `zoom`.
+`{action: "close"}`, and `{action: "ready"}`, checked as strictly. A
+report page posts only `{action: "click", id}`, checked as strictly, and reaching only
+a `Click` in that report: never one on the bar or in another report. Its only other
+channel is to its own window, handled natively: `drag` (on a mouse-down in its title
+bar; a double-click zooms), `close`, `minimise` and `zoom`.
 Neither window can navigate: a report's clicked http(s) link opens in the browser.
 
 ## Themes

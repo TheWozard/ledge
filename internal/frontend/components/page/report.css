@@ -1,7 +1,10 @@
 /* Layout only. How the report looks comes from its theme's report stylesheet,
    added after this. A theme sets --page, an opaque colour behind everything, and
-   --c-green, --c-yellow, --c-red, --c-blue and --c-gray for notes. A note has its
-   colour in --note and data-color.
+   --c-green, --c-yellow, --c-red, --c-blue and --c-gray for notes and buttons. A
+   note has its colour in --note and data-color. A Buttons block is a .buttons row
+   of <button class="button">s, each with its colour in --button and data-color, and
+   a .button-dot; one with a Click is .clickable, has data-busy while it runs, and
+   one without is disabled.
 
    The page fills the window, title bar included: macOS draws only the close,
    minimise and zoom buttons, at the top left. .titlebar is the page's own title
@@ -130,4 +133,23 @@ pre {
 }
 .note {
   white-space: pre-wrap;
+}
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.button {
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+}
+.clickable {
+  cursor: pointer;
+}
+.clickable[data-busy] {
+  cursor: progress;
+}
+.button:disabled {
+  cursor: default;
 }

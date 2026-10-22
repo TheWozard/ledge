@@ -69,7 +69,7 @@ func (b *Bar) handle(data []byte) {
 			log.Printf("ui: the bar clicked %q, which isn't on it", m.ID)
 			return
 		}
-		b.run(m.ID, m.ID, click)
+		b.run(BarWindow, m.ID, m.ID, click)
 	case "menu":
 		b.menu(m.ID)
 	}
@@ -127,5 +127,5 @@ func (b *Bar) menu(id string) {
 		log.Printf("ui: %q was chosen from a menu, but isn't on the bar", items[chosen].ClickID)
 		return
 	}
-	b.run(items[chosen].ClickID, menuBusyID(id), click)
+	b.run(BarWindow, items[chosen].ClickID, menuBusyID(id), click)
 }

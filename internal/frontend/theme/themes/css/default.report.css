@@ -79,3 +79,38 @@ pre {
 a {
   color: var(--accent);
 }
+/* Buttons like the bar's menu items: a dot in the button's colour before its title.
+   One whose Click is running blinks; one without a Click is faded. */
+.button {
+  gap: 6px;
+  padding: 4px 12px;
+  color: var(--text);
+  background: var(--page);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.button.clickable:hover {
+  border-color: var(--accent);
+}
+.button:disabled {
+  opacity: 0.5;
+}
+.button-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--button);
+  border-radius: 50%;
+}
+.button[data-busy] {
+  animation: blink 1.2s ease-in-out infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0.4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .button[data-busy] {
+    animation: none;
+  }
+}

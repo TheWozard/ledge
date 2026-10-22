@@ -34,10 +34,13 @@ window.webkit = { messageHandlers: { ledge: { postMessage(message) {
 } } } };
 </script>`
 
-// reportStub logs what the report page posts to its window, and opens its links in
-// a new tab rather than in its frame.
+// reportStub logs what the report page posts, to the app or its window, and opens its
+// links in a new tab rather than in its frame.
 const reportStub = `<base target="_blank"><script>
-window.webkit = { messageHandlers: { frame: { postMessage(message) { console.log("report posted", message); } } } };
+window.webkit = { messageHandlers: {
+  ledge: { postMessage(message) { console.log("report posted", message); } },
+  frame: { postMessage(message) { console.log("report posted to its window", message); } },
+} };
 </script>`
 
 // menuStub logs what a card's menu page posts.
@@ -75,6 +78,9 @@ func serveBrowser(addr, name string, load func() (theme.Theme, error), sample *s
 		s.opening = id
 		s.mu.Unlock()
 	}
+	// A report's clicks are only logged in the browser, so nothing's replaced: a reload
+	// shows it as it is.
+	sample.replace = func(string, string, templ.Component) {}
 	sample.changed = func() {} // every reply to a click has the cards
 
 	http.HandleFunc("GET /{$}", s.index)

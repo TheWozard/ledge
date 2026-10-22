@@ -219,15 +219,15 @@ void ledgeStop(void) {
     });
 }
 
-// newWebView makes a window's web view. A page in the bar can post messages to Go; a
-// page in any other window can only ask for its own window to move or close.
-static WKWebView *newWebView(int window, NSRect frame, BOOL messages) {
+// newWebView makes a window's web view. Its page can post messages to Go, which
+// checks each against what that window's page may say; a page in a titled window can
+// also ask for its own window to move or close.
+static WKWebView *newWebView(int window, NSRect frame, BOOL titled) {
     LedgeDelegate *delegate = [LedgeDelegate new];
     delegate.windowID = window;
     WKWebViewConfiguration *config = [WKWebViewConfiguration new];
-    if (messages) {
-        [config.userContentController addScriptMessageHandler:delegate name:@"ledge"];
-    } else {
+    [config.userContentController addScriptMessageHandler:delegate name:@"ledge"];
+    if (titled) {
         [config.userContentController addScriptMessageHandler:[LedgeFrameHandler new] name:@"frame"];
     }
     WKWebView *webView = [[LedgeWebView alloc] initWithFrame:frame configuration:config];
@@ -254,7 +254,7 @@ void ledgeCreateBar(int window) {
         win.collectionBehavior = NSWindowCollectionBehaviorIgnoresCycle;
         win.hidesOnDeactivate = NO;
         win.hasShadow = NO;
-        win.contentView = newWebView(window, frame, YES);
+        win.contentView = newWebView(window, frame, NO);
         windows[@(window)] = win;
     });
 }
@@ -314,7 +314,7 @@ void ledgeCreatePopup(int window) {
         panel.hasShadow = YES;
         panel.opaque = NO;
         panel.backgroundColor = NSColor.clearColor;
-        WKWebView *webView = newWebView(window, frame, YES);
+        WKWebView *webView = newWebView(window, frame, NO);
         // See-through where the page draws nothing, so its theme's menu is the shape.
         [webView setValue:@NO forKey:@"drawsBackground"];
         panel.contentView = webView;
@@ -399,7 +399,7 @@ void ledgeCreateWindow(int window, const char *title, double width, double heigh
         win.titleVisibility = NSWindowTitleHidden;
         win.title = text;
         win.contentMinSize = NSMakeSize(480, 320);
-        win.contentView = newWebView(window, frame, NO);
+        win.contentView = newWebView(window, frame, YES);
         win.delegate = delegates[@(window)];
         [win center];
         cascade = [win cascadeTopLeftFromPoint:cascade];

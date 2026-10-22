@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -24,7 +23,7 @@ type Bar struct {
 	mu      sync.Mutex
 	cards   []components.Card
 	clicks  map[string]components.Click // the Clicks on cards, by the page's id for them
-	running map[string]string           // the Clicks running, by id, each with the id the page marks busy for it
+	running map[running]string          // the Clicks running, each with the id its page marks busy for it
 	shown   map[string]bool             // the element ids of the cards on the bar, to tell which are new
 	ready   bool                        // the page has loaded and can take updates
 	endings endings                     // the cards that end, and when each has completed
@@ -60,6 +59,8 @@ func Open(options Options) (*Bar, error) {
 			go b.handle(message)
 		case MenuWindow:
 			go b.handleMenuPage(message)
+		default:
+			go b.handleReport(window, message)
 		}
 	})
 	shim.OnPopupDismissed(func(window int) {
@@ -137,46 +138,62 @@ func (b *Bar) draw() {
 	// Marshalled, the html is a JS string; <, > and & are escaped in it.
 	js, _ := json.Marshal(html.String())
 	// The busy marks go with it, in one go, so what's busy never shows otherwise.
-	shim.Eval(BarWindow, "update("+string(js)+"); "+b.busyJS())
+	shim.Eval(BarWindow, "update("+string(js)+"); "+b.busyJS(BarWindow))
 }
 
-// run calls click, the Click with id clickID, unless it's already running: then the
-// click is dropped. While it runs, the page marks busy what has the id busyID: what
-// was clicked, or the ⋯ of a card whose action was chosen.
-func (b *Bar) run(clickID, busyID string, click components.Click) {
+// running is a Click that's running: the window it was clicked in, and its id there.
+type running struct {
+	window  int
+	clickID string
+}
+
+// run calls click, the Click with id clickID in window, the bar or a report, unless
+// it's already running: then the click is dropped. While it runs, the window's page
+// marks busy what has the id busyID: what was clicked, or the ⋯ of a card whose
+// action was chosen.
+func (b *Bar) run(window int, clickID, busyID string, click components.Click) {
+	key := running{window, clickID}
 	b.mu.Lock()
-	if _, ok := b.running[clickID]; ok {
+	if _, ok := b.running[key]; ok {
 		b.mu.Unlock()
 		log.Printf("ui: %q is still running, so the click on it is dropped", clickID)
 		return
 	}
 	if b.running == nil {
-		b.running = map[string]string{}
+		b.running = map[running]string{}
 	}
-	b.running[clickID] = busyID
-	b.markBusy()
+	b.running[key] = busyID
+	b.markBusy(window)
 	b.mu.Unlock()
 	defer func() {
 		b.mu.Lock()
-		delete(b.running, clickID)
-		b.markBusy()
+		delete(b.running, key)
+		b.markBusy(window)
 		b.mu.Unlock()
 	}()
 	click()
 }
 
-// markBusy has the page mark busy what's running, once it's ready. Call it with the
-// bar's lock held.
-func (b *Bar) markBusy() {
-	if b.ready {
-		shim.Eval(BarWindow, b.busyJS())
+// markBusy has window's page mark busy what's running in it: the bar's once it's
+// ready, and a report's whenever, as a page that isn't there ignores it. Call it with
+// the bar's lock held.
+func (b *Bar) markBusy(window int) {
+	if window != BarWindow || b.ready {
+		shim.Eval(window, b.busyJS(window))
 	}
 }
 
-// busyJS is the JS that has the page mark busy what's running, and nothing else.
-// Call it with the bar's lock held.
-func (b *Bar) busyJS() string {
-	ids := slices.Compact(slices.Sorted(maps.Values(b.running)))
+// busyJS is the JS that has window's page mark busy what's running in it, and
+// nothing else. Call it with the bar's lock held.
+func (b *Bar) busyJS(window int) string {
+	var ids []string
+	for key, id := range b.running {
+		if key.window == window {
+			ids = append(ids, id)
+		}
+	}
+	slices.Sort(ids)
+	ids = slices.Compact(ids)
 	if ids == nil {
 		ids = []string{} // [], not null
 	}

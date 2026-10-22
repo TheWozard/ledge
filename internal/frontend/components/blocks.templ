@@ -94,11 +94,46 @@ templ Link(text string, url string) {
 	<p class="link"><a href={ templ.URL(url) } title={ url }>{ text }</a></p>
 }
 
+// Button is a button in a report's Buttons: its title, with a dot in its colour (a
+// theme's named colour or #rrggbb; anything else is gray). Its ID is the app's,
+// unique in its report.
+type Button struct {
+	ID    string
+	Title string
+	Color string
+	// Click is clicking the button. Without one, it's disabled: it says something,
+	// but there's nothing to do.
+	Click Click
+}
+
+// Buttons is a row of buttons, wrapping. Clicking one calls its Click, on a goroutine
+// of the app's; while it runs, the button has data-busy, and clicking it again does
+// nothing.
+templ Buttons(buttons []Button) {
+	<div class="buttons">
+		for _, button := range buttons {
+			<button
+				type="button"
+				data-color={ colorName(button.Color) }
+				style={ templ.SafeCSS("--button: " + cssColor(button.Color)) }
+				if button.Click != nil {
+					class="button clickable"
+					data-click={ ReportClick(ctx, button.ID, button.Click) }
+				} else {
+					class="button"
+					disabled
+				}
+			><span class="button-dot"></span>{ button.Title }</button>
+		}
+	</div>
+}
+
 // Block is block with an id, unique in its report, so ShowReportBlock can replace it
-// later and leave the rest of the report as it is. It's drawn as block alone: the page
-// marks its elements data-block, with its id, rather than wrapping them.
+// later and leave the rest of the report as it is, with any Clicks in it. It's drawn
+// as block alone: the page marks its elements data-block, with its id, rather than
+// wrapping them.
 templ Block(id string, block templ.Component) {
 	<template data-block={ id }>
-		@block
+		@inBlock(id, block)
 	</template>
 }

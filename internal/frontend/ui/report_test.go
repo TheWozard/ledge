@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,8 +38,6 @@ func TestReportWindow(t *testing.T) {
 		`document.querySelector(".note").dataset.color`:                                      `"yellow"`,
 		// <main> has the keys.
 		`document.activeElement.tagName`: `"MAIN"`,
-		// The page can't post to the app.
-		`!(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.ledge)`: "true",
 	} {
 		if got := evalIn(t, w, js); got != want {
 			t.Errorf("%s = %s, want %s", js, got, want)
@@ -103,6 +102,77 @@ func TestReportBlock(t *testing.T) {
 	}
 }
 
+// A report's buttons call their Clicks, busy while they run, and nothing else: not a
+// disabled one, not one a replaced block took out, and not a Click on the bar. A
+// block replaced with ShowReportBlock brings its own.
+func TestReportClicks(t *testing.T) {
+	gui(t)
+	release := make(chan bool)
+	t.Cleanup(func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	})
+	show(t, []components.Basic{{ID: "bar", Title: "Bar", Click: record("open bar")}})
+	w := showReport(t, "buttons", "Buttons", []templ.Component{
+		components.Buttons([]components.Button{
+			{ID: "go", Title: "Go", Color: "green", Click: record("go")},
+			{ID: "off", Title: "Off"},
+		}),
+		components.Block("more", components.Buttons([]components.Button{
+			{ID: "slow", Title: "Slow", Click: func() { calls.add("slow"); <-release }},
+		})),
+	})
+	waitIn(t, w, `document.querySelectorAll(".button").length`, "3")
+	button := func(id string) string { return `document.querySelector('[data-click="` + id + `"]')` }
+
+	evalIn(t, w, button("go")+`.click(), true`)
+	eventually(t, "go", func() bool { return calls.has("go") })
+	evalIn(t, w, `document.querySelector(".button[disabled]").click(), true`)
+
+	// A slow one is busy until it's done, and a click on it meanwhile is dropped.
+	evalIn(t, w, button("slow")+`.click(), true`)
+	waitIn(t, w, button("slow")+`.hasAttribute("data-busy")`, "true")
+	before := logs.Len()
+	evalIn(t, w, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "slow"}), true`)
+	eventually(t, "the click on slow to be dropped", func() bool { return strings.Contains(logs.String()[before:], "still running") })
+	close(release)
+	waitIn(t, w, button("slow")+`.hasAttribute("data-busy")`, "false")
+
+	// The page can post only clicks, and only of its own Clicks.
+	before = logs.Len()
+	for _, message := range []string{
+		`{action: "click", id: "card-bar"}`, `{action: "menu", id: "card-bar"}`, `{action: "click", id: "off"}`,
+	} {
+		evalIn(t, w, `window.webkit.messageHandlers.ledge.postMessage(`+message+`), true`)
+	}
+	eventually(t, "the messages to be refused", func() bool {
+		return strings.Count(logs.String()[before:], "isn't in it") == 2 && strings.Contains(logs.String()[before:], `no action "menu"`)
+	})
+
+	// Replacing the block replaces its Clicks: slow is gone, and stop works.
+	if open, err := testBar.ShowReportBlock("buttons", "more", components.Buttons([]components.Button{
+		{ID: "stop", Title: "Stop", Click: record("stop")},
+	})); !open || err != nil {
+		t.Fatalf("ShowReportBlock = %v, %v", open, err)
+	}
+	waitIn(t, w, button("stop")+` !== null`, "true")
+	evalIn(t, w, button("stop")+`.click(), true`)
+	eventually(t, "stop", func() bool { return calls.has("stop") })
+	before = logs.Len()
+	evalIn(t, w, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "slow"}), true`)
+	eventually(t, "the click on slow to be dropped", func() bool { return strings.Contains(logs.String()[before:], "isn't in it") })
+	time.Sleep(200 * time.Millisecond)
+	if calls.count("slow") != 1 || calls.has("open bar") || calls.count("go") != 1 {
+		t.Errorf("the report's clicks called slow %d times, go %d, and the bar's %d; want 1, 1 and 0",
+			calls.count("slow"), calls.count("go"), calls.count("open bar"))
+	}
+	evalIn(t, w, `window.webkit.messageHandlers.frame.postMessage("close"), true`)
+	eventually(t, "the report window to close", func() bool { return !shim.WindowVisible(w) })
+}
+
 // Each theme loads in a report.
 func TestReportThemes(t *testing.T) {
 	gui(t)
@@ -147,7 +217,7 @@ func TestReportFrame(t *testing.T) {
 	// Closed, it's gone: showing its id again opens a new window. Its minimise button
 	// works without a title bar too, and showing it brings it back.
 	closed := w
-	eventually(t, "the closed window to be forgotten", func() bool { return testBar.reports.window("report") != closed })
+	eventually(t, "the closed window to be forgotten", func() bool { _, open := testBar.reports.open("report"); return !open })
 	w = showReport(t, "report", "Framed report", blocks)
 	if w == closed {
 		t.Errorf("showing a closed report's id again reused window %d", w)
@@ -185,6 +255,34 @@ func TestReportWindowPerID(t *testing.T) {
 	}
 	evalIn(t, b, `window.webkit.messageHandlers.frame.postMessage("close"), true`)
 	eventually(t, "card-b's window to close", func() bool { return !shim.WindowVisible(b) })
+}
+
+// A report's Clicks are its own: replacing a block replaces only that block's, and
+// closing it forgets them.
+func TestReportWindowClicks(t *testing.T) {
+	r := newReportWindows()
+	nothing := func() {}
+	w := r.show("a", &components.ReportClicks{
+		Clicks: map[string]components.Click{"top": nothing, "old": nothing},
+		Blocks: map[string][]string{"block": {"old"}},
+	})
+	other := r.show("b", &components.ReportClicks{})
+	r.replaceBlock(w, "block", &components.ReportClicks{
+		Clicks: map[string]components.Click{"new": nothing},
+		Blocks: map[string][]string{"block": {"new"}},
+	})
+	for id, want := range map[string]bool{"top": true, "old": false, "new": true} {
+		if got := r.click(w, id) != nil; got != want {
+			t.Errorf("a's %q is there: %v, want %v", id, got, want)
+		}
+	}
+	if r.click(other, "top") != nil {
+		t.Error("b has a's Click")
+	}
+	r.closed(w)
+	if r.click(w, "top") != nil {
+		t.Error("a closed still has its Clicks")
+	}
 }
 
 func TestNavigate(t *testing.T) {

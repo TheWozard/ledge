@@ -239,7 +239,8 @@ func showReport(t *testing.T, id, title string, blocks []templ.Component) int {
 	if err := testBar.ShowReport(id, title, blocks); err != nil {
 		t.Fatal(err)
 	}
-	return testBar.reports.window(id)
+	window, _ := testBar.reports.open(id)
+	return window
 }
 
 type syncBuffer struct {
