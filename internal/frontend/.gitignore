@@ -7,3 +7,6 @@
 
 # Themes set aside while the core features change; not built in.
 parked-themes/
+
+# Local working notes.
+notes.md

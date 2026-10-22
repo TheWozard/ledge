@@ -36,3 +36,8 @@ Run the narrowest tests that cover the change. Most changes need only `just test
 - The CSS lint is Biome (`biome.json`), and a warning fails it. Fix what it flags
   rather than turning a rule off; if a rule is wrong for this code, ask first.
   `just lint` runs it alone.
+
+## Committing
+
+Before every commit, amend or history rewrite, propose the commit message and ask
+for confirmation. Commit only once it's confirmed, with the message as agreed.
