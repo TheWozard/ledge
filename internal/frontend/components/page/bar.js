@@ -42,7 +42,8 @@ function leave(node) {
 }
 
 // A click on a card's ⋯ asks for its menu. A click on anything else with
-// data-click posts its id: the innermost, so the ×'s click isn't also its card's.
+// data-click posts its id: the innermost, so a click on the × or a part of the
+// card's body, such as a check, isn't also its card's.
 app.addEventListener("click", event => {
   const menu = event.target.closest("button[data-menu]");
   if (menu) {

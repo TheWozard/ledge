@@ -1,5 +1,7 @@
 package components
 
+import "fmt"
+
 // Click is what clicking something on the bar does. The bar calls it on a goroutine
 // of its own. A nil Click isn't clickable.
 //
@@ -23,6 +25,11 @@ func Clicks(cards []Card) map[string]Click {
 				clicks[q.clickID()] = q.Click
 			}
 		}
+		for _, p := range f.Parts {
+			if p.Click != nil {
+				clicks[f.PartClickID(p.ID)] = p.Click
+			}
+		}
 	}
 	return clicks
 }
@@ -34,3 +41,11 @@ func Clicks(cards []Card) map[string]Click {
 func (f Frame) clickID() string   { return f.ElementID() }
 func (f Frame) dismissID() string { return "dismiss-" + f.ID }
 func (q Action) clickID() string  { return "action-" + q.ID }
+
+// PartClickID is the id for the Click of the card's part partID, for its body to put
+// in data-click. It has its card's id's length in it, so no two cards' parts share
+// one: card "a-b"'s part "c" is "part-3-a-b-c", and card "a"'s part "b-c" is
+// "part-1-a-b-c".
+func (f Frame) PartClickID(partID string) string {
+	return fmt.Sprintf("part-%d-%s-%s", len(f.ID), f.ID, partID)
+}

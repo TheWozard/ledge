@@ -108,7 +108,8 @@ li.stat:has(.description) {
   --card-width: 200px;
 }
 /* Anything with a Click has the class clickable, and is clicked on its own: a
-   click on a card's × or ⋯ isn't also a click on the card. */
+   click on a card's × or ⋯, or on a part of its body with a Click of its own, such
+   as a check, isn't also a click on the card. */
 .clickable {
   cursor: pointer;
 }
@@ -167,8 +168,9 @@ li.stat:has(.description) {
 }
 /* A checks card's .check-list follows its title: each check its mark and name,
    wrapping onto as many lines as they need, and scrolling if they don't fit. Each
-   has its state in data-state: passed, failed, running, pending or skipped. (Not
-   .checks, which is the card's own kind.) */
+   has its state in data-state: passed, failed, running, pending or skipped, and is
+   .clickable if it has a Click of its own. (Not .checks, which is the card's own
+   kind.) */
 .check-list {
   display: flex;
   flex: 0 1 auto;

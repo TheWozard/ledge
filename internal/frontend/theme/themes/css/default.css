@@ -147,6 +147,12 @@ li.clickable:hover {
   color: var(--muted);
 }
 
+/* A check with a Click of its own underlines on hover, so it's plain which a click
+   will go to: it or its card. */
+.check.clickable:hover {
+  text-decoration: underline;
+}
+
 .message-head {
   gap: 6px;
   padding: 4px 0 0 8px;

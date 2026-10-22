@@ -3,32 +3,43 @@ package components
 // Checks is a Basic card that shows how a set of checks went, such as a CI run's
 // jobs: its title, then each check's mark and name, wrapping, then its description.
 // Its kind is "checks". Each check has its state in data-state, for a theme to colour
-// it. An action can do something about one, such as rerunning a failed job.
+// it. A check with a Click is clicked on its own, such as to open a failed job's log,
+// and an action can do something about one, such as rerunning it.
 type Checks struct {
 	Basic
 	Checks []Check
 }
 
-// Check is one of a Checks card's checks: a name and its state.
+// Check is one of a Checks card's checks: a name and its state, and what clicking it
+// does, if anything.
 type Check struct {
-	Name  string
+	// Name is the check's, shown on it, and the id of its part of the card: unique
+	// within its card if it has a Click.
+	Name string
 	// State is "passed", "failed", "running", "pending" or "skipped"; anything else
 	// is "pending".
 	State string
+	Click Click // clicking the check, and not its card; nil for a click on the card
 }
 
 // checkMarks is the mark shown before a check's name for each state.
 var checkMarks = map[string]string{"passed": "✓", "failed": "✗", "running": "●", "pending": "○", "skipped": "–"}
 
-// Frame is the frame of the checks card's Basic card, of the kind "checks".
+// Frame is the frame of the checks card's Basic card, of the kind "checks", with a
+// part for each check that has a Click.
 func (c Checks) Frame() Frame {
 	f := c.Basic.Frame()
 	f.Kind = "checks"
+	for _, check := range c.Checks {
+		if check.Click != nil {
+			f.Parts = append(f.Parts, Part{ID: check.Name, Click: check.Click})
+		}
+	}
 	return f
 }
 
 // Body is the card's title, its checks, and its description.
-func (c Checks) Body() templ.Component { return checksBody(c) }
+func (c Checks) Body() templ.Component { return checksBody(c, c.Basic.Frame()) }
 
 // checkState is state if it's a check's state, or "pending".
 func checkState(state string) string {
@@ -39,13 +50,23 @@ func checkState(state string) string {
 }
 
 // checksBody is a Checks card's body: its title, then its checks, each its mark and
-// name, with its name and state as its tooltip, then its description.
-templ checksBody(c Checks) {
+// name, with its name and state as its tooltip, then its description. A check with a
+// Click is clickable, with the id of its part of the card, f.
+templ checksBody(c Checks, f Frame) {
 	<span class="title">{ c.Title }</span>
 	if len(c.Checks) > 0 {
 		<div class="check-list">
 			for _, check := range c.Checks {
-				<span class="check" data-state={ checkState(check.State) } title={ check.Name + ": " + checkState(check.State) }><span class="check-mark">{ checkMarks[checkState(check.State)] }</span>{ check.Name }</span>
+				<span
+					if check.Click != nil {
+						class="check clickable"
+						data-click={ f.PartClickID(check.Name) }
+					} else {
+						class="check"
+					}
+					data-state={ checkState(check.State) }
+					title={ check.Name + ": " + checkState(check.State) }
+				><span class="check-mark">{ checkMarks[checkState(check.State)] }</span>{ check.Name }</span>
 			}
 		</div>
 	}

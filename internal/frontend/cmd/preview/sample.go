@@ -111,7 +111,7 @@ func newSample(now time.Time) *sample {
 		{Basic: components.Basic{ID: "ci", Title: "Lorem CI", Description: "On main, 465882e", Color: "#e0362c", Click: s.opens("ci"),
 			Actions: []components.Action{{ID: "rerun", Title: "Rerun test", Color: "yellow", Click: s.runs("rerun")}}},
 			Checks: []components.Check{
-				{Name: "build", State: "passed"}, {Name: "test", State: "failed"}, {Name: "lint", State: "running"},
+				{Name: "build", State: "passed"}, {Name: "test", State: "failed", Click: s.runs("open the test log")}, {Name: "lint", State: "running"},
 				{Name: "deploy", State: "pending"}, {Name: "docs", State: "skipped"},
 			}},
 	}

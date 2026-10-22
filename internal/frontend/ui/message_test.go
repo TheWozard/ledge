@@ -80,6 +80,31 @@ func TestClicks(t *testing.T) {
 	eventually(t, "the click to be dropped", func() bool { return strings.Contains(logs.String()[before:], "isn't on it") })
 }
 
+// A click on a part of a card, such as a check with a Click, calls the part's Click
+// and not its card's; a click on the rest of the card is still the card's.
+func TestPartClicks(t *testing.T) {
+	gui(t)
+	testBar.Render([]components.Card{components.Checks{
+		Basic: components.Basic{ID: "ci", Title: "CI", Click: record("open ci")},
+		Checks: []components.Check{
+			{Name: "build", State: "passed"},
+			{Name: "test", State: "failed", Click: record("open ci test")},
+		}}})
+	t.Cleanup(func() {
+		testBar.Render(nil)
+		waitFor(t, `document.querySelector("#cards > *") === null`, "true")
+	})
+	waitFor(t, `document.querySelectorAll(".check").length`, "2")
+	eval(t, `document.querySelector(".check.clickable .check-mark").click(), true`)
+	eventually(t, "open ci test", func() bool { return calls.has("open ci test") })
+	time.Sleep(200 * time.Millisecond)
+	if calls.has("open ci") {
+		t.Error("clicking a check with a Click also opened its card")
+	}
+	eval(t, `document.querySelector(".check:not(.clickable)").click(), true`)
+	eventually(t, "open ci", func() bool { return calls.has("open ci") })
+}
+
 // In a theme without a menu of its own, a right-click on a card with actions, or a
 // click on its ⋯, pops up the native menu of them, each with its colour, and greyed
 // out without a Click. Choosing one calls its Click, and not its card's; choosing

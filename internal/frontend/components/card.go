@@ -20,8 +20,9 @@ import (
 type Card interface {
 	Frame() Frame
 	// Body is what's in the card, above its actions. Like everything on the bar, it
-	// should show strings as text, which templ does unless told otherwise. It can't
-	// be clicked on its own: a click on it is a click on the card.
+	// should show strings as text, which templ does unless told otherwise. A click on
+	// it is a click on the card, but on one of the frame's Parts, which the body
+	// marks with data-click={ f.PartClickID(id) }, it's a click on that part alone.
 	Body() templ.Component
 }
 
@@ -43,6 +44,17 @@ type Frame struct {
 	// Progress is how far along the card is, from 0 to 1, such as a Progress's. It's
 	// set on the card as --progress, for a theme to fill it; 0 is none.
 	Progress float64
+	// Parts are what in the card's body can be clicked on its own, such as each of a
+	// Checks card's checks.
+	Parts []Part
+}
+
+// Part is something in a card's body that's clicked on its own, not as the card: its
+// ID is the app's, unique within its card, and the body marks it with its card's
+// PartClickID for it, and the class clickable.
+type Part struct {
+	ID    string
+	Click Click
 }
 
 // Cards is cards of one kind as Cards, to Render.

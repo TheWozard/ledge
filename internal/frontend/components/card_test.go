@@ -64,6 +64,36 @@ func TestClicks(t *testing.T) {
 	}
 }
 
+// A card's parts are in Clicks by their PartClickID, those with a Click, and no two
+// cards' parts share an id, whatever their ids have in them.
+func TestParts(t *testing.T) {
+	var got []string
+	click := func(name string) Click { return func() { got = append(got, name) } }
+	cards := []Card{
+		parts{id: "a-b", parts: []Part{{ID: "c", Click: click("a-b c")}, {ID: "none"}}},
+		parts{id: "a", parts: []Part{{ID: "b-c", Click: click("a b-c")}}},
+	}
+	clicks := Clicks(cards)
+	if len(clicks) != 2 {
+		t.Fatalf("Clicks = %v", clicks)
+	}
+	for _, id := range []string{"part-3-a-b-c", "part-1-a-b-c"} {
+		clicks[id]()
+	}
+	if strings.Join(got, ",") != "a-b c,a b-c" {
+		t.Errorf("the parts' Clicks called %v", got)
+	}
+}
+
+// parts is a kind of card for TestParts: nothing but its parts.
+type parts struct {
+	id    string
+	parts []Part
+}
+
+func (p parts) Frame() Frame          { return Frame{ID: p.id, Parts: p.parts} }
+func (p parts) Body() templ.Component { return templ.NopComponent }
+
 // progress is a kind of card for TestKinds: how far along something is.
 type progress struct {
 	id, kind string

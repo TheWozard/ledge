@@ -97,7 +97,8 @@ There are six built-in kinds:
   such as a CI run's jobs: its title, then each check's mark and name in a
   `.check-list`, wrapping, then its description. A check's `State` is `passed`,
   `failed`, `running`, `pending` or `skipped`, in its `data-state` for a theme to
-  colour it. An action can do something about one, such as rerunning a failed job.
+  colour it. A check with a `Click` is clicked on its own, such as to open a failed
+  job's log, and an action can do something about one, such as rerunning it.
 
 - `components.Message` (`message`): a `Basic` card for a message, such as a chat or an
   email: a line of its avatar, who it's `From` and when it was `Sent` (the time today,
@@ -111,10 +112,13 @@ Any kind can end: a frame with `Ends` and `Complete` has `Complete` called once 
 `components.Cards` turns a slice of one kind into `[]Card` for `Render`.
 
 Anything clickable has a `Click`, a `func()` the bar calls on its own goroutine: a card's
-`Click` for the card itself, its `Dismiss` for its × (shown only if set), and an
-action's `Click`. The bar gives each `Click` an id, made from the card's and action's
-ids, so the app never handles click ids itself; a click on something a later `Render`
-took off is dropped.
+`Click` for the card itself, its `Dismiss` for its × (shown only if set), an
+action's `Click`, and a part's. A card's `Parts` are what in its body is clicked on
+its own, not as the card, such as a check with a `Click`: a kind of card of the app's
+marks each in its body with `data-click={ f.PartClickID(id) }` and the class
+`clickable`. The bar gives each `Click` an id, made from the card's, action's and
+part's ids, so the app never handles click ids itself; a click on something a later
+`Render` took off is dropped.
 
 A card's actions are things to do about it without opening a report, in a menu:
 right-clicking the card, or clicking its ⋯ (shown only if it has some), pops it up
@@ -149,7 +153,8 @@ and can't add CSS.
 
 ### What the pages can do
 
-The bar page posts only `{action: "click", id}`, `{action: "menu", id}` for a card's
+The bar page posts only `{action: "click", id}` (for a card, its × or a part of it),
+`{action: "menu", id}` for a card's
 menu, and `{action: "ready"}` once loaded, checked strictly before it reaches a
 `Click`. It holds nothing but ids: it never names a url, path or command, so what a
 click does is only ever the app's `Click`. A card's menu is built from its actions in
