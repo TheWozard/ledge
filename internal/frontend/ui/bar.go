@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"maps"
 	"slices"
 	"strings"
 	"sync"
@@ -23,6 +24,7 @@ type Bar struct {
 	mu      sync.Mutex
 	cards   []components.Card
 	clicks  map[string]components.Click // the Clicks on cards, by the page's id for them
+	running map[string]string           // the Clicks running, by id, each with the id the page marks busy for it
 	shown   map[string]bool             // the element ids of the cards on the bar, to tell which are new
 	ready   bool                        // the page has loaded and can take updates
 	endings endings                     // the cards that end, and when each has completed
@@ -134,7 +136,53 @@ func (b *Bar) draw() {
 	}
 	// Marshalled, the html is a JS string; <, > and & are escaped in it.
 	js, _ := json.Marshal(html.String())
-	shim.Eval(BarWindow, "update("+string(js)+")")
+	// The busy marks go with it, in one go, so what's busy never shows otherwise.
+	shim.Eval(BarWindow, "update("+string(js)+"); "+b.busyJS())
+}
+
+// run calls click, the Click with id clickID, unless it's already running: then the
+// click is dropped. While it runs, the page marks busy what has the id busyID: what
+// was clicked, or the ⋯ of a card whose action was chosen.
+func (b *Bar) run(clickID, busyID string, click components.Click) {
+	b.mu.Lock()
+	if _, ok := b.running[clickID]; ok {
+		b.mu.Unlock()
+		log.Printf("ui: %q is still running, so the click on it is dropped", clickID)
+		return
+	}
+	if b.running == nil {
+		b.running = map[string]string{}
+	}
+	b.running[clickID] = busyID
+	b.markBusy()
+	b.mu.Unlock()
+	defer func() {
+		b.mu.Lock()
+		delete(b.running, clickID)
+		b.markBusy()
+		b.mu.Unlock()
+	}()
+	click()
+}
+
+// markBusy has the page mark busy what's running, once it's ready. Call it with the
+// bar's lock held.
+func (b *Bar) markBusy() {
+	if b.ready {
+		shim.Eval(BarWindow, b.busyJS())
+	}
+}
+
+// busyJS is the JS that has the page mark busy what's running, and nothing else.
+// Call it with the bar's lock held.
+func (b *Bar) busyJS() string {
+	ids := slices.Compact(slices.Sorted(maps.Values(b.running)))
+	if ids == nil {
+		ids = []string{} // [], not null
+	}
+	// Marshalled, the ids are a JS array of strings; <, > and & are escaped in them.
+	js, _ := json.Marshal(ids)
+	return "setBusy(" + string(js) + ")"
 }
 
 // arrivals is what's new among cards since the bar showed shown, the element ids of

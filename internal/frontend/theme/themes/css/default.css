@@ -211,6 +211,17 @@ li:has(.menu):has(.dismiss) .message-head {
   background: var(--line);
 }
 
+/* While a Click runs, what was clicked shows it: a card's stripe takes the accent,
+   and its ⋯ or ×, or a check, blinks. */
+li[data-busy] {
+  border-left-color: var(--accent);
+}
+
+.card-buttons button[data-busy],
+.check[data-busy] {
+  animation: blink 1.2s ease-in-out infinite;
+}
+
 .empty {
   color: var(--muted);
 }
@@ -245,6 +256,8 @@ li[data-leaving] {
 /* With reduced motion, nothing moves: what leaves just closes up. */
 @media (prefers-reduced-motion: reduce) {
   li[data-new],
+  .card-buttons button[data-busy],
+  .check[data-busy],
   .check[data-state="running"] .check-mark {
     animation: none;
   }

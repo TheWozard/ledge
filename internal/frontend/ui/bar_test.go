@@ -5,6 +5,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -56,6 +57,40 @@ func TestArrivals(t *testing.T) {
 		if got := slices.Sorted(maps.Keys(shown)); !slices.Equal(got, slices.Sorted(slices.Values(want))) {
 			t.Errorf("draw %d: shown = %v, want %v", i, got, want)
 		}
+	}
+}
+
+// A Click that's running isn't run again until it's done: a click on it meanwhile is
+// dropped. While it runs, what it marks busy is busy, each once, and nothing else.
+func TestRunOnce(t *testing.T) {
+	b := &Bar{} // not ready, so it marks nothing on a page
+	busy := func() string { b.mu.Lock(); defer b.mu.Unlock(); return b.busyJS() }
+	if got := busy(); got != "setBusy([])" {
+		t.Errorf("with nothing running, %s", got)
+	}
+	var runs atomic.Int32
+	started, release, done := make(chan bool), make(chan bool), make(chan bool)
+	slow := func() { runs.Add(1); started <- true; <-release }
+	go func() { b.run("card-a", "card-a", slow); done <- true }()
+	<-started
+	go func() { b.run("action-q", "menu-card-a", slow); done <- true }()
+	<-started
+	go func() { b.run("action-r", "menu-card-a", slow); done <- true }()
+	<-started
+	if got := busy(); got != `setBusy(["card-a","menu-card-a"])` {
+		t.Errorf("while three run, %s", got)
+	}
+	b.run("card-a", "card-a", func() { t.Error("a click on a running Click ran it again") })
+	close(release)
+	for range 3 {
+		<-done
+	}
+	if got := busy(); got != "setBusy([])" {
+		t.Errorf("once they're done, %s", got)
+	}
+	b.run("card-a", "card-a", func() { runs.Add(1) })
+	if runs.Load() != 4 {
+		t.Errorf("ran %d times, want 4", runs.Load())
 	}
 }
 

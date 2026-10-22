@@ -43,7 +43,8 @@ function leave(node) {
 
 // A click on a card's ⋯ asks for its menu. A click on anything else with
 // data-click posts its id: the innermost, so a click on the × or a part of the
-// card's body, such as a check, isn't also its card's.
+// card's body, such as a check, isn't also its card's. One on what's busy, its
+// Click still running from the last, posts nothing (and the app would drop it).
 app.addEventListener("click", event => {
   const menu = event.target.closest("button[data-menu]");
   if (menu) {
@@ -51,8 +52,20 @@ app.addEventListener("click", event => {
     return;
   }
   const target = event.target.closest("[data-click]");
-  if (target) send("click", target.dataset.click);
+  if (target && !target.hasAttribute("data-busy")) send("click", target.dataset.click);
 });
+
+// setBusy marks data-busy what has each of ids, and takes it off everything else:
+// something clicked, by its data-click, while its Click runs, and a card's ⋯, by
+// "menu-" and its data-menu, while one of the card's actions runs. The app calls it
+// whenever that changes, and with every update, as a morph takes data-busy off.
+function setBusy(ids) {
+  const busy = new Set(ids);
+  for (const node of app.querySelectorAll("[data-click], button[data-menu]")) {
+    const id = "click" in node.dataset ? node.dataset.click : "menu-" + node.dataset.menu;
+    node.toggleAttribute("data-busy", busy.has(id));
+  }
+}
 
 // A right-click on a card with actions asks for its menu, which the app shows.
 // WebKit's own menu never shows, anywhere on the page.

@@ -105,6 +105,66 @@ func TestPartClicks(t *testing.T) {
 	eventually(t, "open ci", func() bool { return calls.has("open ci") })
 }
 
+// While a Click runs, what was clicked is busy, through renders too, and a click on it
+// meanwhile is dropped; once it's done, it isn't, and it can be clicked again.
+func TestBusy(t *testing.T) {
+	gui(t)
+	release := make(chan bool)
+	t.Cleanup(func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	})
+	slow := func(name string) components.Click {
+		return func() { calls.add(name); <-release }
+	}
+	cards := []components.Basic{{ID: "busy", Title: "Busy", Click: slow("open busy")}}
+	show(t, cards)
+	waitFor(t, `document.querySelectorAll("li").length`, "1")
+	eval(t, `document.getElementById("card-busy").click(), true`)
+	waitFor(t, `document.getElementById("card-busy").hasAttribute("data-busy")`, "true")
+
+	// A render keeps it busy, and a click on it, even one posted past the page, is
+	// dropped.
+	testBar.Render(components.Cards(cards))
+	before := logs.Len()
+	eval(t, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "card-busy"}), true`)
+	eventually(t, "the click to be dropped", func() bool { return strings.Contains(logs.String()[before:], "still running") })
+	if got := eval(t, `document.getElementById("card-busy").hasAttribute("data-busy")`); got != "true" {
+		t.Error("a render took the card's busy mark off")
+	}
+	close(release)
+	waitFor(t, `document.getElementById("card-busy").hasAttribute("data-busy")`, "false")
+	if n := calls.count("open busy"); n != 1 {
+		t.Errorf("the card's Click ran %d times while it was busy, want 1", n)
+	}
+	eval(t, `document.getElementById("card-busy").click(), true`)
+	eventually(t, "a second open", func() bool { return calls.count("open busy") == 2 })
+}
+
+// While an action chosen from a card's menu runs, the card's ⋯ is busy, and the card
+// isn't.
+func TestBusyMenu(t *testing.T) {
+	gui(t)
+	withTheme(t, "native")
+	real := showMenu
+	showMenu = func([]shim.MenuItem) int { return 0 }
+	t.Cleanup(func() { showMenu = real })
+	release := make(chan bool)
+	t.Cleanup(func() { close(release) })
+	show(t, []components.Basic{{ID: "acts", Title: "Acts", Click: record("open acts"), Actions: []components.Action{
+		{ID: "slow", Title: "Slow", Click: func() { calls.add("run slow"); <-release }},
+	}}})
+	waitFor(t, `document.querySelectorAll("li").length`, "1")
+	eval(t, `document.querySelector("#card-acts .menu").click(), true`)
+	waitFor(t, `document.querySelector("#card-acts .menu").hasAttribute("data-busy")`, "true")
+	if got := eval(t, `document.getElementById("card-acts").hasAttribute("data-busy")`); got != "false" {
+		t.Error("an action running made its card busy")
+	}
+}
+
 // In a theme without a menu of its own, a right-click on a card with actions, or a
 // click on its ⋯, pops up the native menu of them, each with its colour, and greyed
 // out without a Click. Choosing one calls its Click, and not its card's; choosing
@@ -223,9 +283,16 @@ func TestMenus(t *testing.T) {
 	}
 	show(t, cards)
 	waitFor(t, `document.querySelectorAll("li").length`, "2")
-	// opens opens the card's menu with open, and waits for it to show.
+	// opens opens the card's menu with open, and waits for it to show. If it doesn't,
+	// it says what was logged meanwhile, such as why the menu wasn't shown.
 	opens := func(t *testing.T, open func()) {
 		t.Helper()
+		logged := logs.Len()
+		defer func() {
+			if t.Failed() {
+				t.Logf("logged while opening the menu:\n%s", logs.String()[logged:])
+			}
+		}()
 		open()
 		eventually(t, "the menu to show", func() bool { return shim.WindowVisible(MenuWindow) })
 		waitIn(t, MenuWindow, `document.querySelectorAll(".menu-item").length`, "2")

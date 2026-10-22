@@ -109,9 +109,15 @@ li.stat:has(.description) {
 }
 /* Anything with a Click has the class clickable, and is clicked on its own: a
    click on a card's × or ⋯, or on a part of its body with a Click of its own, such
-   as a check, isn't also a click on the card. */
+   as a check, isn't also a click on the card. While its Click runs, what was
+   clicked has data-busy, and clicking it again does nothing; while one of a card's
+   actions runs, its ⋯ has. A theme can show a card busy with any of its own with
+   li:has([data-busy]). */
 .clickable {
   cursor: pointer;
+}
+.clickable[data-busy] {
+  cursor: progress;
 }
 /* Title, then description. The title clamps; the description fills the space
    under it, and scrolls if it doesn't fit. Only the first line shares the top with

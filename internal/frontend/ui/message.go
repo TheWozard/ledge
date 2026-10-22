@@ -69,7 +69,7 @@ func (b *Bar) handle(data []byte) {
 			log.Printf("ui: the bar clicked %q, which isn't on it", m.ID)
 			return
 		}
-		click()
+		b.run(m.ID, m.ID, click)
 	case "menu":
 		b.menu(m.ID)
 	}
@@ -91,12 +91,17 @@ func (b *Bar) chooseFrom(items []components.MenuItem) int {
 	return showMenu(shown)
 }
 
+// menuBusyID is the id the page marks busy while an action of the card whose element
+// id is id runs: its ⋯. It's apart from every click id, so it's never the card's own.
+func menuBusyID(id string) string { return "menu-" + id }
+
 // showMenu pops up a native menu and returns the index of the item chosen, or -1:
 // the shim's, or a test's in its place.
 var showMenu = shim.ShowMenu
 
 // menu shows the menu of the card whose element id is id, as its theme draws it or
-// natively for a theme without one, and calls the Click of the action chosen from it. The card's actions are those it had when it was asked for;
+// natively for a theme without one, and calls the Click of the action chosen from it,
+// its ⋯ busy while it runs. The card's actions are those it had when it was asked for;
 // one a render has since taken off the bar is dropped, as a click on it would be.
 func (b *Bar) menu(id string) {
 	b.mu.Lock()
@@ -122,5 +127,5 @@ func (b *Bar) menu(id string) {
 		log.Printf("ui: %q was chosen from a menu, but isn't on the bar", items[chosen].ClickID)
 		return
 	}
-	click()
+	b.run(items[chosen].ClickID, menuBusyID(id), click)
 }
