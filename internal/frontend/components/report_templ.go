@@ -13,14 +13,16 @@ import templruntime "github.com/a-h/templ/runtime"
 // bottom, scrolling under the title bar. A block is any component; the ones in
 // blocks.templ are Heading, Paragraph, Fields, Table, List, Code, Note, Link and
 // Buttons, and any of them can be given an id with Block. Its layout is
-// page/report.css, and its script page/report.js, which takes replaceBlock(id, html),
-// with html rendered from a Block with that id, and replaces that block with it, and
-// setBusy(ids), which marks data-busy what's clicked with those ids.
+// page/report.css, and its script page/report.js, which posts {action: "ready"} once
+// loaded, and from then takes replaceBlock(id, html), with html rendered from a Block
+// with that id, and replaces that block with it, and setBusy(ids), which marks
+// data-busy what's clicked with those ids.
 //
-// The page posts to window.webkit.messageHandlers.ledge only {action: "click", id,
-// event} when something with data-click is clicked, with the main or middle button,
-// such as a Buttons' button: the id is one ClickID gave out as it was rendered,
-// and event how it was clicked, as on the bar. All it can ask of its window, through
+// Apart from ready, the page posts to window.webkit.messageHandlers.ledge only
+// {action: "click", id, event} when something with data-click is clicked, with the
+// main or middle button, such as a Buttons' button: the id is one ClickID gave out
+// as it was rendered, and event how it was clicked, as on the bar. All it can ask of
+// its window, through
 // its "frame" handler (see the shim), is: a mouse-down on the title bar starts a drag
 // (the second of a double-click zooms), and the title bar's buttons, when a theme
 // shows them, close, minimise and zoom it. A Link is a real <a>; clicking one asks
@@ -65,7 +67,7 @@ func ReportPage(themeCSS string, title string, blocks []templ.Component) templ.C
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 29, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 31, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {

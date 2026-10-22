@@ -93,7 +93,7 @@ func TestClicks(t *testing.T) {
 	before := logs.Len()
 	testBar.Render(components.Cards([]components.Basic{{ID: "card-still", Title: "Still"}}))
 	eval(t, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "card/card-open/click"}), true`)
-	eventually(t, "the click to be dropped", func() bool { return strings.Contains(logs.String()[before:], "isn't on it") })
+	eventually(t, "the click to be dropped", func() bool { return strings.Contains(logs.String()[before:], "isn't in it") })
 }
 
 // A Click is given how it was clicked: the modifier keys held, and whether with the

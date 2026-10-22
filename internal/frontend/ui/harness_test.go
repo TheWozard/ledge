@@ -230,7 +230,7 @@ func withTheme(t *testing.T, name string) {
 		var page bytes.Buffer
 		components.BarPage(th.Bar, testBar.options.Edge).Render(context.Background(), &page)
 		testBar.mu.Lock()
-		testBar.options.Theme, testBar.ready = th, false
+		testBar.options.Theme, testBar.bar.ready = th, false
 		testBar.mu.Unlock()
 		shim.LoadHTML(BarWindow, page.String())
 	}
@@ -259,8 +259,19 @@ func showReport(t *testing.T, id, title string, blocks []templ.Component) int {
 	if err := testBar.ShowReport(id, title, blocks); err != nil {
 		t.Fatal(err)
 	}
-	window, _ := testBar.reports.open(id)
+	window, _ := reportWindow(id)
 	return window
+}
+
+// reportWindow is id's report's window, if it's open.
+func reportWindow(id string) (int, bool) {
+	testBar.mu.Lock()
+	defer testBar.mu.Unlock()
+	p, ok := testBar.reports[id]
+	if !ok {
+		return 0, false
+	}
+	return p.window, true
 }
 
 type syncBuffer struct {

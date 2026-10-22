@@ -4,10 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"log"
+	"fmt"
 	"net/url"
 	"strings"
-	"sync"
 
 	"github.com/a-h/templ"
 
@@ -25,29 +24,38 @@ func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	b.mu.Lock()
 	t := b.options.Theme
 	b.mu.Unlock()
-	var page bytes.Buffer
+	var html bytes.Buffer
 	clicks := &components.Clicks{}
 	ctx := components.WithClicks(context.Background(), clicks)
-	if err := components.ReportPage(t.Report, title, blocks).Render(ctx, &page); err != nil {
+	if err := components.ReportPage(t.Report, title, blocks).Render(ctx, &html); err != nil {
 		return err
 	}
-	window := b.reports.show(id, clicks)
-	shim.CreateWindow(window, title, 900, 700)
-	shim.SetTitle(window, title)
-	shim.SetAppearance(window, t.Frame.Appearance)
-	shim.SetFrameless(window, t.Frame.Frameless)
-	shim.LoadHTML(window, page.String())
-	shim.ShowWindow(window)
+	b.mu.Lock()
+	p := b.report(id)
+	b.mu.Unlock()
+	// These wait for the main thread, which can be waiting for the lock to say a
+	// window closed, so they're called without it.
+	shim.CreateWindow(p.window, title, 900, 700)
+	shim.SetTitle(p.window, title)
+	shim.SetAppearance(p.window, t.Frame.Appearance)
+	shim.SetFrameless(p.window, t.Frame.Frameless)
+	// The page and its Clicks change together, so they always match.
+	b.mu.Lock()
+	p.load(html.String(), clicks)
+	b.mu.Unlock()
+	shim.ShowWindow(p.window)
 	return nil
 }
 
 // ShowReportBlock replaces the block given blockID with components.Block in id's
 // report by block, leaving the rest of the report, its scroll and where its window
 // is as they are. It reports whether id's report is open; if it is but has no such
-// block, nothing changes. Called just after ShowReport, before the new page has
-// loaded, the change can be lost.
+// block, nothing changes. Called just after ShowReport, the block is replaced once
+// the new page has loaded.
 func (b *Bar) ShowReportBlock(id, blockID string, block templ.Component) (bool, error) {
-	window, ok := b.reports.open(id)
+	b.mu.Lock()
+	_, ok := b.reports[id]
+	b.mu.Unlock()
 	if !ok {
 		return false, nil
 	}
@@ -57,105 +65,52 @@ func (b *Bar) ShowReportBlock(id, blockID string, block templ.Component) (bool, 
 	if err := components.Block(blockID, block).Render(ctx, &html); err != nil {
 		return true, err
 	}
-	b.reports.replaceBlock(window, clicks)
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	p, ok := b.reports[id]
+	if !ok {
+		return false, nil // closed meanwhile
+	}
+	p.clicks.Replace(clicks)
 	// Marshalled, the id and html are JS strings; <, > and & are escaped in them.
 	idJS, _ := json.Marshal(blockID)
 	htmlJS, _ := json.Marshal(html.String())
 	// The busy marks go with it, as the block's new elements haven't any.
-	b.mu.Lock()
-	shim.Eval(window, "replaceBlock("+string(idJS)+", "+string(htmlJS)+"); "+b.busyJS(window))
-	b.mu.Unlock()
+	p.eval("replaceBlock(" + string(idJS) + ", " + string(htmlJS) + "); " + p.busyJS())
 	return true, nil
 }
 
 // reportMessages is what a report's page can post, each action with whether it takes
-// an id: only "click", with the id of a Click in it.
-var reportMessages = map[string]bool{"click": true}
+// an id: "ready", once the page has loaded, and "click", with the id of a Click in it.
+var reportMessages = map[string]bool{"ready": false, "click": true}
 
-// handleReport carries out one message from the page in report window window: a click
-// calls the Click with that id in it, if it has one.
-func (b *Bar) handleReport(window int, data []byte) {
-	m, err := readMessage(data, reportMessages)
-	if err != nil {
-		log.Printf("ui: report window %d sent %s: %v", window, data, err)
+// report is id's report's page, given a new window if it hasn't one open. Each
+// report has its own window, its id never reused. Call it with the bar's lock held.
+func (b *Bar) report(id string) *page {
+	if p, ok := b.reports[id]; ok {
+		return p
+	}
+	b.last++
+	p := newPage(b.last, fmt.Sprintf("report window %d", b.last), reportMessages)
+	b.reports[id], b.pages[p.window] = p, p
+	return p
+}
+
+// closed forgets a report window that's been closed, so its id opens a new one. The
+// shim calls it on the main thread.
+func (b *Bar) closed(window int) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	p := b.pages[window]
+	if p == nil || p == b.bar {
 		return
 	}
-	click := b.reports.click(window, m.ID)
-	if click == nil {
-		log.Printf("ui: report window %d clicked %q, which isn't in it", window, m.ID)
-		return
-	}
-	b.run(window, m.ID, m.ID, click, m.clickEvent())
-}
-
-// reportWindows is the window of each report that's open, by the id it was shown
-// with, and the Clicks in each. Each report has its own window, its id never reused.
-type reportWindows struct {
-	mu     sync.Mutex
-	byID   map[string]int
-	clicks map[int]*components.Clicks // by window
-	last   int                              // the last window id given out
-}
-
-// newReportWindows is no report windows yet; the first will take the id after the
-// menu's.
-func newReportWindows() *reportWindows {
-	return &reportWindows{byID: map[string]int{}, clicks: map[int]*components.Clicks{}, last: MenuWindow}
-}
-
-// show is id's report window, given a new one if it hasn't got one open, now with
-// clicks, the Clicks in what it shows, in place of any it had.
-func (r *reportWindows) show(id string, clicks *components.Clicks) int {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	window, ok := r.byID[id]
-	if !ok {
-		r.last++
-		window = r.last
-		r.byID[id] = window
-	}
-	r.clicks[window] = clicks
-	return window
-}
-
-// replaceBlock gives window's report clicks, the Clicks in a block, in place of those
-// the block had.
-func (r *reportWindows) replaceBlock(window int, clicks *components.Clicks) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if all := r.clicks[window]; all != nil {
-		all.Replace(clicks)
-	}
-}
-
-// click is the Click with id in window's report, or nil.
-func (r *reportWindows) click(window int, id string) components.Click {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if all := r.clicks[window]; all != nil {
-		return all.Click(id)
-	}
-	return nil
-}
-
-// open is id's report window, if it has one open.
-func (r *reportWindows) open(id string) (int, bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	window, ok := r.byID[id]
-	return window, ok
-}
-
-// closed forgets a report window that's been closed, so its id opens a new one.
-func (r *reportWindows) closed(window int) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for id, w := range r.byID {
-		if w == window {
-			delete(r.byID, id)
+	delete(b.pages, window)
+	for id, q := range b.reports {
+		if q == p {
+			delete(b.reports, id)
 		}
 	}
-	delete(r.clicks, window)
 }
 
 // navigate says whether a window may go to target. Every window only ever shows the

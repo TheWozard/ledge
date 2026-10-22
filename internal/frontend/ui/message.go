@@ -79,34 +79,6 @@ func readMessage(data []byte, actions map[string]bool) (message, error) {
 	return m, nil
 }
 
-// handle carries out one message from the page.
-func (b *Bar) handle(data []byte) {
-	m, err := readMessage(data, barMessages)
-	if err != nil {
-		log.Printf("ui: the bar sent %s: %v", data, err)
-		return
-	}
-	switch m.Action {
-	case "ready":
-		b.mu.Lock()
-		b.ready = true
-		b.shown = map[string]bool{} // a fresh page shows every card arriving
-		b.mu.Unlock()
-		b.draw()
-	case "click":
-		b.mu.Lock()
-		click := b.clicks.Click(m.ID)
-		b.mu.Unlock()
-		if click == nil {
-			log.Printf("ui: the bar clicked %q, which isn't on it", m.ID)
-			return
-		}
-		b.run(BarWindow, m.ID, m.ID, click, m.clickEvent())
-	case "menu":
-		b.menu(m.ID)
-	}
-}
-
 // chooseFrom pops up a menu of items, in the theme's menu if it has one, or the
 // native one, and returns what was chosen: the index of an item, or -1 for none, and
 // the keys held as it was.
@@ -169,6 +141,6 @@ func (b *Bar) menu(id string) {
 		return
 	}
 	m := choice.Modifiers
-	b.run(BarWindow, item, menuBusyID(id), click,
+	b.run(b.bar, item, menuBusyID(id), click,
 		components.ClickEvent{Alt: m.Alt, Cmd: m.Cmd, Shift: m.Shift, Ctrl: m.Ctrl})
 }

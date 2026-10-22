@@ -53,10 +53,13 @@ article.addEventListener("auxclick", event => {
 
 // setBusy marks data-busy what has each of ids in its data-click, while its Click
 // runs, and takes it off everything else. The app calls it whenever that changes,
-// and after replacing a block.
+// once the page is ready, and after replacing a block.
 function setBusy(ids) {
   const busy = new Set(ids);
   for (const node of document.querySelectorAll("article [data-click]")) {
     node.toggleAttribute("data-busy", busy.has(node.dataset.click));
   }
 }
+
+// Once loaded, the page can take replaceBlock and setBusy; until then the app waits.
+window.webkit.messageHandlers.ledge.postMessage({ action: "ready" });

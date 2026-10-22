@@ -1,9 +1,7 @@
 package ui
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"strings"
 	"testing"
 	"time"
@@ -102,6 +100,41 @@ func TestReportBlock(t *testing.T) {
 	if open, _ := testBar.ShowReportBlock("not-open", "status", components.Paragraph("Lost")); open {
 		t.Error("ShowReportBlock found a report that isn't open")
 	}
+}
+
+// What's done to a report before its page has loaded waits for it: a block replaced
+// just after ShowReport is replaced, and a report shown again while one of its
+// buttons runs has it busy.
+func TestReportBeforeLoad(t *testing.T) {
+	gui(t)
+	release := make(chan bool)
+	t.Cleanup(func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	})
+	blocks := []templ.Component{
+		components.Block("status", components.Note("Running", "blue")),
+		components.Buttons([]components.Button{{ID: "slow", Title: "Slow", Click: func(components.ClickEvent) { calls.add("early slow"); <-release }}}),
+	}
+	w := showReport(t, "early", "Early", blocks)
+	if open, err := testBar.ShowReportBlock("early", "status", components.Paragraph("Done")); err != nil || !open {
+		t.Fatalf("ShowReportBlock = %v, %v", open, err)
+	}
+	waitIn(t, w, `document.querySelector("[data-block=status]")?.textContent`, `"Done"`)
+
+	slow := `document.querySelector('[data-click="slow"]')`
+	evalIn(t, w, slow+`.click(), true`)
+	waitIn(t, w, slow+`.hasAttribute("data-busy")`, "true")
+	showReport(t, "early", "Early", blocks)
+	waitIn(t, w, `document.querySelector("[data-block=status]")?.tagName`, `"DIV"`)
+	waitIn(t, w, slow+`.hasAttribute("data-busy")`, "true")
+	close(release)
+	waitIn(t, w, slow+`.hasAttribute("data-busy")`, "false")
+	evalIn(t, w, `window.webkit.messageHandlers.frame.postMessage("close"), true`)
+	eventually(t, "the report window to close", func() bool { return !shim.WindowVisible(w) })
 }
 
 // A report's buttons call their Clicks, busy while they run, and nothing else: not a
@@ -225,7 +258,7 @@ func TestReportFrame(t *testing.T) {
 	// Closed, it's gone: showing its id again opens a new window. Its minimise button
 	// works without a title bar too, and showing it brings it back.
 	closed := w
-	eventually(t, "the closed window to be forgotten", func() bool { _, open := testBar.reports.open("report"); return !open })
+	eventually(t, "the closed window to be forgotten", func() bool { _, open := reportWindow("report"); return !open })
 	w = showReport(t, "report", "Framed report", blocks)
 	if w == closed {
 		t.Errorf("showing a closed report's id again reused window %d", w)
@@ -265,42 +298,23 @@ func TestReportWindowPerID(t *testing.T) {
 	eventually(t, "card-b's window to close", func() bool { return !shim.WindowVisible(b) })
 }
 
-// A report's Clicks are its own: replacing a block replaces only that block's, and
-// closing it forgets them.
-func TestReportWindowClicks(t *testing.T) {
-	r := newReportWindows()
-	nothing := func(components.ClickEvent) {}
-	buttons := func(id string) templ.Component {
-		return components.Buttons([]components.Button{{ID: id, Title: id, Click: nothing}})
+// Each report has a page of its own, in a window after the menu's, kept for its id
+// until its window closes; then the id gets a new one, and the closed window's page
+// is gone. The bar's page is never closed.
+func TestReportPages(t *testing.T) {
+	b := newBar(Options{})
+	a, other := b.report("a"), b.report("b")
+	if a.window <= MenuWindow || other.window == a.window || b.report("a") != a {
+		t.Fatalf("a is in window %d, b in %d, and a again in %d", a.window, other.window, b.report("a").window)
 	}
-	w := r.show("a", clicksOf(t, buttons("top"), components.Block("block", buttons("old"))))
-	other := r.show("b", &components.Clicks{})
-	r.replaceBlock(w, clicksOf(t, components.Block("block", buttons("new"))))
-	for id, want := range map[string]bool{"top": true, "block/block/old": false, "block/block/new": true} {
-		if got := r.click(w, id) != nil; got != want {
-			t.Errorf("a's %q is there: %v, want %v", id, got, want)
-		}
+	b.closed(a.window)
+	b.closed(BarWindow)
+	if b.pages[a.window] != nil || b.pages[BarWindow] != b.bar || b.report("b") != other {
+		t.Error("closing a window forgot the wrong pages")
 	}
-	if r.click(other, "top") != nil {
-		t.Error("b has a's Click")
+	if again := b.report("a"); again == a || again.window <= other.window {
+		t.Errorf("a, shown again once closed, is in window %d, after %d", again.window, other.window)
 	}
-	r.closed(w)
-	if r.click(w, "top") != nil {
-		t.Error("a closed still has its Clicks")
-	}
-}
-
-// clicksOf is the Clicks in blocks.
-func clicksOf(t *testing.T, blocks ...templ.Component) *components.Clicks {
-	t.Helper()
-	clicks := &components.Clicks{}
-	ctx := components.WithClicks(context.Background(), clicks)
-	for _, block := range blocks {
-		if err := block.Render(ctx, io.Discard); err != nil {
-			t.Fatal(err)
-		}
-	}
-	return clicks
 }
 
 func TestNavigate(t *testing.T) {

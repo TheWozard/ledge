@@ -63,24 +63,25 @@ func TestArrivals(t *testing.T) {
 // A Click that's running isn't run again until it's done: a click on it meanwhile is
 // dropped. While it runs, what it marks busy is busy, each once, and nothing else.
 func TestRunOnce(t *testing.T) {
-	b := &Bar{} // not ready, so it marks nothing on a page
-	busy := func() string { b.mu.Lock(); defer b.mu.Unlock(); return b.busyJS(BarWindow) }
+	b := newBar(Options{})
+	p := b.bar // not ready, so it marks nothing on a page
+	busy := func() string { b.mu.Lock(); defer b.mu.Unlock(); return p.busyJS() }
 	if got := busy(); got != "setBusy([])" {
 		t.Errorf("with nothing running, %s", got)
 	}
 	var runs atomic.Int32
 	started, release, done := make(chan bool), make(chan bool), make(chan bool)
 	slow := func(components.ClickEvent) { runs.Add(1); started <- true; <-release }
-	go func() { b.run(BarWindow, "card/a/click", "card/a/click", slow, components.ClickEvent{}); done <- true }()
+	go func() { b.run(p, "card/a/click", "card/a/click", slow, components.ClickEvent{}); done <- true }()
 	<-started
-	go func() { b.run(BarWindow, "action/a/q", "menu-card-a", slow, components.ClickEvent{}); done <- true }()
+	go func() { b.run(p, "action/a/q", "menu-card-a", slow, components.ClickEvent{}); done <- true }()
 	<-started
-	go func() { b.run(BarWindow, "action/a/r", "menu-card-a", slow, components.ClickEvent{}); done <- true }()
+	go func() { b.run(p, "action/a/r", "menu-card-a", slow, components.ClickEvent{}); done <- true }()
 	<-started
 	if got := busy(); got != `setBusy(["card/a/click","menu-card-a"])` {
 		t.Errorf("while three run, %s", got)
 	}
-	b.run(BarWindow, "card/a/click", "card/a/click", func(components.ClickEvent) { t.Error("a click on a running Click ran it again") }, components.ClickEvent{})
+	b.run(p, "card/a/click", "card/a/click", func(components.ClickEvent) { t.Error("a click on a running Click ran it again") }, components.ClickEvent{})
 	close(release)
 	for range 3 {
 		<-done
@@ -88,7 +89,7 @@ func TestRunOnce(t *testing.T) {
 	if got := busy(); got != "setBusy([])" {
 		t.Errorf("once they're done, %s", got)
 	}
-	b.run(BarWindow, "card/a/click", "card/a/click", func(e components.ClickEvent) {
+	b.run(p, "card/a/click", "card/a/click", func(e components.ClickEvent) {
 		if e.Alt {
 			runs.Add(1)
 		}

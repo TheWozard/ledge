@@ -22,14 +22,14 @@ type Bar struct {
 
 	mu      sync.Mutex
 	cards   []components.Card
-	clicks  *components.Clicks          // the Clicks on the cards as last drawn
-	running map[running]string          // the Clicks running, each with the id its page marks busy for it
-	shown   map[string]bool             // the element ids of the cards on the bar, to tell which are new
-	ready   bool                        // the page has loaded and can take updates
-	endings endings                     // the cards that end, and when each has completed
+	shown   map[string]bool // the element ids of the cards on the bar, to tell which are new
+	endings endings         // the cards that end, and when each has completed
+	bar     *page
+	pages   map[int]*page    // the bar's and each open report's, by window
+	reports map[string]*page // each open report's, by the id it was shown with
+	last    int              // the last window id given out
 
-	reports *reportWindows
-	popup   popup // the theme's menu that's open, if any
+	popup popup // the theme's menu that's open, if any
 }
 
 // opened is whether Open has made the bar: there's one, and the shim's handlers are its.
@@ -41,26 +41,23 @@ func Open(options Options) (*Bar, error) {
 	if !opened.CompareAndSwap(false, true) {
 		return nil, errors.New("ui: the bar is already open")
 	}
-	page, err := barPage(&options)
+	html, err := barPage(&options)
 	if err != nil {
 		opened.Store(false)
 		return nil, err
 	}
-	b := &Bar{options: options, clicks: &components.Clicks{}, shown: map[string]bool{}, reports: newReportWindows()}
+	b := newBar(options)
 	shim.CreateBar(BarWindow)
 	shim.SetLevel(BarWindow, options.Level)
 	b.Place()
 	shim.OnScreensChanged(func() { b.Place() })
 	shim.OnNavigate(b.navigate)
-	shim.OnWindowClosed(b.reports.closed)
+	shim.OnWindowClosed(b.closed)
 	shim.OnMessage(func(window int, message []byte) {
-		switch window {
-		case BarWindow:
-			go b.handle(message)
-		case MenuWindow:
+		if window == MenuWindow {
 			go b.handleMenuPage(message)
-		default:
-			go b.handleReport(window, message)
+		} else {
+			go b.received(window, message)
 		}
 	})
 	shim.OnPopupDismissed(func(window int) {
@@ -68,8 +65,18 @@ func Open(options Options) (*Bar, error) {
 			b.popup.finish(noChoice)
 		}
 	})
-	shim.LoadHTML(BarWindow, page)
+	b.mu.Lock()
+	b.bar.load(html, &components.Clicks{})
+	b.mu.Unlock()
 	return b, nil
+}
+
+// newBar is a bar with options and no cards, and no reports yet: the first will take
+// the window id after the menu's.
+func newBar(options Options) *Bar {
+	bar := newPage(BarWindow, "the bar", barMessages)
+	return &Bar{options: options, shown: map[string]bool{}, bar: bar,
+		pages: map[int]*page{BarWindow: bar}, reports: map[string]*page{}, last: MenuWindow}
 }
 
 // barPage is the bar's page for options, giving them the default theme if they have
@@ -95,9 +102,9 @@ func barPage(options *Options) (string, error) {
 // any goroutine.
 func (b *Bar) Render(cards []components.Card) {
 	b.mu.Lock()
+	defer b.mu.Unlock()
 	b.cards = slices.Clone(cards)
 	b.endings.schedule(b.cards, b.complete)
-	b.mu.Unlock()
 	b.draw()
 }
 
@@ -106,25 +113,22 @@ func (b *Bar) Render(cards []components.Card) {
 // It reports whether there was one; if not, nothing changes. Safe from any goroutine.
 func (b *Bar) RenderCard(card components.Card) bool {
 	b.mu.Lock()
+	defer b.mu.Unlock()
 	id := card.Frame().ID
 	i := slices.IndexFunc(b.cards, func(c components.Card) bool { return c.Frame().ID == id })
 	if i < 0 {
-		b.mu.Unlock()
 		return false
 	}
 	b.cards[i] = card
 	b.endings.schedule(b.cards, b.complete)
-	b.mu.Unlock()
 	b.draw()
 	return true
 }
 
 // draw renders what the bar has into its page, once the page is ready, and from then
-// its clicks call the Clicks it was drawn with.
+// its clicks call the Clicks it was drawn with. Call it with the bar's lock held.
 func (b *Bar) draw() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if !b.ready {
+	if !b.bar.ready {
 		return
 	}
 	var fresh map[string]int
@@ -136,72 +140,11 @@ func (b *Bar) draw() {
 		log.Printf("ui: rendering the bar: %v", err)
 		return
 	}
-	b.clicks = clicks
+	b.bar.clicks = clicks
 	// Marshalled, the html is a JS string; <, > and & are escaped in it.
 	js, _ := json.Marshal(html.String())
 	// The busy marks go with it, in one go, so what's busy never shows otherwise.
-	shim.Eval(BarWindow, "update("+string(js)+"); "+b.busyJS(BarWindow))
-}
-
-// running is a Click that's running: the window it was clicked in, and its id there.
-type running struct {
-	window  int
-	clickID string
-}
-
-// run calls click, the Click with id clickID in window, the bar or a report, with
-// how it was clicked, unless it's already running: then the click is dropped. While
-// it runs, the window's page marks busy what has the id busyID: what was clicked, or
-// the ⋯ of a card whose action was chosen.
-func (b *Bar) run(window int, clickID, busyID string, click components.Click, event components.ClickEvent) {
-	key := running{window, clickID}
-	b.mu.Lock()
-	if _, ok := b.running[key]; ok {
-		b.mu.Unlock()
-		log.Printf("ui: %q is still running, so the click on it is dropped", clickID)
-		return
-	}
-	if b.running == nil {
-		b.running = map[running]string{}
-	}
-	b.running[key] = busyID
-	b.markBusy(window)
-	b.mu.Unlock()
-	defer func() {
-		b.mu.Lock()
-		delete(b.running, key)
-		b.markBusy(window)
-		b.mu.Unlock()
-	}()
-	click(event)
-}
-
-// markBusy has window's page mark busy what's running in it: the bar's once it's
-// ready, and a report's whenever, as a page that isn't there ignores it. Call it with
-// the bar's lock held.
-func (b *Bar) markBusy(window int) {
-	if window != BarWindow || b.ready {
-		shim.Eval(window, b.busyJS(window))
-	}
-}
-
-// busyJS is the JS that has window's page mark busy what's running in it, and
-// nothing else. Call it with the bar's lock held.
-func (b *Bar) busyJS(window int) string {
-	var ids []string
-	for key, id := range b.running {
-		if key.window == window {
-			ids = append(ids, id)
-		}
-	}
-	slices.Sort(ids)
-	ids = slices.Compact(ids)
-	if ids == nil {
-		ids = []string{} // [], not null
-	}
-	// Marshalled, the ids are a JS array of strings; <, > and & are escaped in them.
-	js, _ := json.Marshal(ids)
-	return "setBusy(" + string(js) + ")"
+	b.bar.eval("update(" + string(js) + "); " + b.bar.busyJS())
 }
 
 // arrivals is what's new among cards since the bar showed shown, the element ids of
