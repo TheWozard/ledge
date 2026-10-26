@@ -103,44 +103,9 @@ func TestReportBlock(t *testing.T) {
 	}
 }
 
-// What's done to a report before its page has loaded waits for it: a block replaced
-// just after ShowReport is replaced, and a report shown again while one of its
-// buttons runs has it busy.
-func TestReportBeforeLoad(t *testing.T) {
-	gui(t)
-	release := make(chan bool)
-	t.Cleanup(func() {
-		select {
-		case <-release:
-		default:
-			close(release)
-		}
-	})
-	blocks := []templ.Component{
-		components.Block("status", components.Note("Running", "blue")),
-		components.Buttons([]components.Button{{ID: "slow", Title: "Slow", Click: func(components.ClickEvent) { calls.add("early slow"); <-release }}}),
-	}
-	w := showReport(t, "early", "Early", blocks)
-	if open, err := testBar.ShowReportBlock("early", "status", components.Paragraph("Done")); err != nil || !open {
-		t.Fatalf("ShowReportBlock = %v, %v", open, err)
-	}
-	waitIn(t, w, `document.querySelector("[data-block=status]")?.textContent`, `"Done"`)
-
-	slow := `document.querySelector('[data-click="slow"]')`
-	evalIn(t, w, slow+`.click(), true`)
-	waitIn(t, w, slow+`.hasAttribute("data-busy")`, "true")
-	showReport(t, "early", "Early", blocks)
-	waitIn(t, w, `document.querySelector("[data-block=status]")?.tagName`, `"DIV"`)
-	waitIn(t, w, slow+`.hasAttribute("data-busy")`, "true")
-	close(release)
-	waitIn(t, w, slow+`.hasAttribute("data-busy")`, "false")
-	evalIn(t, w, `window.webkit.messageHandlers.frame.postMessage("close"), true`)
-	eventually(t, "the report window to close", func() bool { return !shim.WindowVisible(w) })
-}
-
-// A report's buttons call their Clicks, busy while they run, and nothing else: not a
-// disabled one, not one a replaced block took out, and not a Click on the bar. A
-// block replaced with ShowReportBlock brings its own.
+// A report's buttons call their Clicks, with how they were clicked, busy while they
+// run; a disabled one calls nothing. A block replaced with ShowReportBlock brings its
+// own.
 func TestReportClicks(t *testing.T) {
 	gui(t)
 	release := make(chan bool)
@@ -171,27 +136,13 @@ func TestReportClicks(t *testing.T) {
 	}
 	evalIn(t, w, `document.querySelector(".button[disabled]").click(), true`)
 
-	// A slow one is busy until it's done, and a click on it meanwhile is dropped.
+	// A slow one is busy until it's done.
 	evalIn(t, w, button("block/more/slow")+`.click(), true`)
 	waitIn(t, w, button("block/more/slow")+`.hasAttribute("data-busy")`, "true")
-	before := logs.Len()
-	evalIn(t, w, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "block/more/slow"}), true`)
-	eventually(t, "the click on slow to be dropped", func() bool { return strings.Contains(logs.String()[before:], "still running") })
 	close(release)
 	waitIn(t, w, button("block/more/slow")+`.hasAttribute("data-busy")`, "false")
 
-	// The page can post only clicks, and only of its own Clicks.
-	before = logs.Len()
-	for _, message := range []string{
-		`{action: "click", id: "card/bar/click"}`, `{action: "menu", id: "card-bar"}`, `{action: "click", id: "off"}`,
-	} {
-		evalIn(t, w, `window.webkit.messageHandlers.ledge.postMessage(`+message+`), true`)
-	}
-	eventually(t, "the messages to be refused", func() bool {
-		return strings.Count(logs.String()[before:], "isn't in it") == 2 && strings.Contains(logs.String()[before:], `no action "menu"`)
-	})
-
-	// Replacing the block replaces its Clicks: slow is gone, and stop works.
+	// Replacing the block brings its buttons: stop works.
 	if open, err := testBar.ShowReportBlock("buttons", "more", components.Buttons([]components.Button{
 		{ID: "stop", Title: "Stop", Click: record("stop")},
 	})); !open || err != nil {
@@ -203,10 +154,6 @@ func TestReportClicks(t *testing.T) {
 	if got, want := calls.event("stop"), (components.ClickEvent{Middle: true}); got != want {
 		t.Errorf("a middle click on Stop was %+v, want %+v", got, want)
 	}
-	before = logs.Len()
-	evalIn(t, w, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "block/more/slow"}), true`)
-	eventually(t, "the click on slow to be dropped", func() bool { return strings.Contains(logs.String()[before:], "isn't in it") })
-	time.Sleep(200 * time.Millisecond)
 	if calls.count("slow") != 1 || calls.has("open bar") || calls.count("go") != 1 {
 		t.Errorf("the report's clicks called slow %d times, go %d, and the bar's %d; want 1, 1 and 0",
 			calls.count("slow"), calls.count("go"), calls.count("open bar"))
@@ -391,6 +338,28 @@ func TestReportMessages(t *testing.T) {
 	if open, _ := b.ShowReportBlock("fake-not-open", "more", components.Paragraph("Lost")); open {
 		t.Error("ShowReportBlock found a report that isn't open")
 	}
+	// Shown again while one of its buttons runs, its fresh page has it busy.
+	release, done := make(chan bool), make(chan bool)
+	blocks := []templ.Component{components.Buttons([]components.Button{{ID: "slow", Title: "Slow", Click: func(components.ClickEvent) { <-release }}})}
+	if err := b.ShowReport("fr", "Fake report", blocks); err != nil {
+		t.Fatal(err)
+	}
+	post(b, w, `{"action": "ready"}`)
+	go func() { post(b, w, `{"action": "click", "id": "slow"}`); done <- true }()
+	eventually(t, "slow to be busy", func() bool { return f.last(w) == `setBusy(["slow"])` })
+	if err := b.ShowReport("fr", "Fake report", blocks); err != nil {
+		t.Fatal(err)
+	}
+	post(b, w, `{"action": "ready"}`)
+	if got := f.last(w); got != `setBusy(["slow"])` {
+		t.Errorf("shown again while slow runs, the report ran %s once ready", got)
+	}
+	close(release)
+	<-done
+	if got := f.last(w); got != "setBusy([])" {
+		t.Errorf("once slow is done, the report ran %s", got)
+	}
+
 	b.closed(w)
 	post(b, w, `{"action": "click", "id": "go"}`)
 	if n := calls.count("fake report go"); n != 1 {

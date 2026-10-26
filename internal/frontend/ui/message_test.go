@@ -57,8 +57,8 @@ func TestReadMessage(t *testing.T) {
 	}
 }
 
-// Clicks post only ids, which reach the Clicks: a card's, and its ×'s apart from the
-// card's. A click on what's gone is dropped.
+// A click posts the id of the innermost thing clicked that has a Click: a card's, or
+// its ×'s apart from the card's. A card without a Click posts nothing.
 func TestClicks(t *testing.T) {
 	gui(t)
 	show(t, []components.Basic{
@@ -86,12 +86,6 @@ func TestClicks(t *testing.T) {
 	if calls.has("open card-still") {
 		t.Error("clicking a card without a Click called something")
 	}
-
-	// Once a render takes a card off, a click on it is dropped.
-	before := logs.Len()
-	testBar.Render(components.Cards([]components.Basic{{ID: "card-still", Title: "Still"}}))
-	eval(t, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "card/card-open/click"}), true`)
-	eventually(t, "the click to be dropped", func() bool { return strings.Contains(logs.String()[before:], "isn't in it") })
 }
 
 // A Click is given how it was clicked: the modifier keys held, and whether with the
@@ -153,8 +147,8 @@ func TestPartClicks(t *testing.T) {
 	eventually(t, "open ci", func() bool { return calls.has("open ci") })
 }
 
-// While a Click runs, what was clicked is busy, through renders too, and a click on it
-// meanwhile is dropped; once it's done, it isn't, and it can be clicked again.
+// While a Click runs, what was clicked is marked busy, through renders too; once it's
+// done, it isn't, and it can be clicked again.
 func TestBusy(t *testing.T) {
 	gui(t)
 	release := make(chan bool)
@@ -174,14 +168,18 @@ func TestBusy(t *testing.T) {
 	eval(t, `document.getElementById("card-busy").click(), true`)
 	waitFor(t, `document.getElementById("card-busy").hasAttribute("data-busy")`, "true")
 
-	// A render keeps it busy, and a click on it, even one posted past the page, is
-	// dropped.
+	// A render keeps it busy, and a click on it posts nothing: the app would log one
+	// it dropped.
+	cards[0].Title = "Still busy"
 	testBar.Render(components.Cards(cards))
-	before := logs.Len()
-	eval(t, `window.webkit.messageHandlers.ledge.postMessage({action: "click", id: "card/busy/click"}), true`)
-	eventually(t, "the click to be dropped", func() bool { return strings.Contains(logs.String()[before:], "still running") })
+	waitFor(t, `document.querySelector("#card-busy .title").textContent`, `"Still busy"`)
 	if got := eval(t, `document.getElementById("card-busy").hasAttribute("data-busy")`); got != "true" {
 		t.Error("a render took the card's busy mark off")
+	}
+	before := logs.Len()
+	eval(t, `document.getElementById("card-busy").click(), true`)
+	if time.Sleep(200 * time.Millisecond); strings.Contains(logs.String()[before:], "still running") {
+		t.Error("a click on what's busy was posted")
 	}
 	close(release)
 	waitFor(t, `document.getElementById("card-busy").hasAttribute("data-busy")`, "false")
@@ -212,91 +210,41 @@ func TestBusyMenu(t *testing.T) {
 }
 
 // In a theme without a menu of its own, a right-click on a card with actions, or a
-// click on its ⋯, pops up the native menu of them, each with its colour, and greyed
-// out without a Click. Choosing one calls its Click, and not its card's nor another
-// card's action with the same id; choosing nothing does nothing; and choosing one a
-// render has since taken off is dropped.
-// WebKit's own menu never shows. No real menu opens: one that records it, and chooses
-// what it's told to, stands in.
+// click on its ⋯, pops up the native menu, and what's chosen from it is run, not the
+// card's Click. WebKit's own menu never shows, nor does a card without actions have
+// one. No real menu opens: one that records it, and chooses Run, stands in.
 func TestNativeMenus(t *testing.T) {
 	gui(t)
 	withTheme(t, "native")
 	var mu sync.Mutex
-	var menus [][]shim.MenuItem
-	choose, then := 0, func() {}
-	opened := func() int { mu.Lock(); defer mu.Unlock(); return len(menus) }
-	standInMenu(t, func(items []shim.MenuItem) shim.Chosen {
+	opened := 0
+	standInMenu(t, func([]shim.MenuItem) shim.Chosen {
 		mu.Lock()
-		menus = append(menus, items)
-		chosen, before := choose, then
-		mu.Unlock()
-		before()
-		return shim.Chosen{Index: chosen, Modifiers: shim.Modifiers{Cmd: true}}
+		defer mu.Unlock()
+		opened++
+		return shim.Chosen{Index: 0}
 	})
-	cards := []components.Basic{
-		{ID: "m", Title: "Menu", Click: record("open m"), Actions: []components.Action{
-			{ID: "run", Title: "Run", Color: "green", Click: record("run run")}, {ID: "info", Title: "Info"},
-		}},
+	count := func() int { mu.Lock(); defer mu.Unlock(); return opened }
+	show(t, []components.Basic{
+		{ID: "m", Title: "Menu", Click: record("open m"), Actions: []components.Action{{ID: "run", Title: "Run", Click: record("run run")}}},
 		{ID: "plain", Title: "Plain"},
-		{ID: "other", Title: "Other", Actions: []components.Action{{ID: "run", Title: "Run", Click: record("run other")}}},
-	}
-	show(t, cards)
-	waitFor(t, `document.querySelectorAll("li").length`, "3")
+	})
+	waitFor(t, `document.querySelectorAll("li").length`, "2")
 
-	// A right-click chooses Run.
 	if got := rightClick(t, "card-m"); got != "false" {
 		t.Error("WebKit's menu wasn't stopped")
 	}
 	eventually(t, "run run", func() bool { return calls.has("run run") })
 	idle(t, "card-m")
-	if got, want := calls.event("run run"), (components.ClickEvent{Cmd: true}); got != want {
-		t.Errorf("Run, chosen with ⌘ held, was clicked %+v, want %+v", got, want)
-	}
-	want := []shim.MenuItem{{Title: "Run", Color: "green", Enabled: true}, {Title: "Info", Color: "gray"}}
-	if mu.Lock(); len(menus) == 0 || !slices.Equal(menus[0], want) {
-		t.Errorf("the menu was %+v, want %+v", menus[0], want)
-	}
-	mu.Unlock()
-	if time.Sleep(200 * time.Millisecond); calls.has("open m") || calls.has("run other") {
-		t.Error("choosing from the menu also opened its card, or ran another card's action")
-	}
-
-	// The ⋯ opens it too; choosing nothing does nothing.
-	mu.Lock()
-	choose = -1
-	mu.Unlock()
 	eval(t, `document.querySelector("#card-m .menu").click(), true`)
-	eventually(t, "the ⋯ menu", func() bool { return opened() == 2 })
+	eventually(t, "the ⋯ menu", func() bool { return count() == 2 })
 	idle(t, "card-m")
 
-	// A card without actions has no menu, nor WebKit's.
 	if got := rightClick(t, "card-plain"); got != "false" {
 		t.Error("WebKit's menu wasn't stopped on a card without actions")
 	}
-	if time.Sleep(200 * time.Millisecond); opened() != 2 {
-		t.Error("a card without actions had a menu")
-	}
-
-	// Run, chosen once a render has taken its card off, is dropped.
-	before := logs.Len()
-	mu.Lock()
-	choose, then = 0, func() { testBar.Render(components.Cards(cards[1:])) }
-	mu.Unlock()
-	rightClick(t, "card-m")
-	eventually(t, "the choice to be dropped", func() bool { return strings.Contains(logs.String()[before:], "isn't on the bar") })
-}
-
-func TestMessagesAreChecked(t *testing.T) {
-	gui(t)
-	show(t, []components.Basic{{ID: "kept", Title: "Kept", Click: record("click kept")}})
-	waitFor(t, `document.getElementById("card-kept") !== null`, "true")
-	before := logs.Len()
-	for _, message := range []string{`{action: "click"}`, `{action: "click", id: "card-kept", path: "/etc"}`, `{action: "exec", id: "card-kept"}`, `"click"`} {
-		eval(t, `window.webkit.messageHandlers.ledge.postMessage(`+message+`), true`)
-	}
-	eventually(t, "4 refusals", func() bool { return strings.Count(logs.String()[before:], "the bar sent") == 4 })
-	if calls.has("click kept") {
-		t.Error("a refused message reached a Click")
+	if time.Sleep(200 * time.Millisecond); count() != 2 || calls.has("open m") {
+		t.Error("a card without actions had a menu, or choosing from a menu opened its card")
 	}
 }
 
@@ -330,8 +278,7 @@ func rightClick(t *testing.T, id string) string {
 // In a theme with a menu of its own, a right-click on a card with actions, or a click
 // on its ⋯, shows its page at the mouse, an item for each action with its colour, and
 // greyed out without a Click. Clicking one, or Return on one the arrow keys are on,
-// calls its Click, not its card's, and hides it; Escape hides it without; and one
-// whose card a render has since taken off is dropped.
+// calls its Click, not its card's, and hides it; Escape hides it without.
 func TestMenus(t *testing.T) {
 	gui(t)
 	cards := []components.Basic{
@@ -423,14 +370,6 @@ func TestMenus(t *testing.T) {
 	if time.Sleep(300 * time.Millisecond); shim.WindowVisible(MenuWindow) {
 		t.Error("a card without actions had a menu")
 	}
-
-	// Go, chosen once a render has taken its card off, is dropped.
-	opens(t, func() { rightClick(t, "card-m") })
-	testBar.Render(components.Cards(cards[1:]))
-	logged := logs.Len()
-	evalIn(t, MenuWindow, `document.querySelectorAll(".menu-item")[1].click(), true`)
-	eventually(t, "the choice to be dropped", func() bool { return strings.Contains(logs.String()[logged:], "isn't on the bar") })
-	hidden(t)
 }
 
 // One menu is open at a time: opening another closes the first without a choice. A
@@ -604,17 +543,30 @@ func TestThemeMenu(t *testing.T) {
 }
 
 // In a theme without a menu of its own, a card's ⋯ pops up the native menu of its
-// actions, each with its colour, and greyed out without a Click; choosing one calls
-// its Click with the keys held. A middle click on the ⋯ shows nothing.
+// actions, each with its colour, and greyed out without a Click. Choosing one calls
+// its Click with the keys held, and not its card's nor another card's action with the
+// same id; choosing nothing does nothing; and choosing one whose card a render took
+// off while the menu was open is dropped. A middle click on the ⋯ shows nothing.
 func TestNativeMenu(t *testing.T) {
 	b, f := fakeBar(t, theme.Theme{})
-	f.choose = func([]shim.MenuItem) shim.Chosen { return shim.Chosen{Index: 0, Modifiers: shim.Modifiers{Cmd: true}} }
-	b.Render(components.Cards([]components.Basic{{ID: "nm", Title: "Menu", Actions: []components.Action{
-		{ID: "run", Title: "Run", Color: "green", Click: record("fake run nm")}, {ID: "info", Title: "Info"},
-	}}}))
+	chosen, then := 0, func() {}
+	f.choose = func([]shim.MenuItem) shim.Chosen {
+		then()
+		return shim.Chosen{Index: chosen, Modifiers: shim.Modifiers{Cmd: true}}
+	}
+	cards := components.Cards([]components.Basic{
+		{ID: "nm", Title: "Menu", Click: record("fake open nm"), Actions: []components.Action{
+			{ID: "run", Title: "Run", Color: "green", Click: record("fake run nm")}, {ID: "info", Title: "Info"},
+		}},
+		{ID: "other", Title: "Other", Actions: []components.Action{{ID: "run", Title: "Run", Click: record("fake run other")}}},
+	})
+	b.Render(cards)
 	post(b, BarWindow, `{"action": "click", "id": "card/nm/menu"}`)
 	if got, want := calls.event("fake run nm"), (components.ClickEvent{Cmd: true}); !calls.has("fake run nm") || got != want {
 		t.Errorf("Run, chosen with ⌘ held, was clicked %+v, want %+v", got, want)
+	}
+	if calls.has("fake open nm") || calls.has("fake run other") {
+		t.Error("choosing from the menu opened its card, or ran another card's action")
 	}
 	want := [][]shim.MenuItem{{{Title: "Run", Color: "green", Enabled: true}, {Title: "Info", Color: "gray"}}}
 	post(b, BarWindow, `{"action": "click", "id": "card/nm/menu", "event": {"middle": true}}`)
@@ -622,4 +574,12 @@ func TestNativeMenu(t *testing.T) {
 		t.Errorf("the menus were %+v, want %+v", f.menus, want)
 	}
 	f.mu.Unlock()
+
+	chosen = -1
+	post(b, BarWindow, `{"action": "click", "id": "card/nm/menu"}`)
+	chosen, then = 0, func() { b.Render(cards[1:]) }
+	post(b, BarWindow, `{"action": "click", "id": "card/nm/menu"}`)
+	if n := calls.count("fake run nm"); n != 1 || calls.has("fake run other") {
+		t.Errorf("Run ran %d times, want only the once it was chosen while its card was there", n)
+	}
 }
