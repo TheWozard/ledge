@@ -23,10 +23,7 @@ import (
 // pruneEvery is how often expired events are dropped.
 const pruneEvery = 30 * time.Second
 
-var (
-	runConfig   string
-	runHeadless bool
-)
+var runOptions api.Options
 
 var runCmd = &cobra.Command{
 	Use:   "run",
@@ -36,7 +33,11 @@ var runCmd = &cobra.Command{
 --headless runs only the API, with no windows.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.Load(runConfig)
+		options, err := absolute(runOptions)
+		if err != nil {
+			return err
+		}
+		cfg, err := config.Load(options.Config)
 		if err != nil {
 			return err
 		}
@@ -63,8 +64,9 @@ var runCmd = &cobra.Command{
 		// POST /shutdown stops it as a signal would.
 		ctx, shutdown := context.WithCancel(ctx)
 		defer shutdown()
-		server := &api.Server{Store: events, Shutdown: shutdown, Commands: cfg.Commands, Started: time.Now().UTC().Truncate(time.Second)}
-		if runHeadless {
+		server := &api.Server{Store: events, Shutdown: shutdown, Commands: cfg.Commands,
+			Started: time.Now().UTC().Truncate(time.Second), Options: options}
+		if options.Headless {
 			return serve(ctx, listener, server)
 		}
 
@@ -116,7 +118,6 @@ func serve(ctx context.Context, listener net.Listener, server *api.Server) error
 }
 
 func init() {
-	runCmd.Flags().StringVar(&runConfig, "config", "", "window settings `PATH` (JSON; default: built-in defaults)")
-	runCmd.Flags().BoolVar(&runHeadless, "headless", false, "run only the API, with no windows")
+	registerRunFlags(runCmd, &runOptions)
 	rootCmd.AddCommand(runCmd)
 }

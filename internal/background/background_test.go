@@ -2,12 +2,9 @@ package background
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
-	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -18,8 +15,8 @@ import (
 
 // The test binary stands in for ledge: run as `<test binary> run`, with
 // BACKGROUND_TEST_MODE set, it acts as a ledge whose API answers on the socket
-// BACKGROUND_TEST_SOCKET, and exits when POST /shutdown asks. The mode "crash" exits at
-// once; "stubborn" ignores SIGTERM.
+// BACKGROUND_TEST_SOCKET with its status, and exits when POST /shutdown asks. The
+// mode "crash" exits at once; "stubborn" replies to POST /shutdown but keeps running.
 func TestMain(m *testing.M) {
 	if mode := os.Getenv("BACKGROUND_TEST_MODE"); mode != "" && len(os.Args) > 1 && os.Args[1] == "run" {
 		fakeLedge(mode)
@@ -33,29 +30,24 @@ func fakeLedge(mode string) {
 		fmt.Println("config: no such file")
 		os.Exit(1)
 	}
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, syscall.SIGTERM)
 	// As ledge does, so a socket left by an earlier fake that exited is replaced.
 	listener, err := api.Listen(os.Getenv("BACKGROUND_TEST_SOCKET"))
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	go http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("fake ledge up, args:", strings.Join(os.Args[1:], " "))
+	http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/shutdown" {
 			w.Write([]byte(`{"shutdown": true}`))
 			w.(http.Flusher).Flush()
-			go func() { time.Sleep(50 * time.Millisecond); os.Exit(0) }()
+			if mode != "stubborn" {
+				go func() { time.Sleep(50 * time.Millisecond); os.Exit(0) }()
+			}
 			return
 		}
-		w.Write([]byte(`{"version": "test", "pid": 1}`))
+		fmt.Fprintf(w, `{"version": "test", "pid": %d}`, os.Getpid())
 	}))
-	fmt.Println("fake ledge up, args:", strings.Join(os.Args[1:], " "))
-	for range signals {
-		if mode != "stubborn" {
-			os.Exit(0)
-		}
-	}
 }
 
 // shortTempDir is a temporary directory with a short path, unlike t.TempDir(): a
@@ -79,11 +71,22 @@ func newProcess(t *testing.T, mode string) *Process {
 	t.Setenv("BACKGROUND_TEST_MODE", mode)
 	t.Setenv("BACKGROUND_TEST_SOCKET", p.Socket)
 	t.Cleanup(func() {
-		if pid, ok := p.Running(); ok {
-			syscall.Kill(pid, syscall.SIGKILL)
+		if status, ok := p.Status(); ok && status.PID > 1 && status.PID != os.Getpid() {
+			syscall.Kill(status.PID, syscall.SIGKILL)
 		}
 	})
 	return p
+}
+
+// gone reports whether pid has exited, waiting up to a second.
+func gone(pid int) bool {
+	for deadline := time.Now().Add(time.Second); time.Now().Before(deadline); time.Sleep(20 * time.Millisecond) {
+		// The test reaps what it starts, so an exited child doesn't linger.
+		if syscall.Kill(pid, 0) != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func TestStartStop(t *testing.T) {
@@ -91,14 +94,14 @@ func TestStartStop(t *testing.T) {
 	if stopped, err := p.Stop(); stopped || err != nil {
 		t.Fatalf("Stop before Start = %v, %v", stopped, err)
 	}
-	pid, started, err := p.Start([]string{"--headless"})
+	pid, started, err := p.Start(api.Options{Headless: true})
 	if err != nil || !started {
 		t.Fatalf("Start = %d, %v, %v", pid, started, err)
 	}
-	if running, ok := p.Running(); !ok || running != pid {
-		t.Errorf("Running = %d, %v; want %d", running, ok, pid)
+	if status, ok := p.Status(); !ok || status.PID != pid {
+		t.Errorf("Status = %+v, %v; want pid %d", status, ok, pid)
 	}
-	if again, started, err := p.Start(nil); started || err != nil || again != pid {
+	if again, started, err := p.Start(api.Options{}); started || err != nil || again != pid {
 		t.Errorf("a second Start = %d, %v, %v; want the same pid and nothing started", again, started, err)
 	}
 	if log, _ := os.ReadFile(p.LogFile); !strings.Contains(string(log), "args: run --headless") {
@@ -107,61 +110,38 @@ func TestStartStop(t *testing.T) {
 	if stopped, err := p.Stop(); !stopped || err != nil {
 		t.Fatalf("Stop = %v, %v", stopped, err)
 	}
-	if alive(pid) {
+	if !gone(pid) {
 		t.Error("still running after Stop")
-	}
-	if _, err := os.Stat(p.PIDFile); !os.IsNotExist(err) {
-		t.Error("the pid file is still there")
 	}
 }
 
 func TestStartReportsACrash(t *testing.T) {
 	p := newProcess(t, "crash")
-	_, _, err := p.Start(nil)
+	_, _, err := p.Start(api.Options{})
 	if err == nil || !strings.Contains(err.Error(), "config: no such file") {
 		t.Fatalf("Start = %v, want the log in the error", err)
 	}
-	if _, err := os.Stat(p.PIDFile); !os.IsNotExist(err) {
-		t.Error("left a pid file for a process that exited")
-	}
 }
 
-func TestStartRefusesATakenSocket(t *testing.T) {
-	p := newProcess(t, "normal")
-	other := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"version": "test", "pid": 1}`))
-	})}
-	listener, err := net.Listen("unix", p.Socket)
-	if err != nil {
-		t.Fatal(err)
-	}
-	go other.Serve(listener)
-	defer other.Close()
-	if _, _, err := p.Start(nil); err == nil || !strings.Contains(err.Error(), "already answers") {
-		t.Fatalf("Start = %v", err)
-	}
-}
-
-func TestStopKillsAStubbornProcess(t *testing.T) {
+func TestStopKillsAStubbornLedge(t *testing.T) {
 	StopTimeout = 500 * time.Millisecond
 	defer func() { StopTimeout = 5 * time.Second }()
 	p := newProcess(t, "stubborn")
-	pid, _, err := p.Start(nil)
+	pid, _, err := p.Start(api.Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if stopped, err := p.Stop(); !stopped || err == nil || !strings.Contains(err.Error(), "killed") {
 		t.Fatalf("Stop = %v, %v", stopped, err)
 	}
-	time.Sleep(100 * time.Millisecond)
-	if alive(pid) {
+	if !gone(pid) {
 		t.Error("still running after the kill")
 	}
 }
 
-// A ledge this binary didn't start, such as one run in a terminal, is stopped through
-// its API.
-func TestStopAsksTheAPI(t *testing.T) {
+// A ledge Start didn't start, such as one run in a terminal, is found and stopped the
+// same way.
+func TestAnyLedgeOnTheSocket(t *testing.T) {
 	p := newProcess(t, "normal")
 	other := exec.Command(os.Args[0], "run")
 	if err := other.Start(); err != nil {
@@ -170,10 +150,16 @@ func TestStopAsksTheAPI(t *testing.T) {
 	exited := make(chan struct{})
 	go func() { other.Wait(); close(exited) }()
 	t.Cleanup(func() { other.Process.Kill() })
-	for deadline := time.Now().Add(5 * time.Second); !p.answers(); time.Sleep(50 * time.Millisecond) {
+	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(50 * time.Millisecond) {
+		if _, ok := p.Status(); ok {
+			break
+		}
 		if time.Now().After(deadline) {
 			t.Fatal("the other ledge never answered")
 		}
+	}
+	if pid, started, err := p.Start(api.Options{}); started || err != nil || pid != other.Process.Pid {
+		t.Errorf("Start = %d, %v, %v; want the other's pid %d and nothing started", pid, started, err, other.Process.Pid)
 	}
 	if stopped, err := p.Stop(); !stopped || err != nil {
 		t.Fatalf("Stop = %v, %v", stopped, err)
@@ -185,77 +171,27 @@ func TestStopAsksTheAPI(t *testing.T) {
 	}
 }
 
-// Something that answers but doesn't shut down is reported.
-func TestStopReportsWhatKeepsAnswering(t *testing.T) {
-	StopTimeout = 300 * time.Millisecond
-	defer func() { StopTimeout = 5 * time.Second }()
+func TestLastOptions(t *testing.T) {
 	p := newProcess(t, "normal")
-	other := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"version": "test", "pid": 1}`))
-	})}
-	listener, err := net.Listen("unix", p.Socket)
-	if err != nil {
+	if _, ok, err := p.LastOptions(); ok || err != nil {
+		t.Fatalf("LastOptions before any Start = %v, %v", ok, err)
+	}
+	want := api.Options{Config: "/a path/with spaces.json", Headless: true}
+	if _, _, err := p.Start(want); err != nil {
 		t.Fatal(err)
 	}
-	go other.Serve(listener)
-	defer other.Close()
-	if _, err := p.Stop(); err == nil || !strings.Contains(err.Error(), "still answers") {
-		t.Fatalf("Stop = %v", err)
-	}
-}
-
-func TestReusedPIDIsLeftAlone(t *testing.T) {
-	p := newProcess(t, "normal")
-	// A pid file naming a process that isn't this ledge: the test itself.
-	if err := os.WriteFile(p.PIDFile, []byte(strconv.Itoa(os.Getpid())), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := p.Running(); ok {
-		t.Fatal("took another process for the background ledge")
-	}
-	if stopped, err := p.Stop(); stopped || err != nil {
-		t.Errorf("Stop = %v, %v; want it left alone", stopped, err)
-	}
-	// It may be another build's ledge, so its pid file stays.
-	if _, err := os.Stat(p.PIDFile); err != nil {
-		t.Errorf("Stop removed the pid file of a live process: %v", err)
-	}
-}
-
-func TestStaleFileIsRemoved(t *testing.T) {
-	p := newProcess(t, "crash")
-	// A pid that's no longer a process: a child that has exited.
-	child := exec.Command("true")
-	if err := child.Run(); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(p.PIDFile, []byte(strconv.Itoa(child.Process.Pid)), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	p.Stop()
-	if _, err := os.Stat(p.PIDFile); !os.IsNotExist(err) {
-		t.Error("Stop kept a pid file whose process is gone")
-	}
-}
-
-func TestLastArgs(t *testing.T) {
-	p := newProcess(t, "normal")
-	if _, ok, err := p.LastArgs(); ok || err != nil {
-		t.Fatalf("LastArgs before any Start = %v, %v", ok, err)
-	}
-	if _, _, err := p.Start([]string{"--config", "/a path/with spaces.json", "--headless"}); err != nil {
-		t.Fatal(err)
+	if log, _ := os.ReadFile(p.LogFile); !strings.Contains(string(log), "args: run --config /a path/with spaces.json --headless") {
+		t.Errorf("log = %q", log)
 	}
 	p.Stop()
 	// Kept after stopping, so a restart of a stopped ledge can use them.
-	args, ok, err := p.LastArgs()
-	if err != nil || !ok || strings.Join(args, "|") != "--config|/a path/with spaces.json|--headless" {
-		t.Errorf("LastArgs = %q, %v, %v", args, ok, err)
+	if got, ok, err := p.LastOptions(); err != nil || !ok || got != want {
+		t.Errorf("LastOptions = %+v, %v, %v; want %+v", got, ok, err, want)
 	}
-	if _, _, err := p.Start(nil); err != nil {
+	if _, _, err := p.Start(api.Options{}); err != nil {
 		t.Fatal(err)
 	}
-	if args, ok, _ := p.LastArgs(); !ok || len(args) != 0 {
-		t.Errorf("after a Start with no args, LastArgs = %q, %v", args, ok)
+	if got, ok, _ := p.LastOptions(); !ok || got != (api.Options{}) {
+		t.Errorf("after a Start with no options, LastOptions = %+v, %v", got, ok)
 	}
 }

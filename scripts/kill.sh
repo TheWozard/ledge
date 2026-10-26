@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
 # Stop every ledge running, by its process: `ledge stop` stops only the one of its
-# state dir, and through POST /shutdown, which a ledge of another state dir, or one too
-# old to have it, won't get. A ledge is any `<binary> run` whose binary was built from this
+# state dir, through its socket, which a ledge of another state dir, or one too old to
+# have the socket, won't get. A ledge is any `<binary> run` whose binary was built from this
 # module.
 #
 #   kill.sh   SIGTERM each, then SIGKILL any still running after 5s
 
 set -euo pipefail
-
-STATE="${XDG_STATE_HOME:-$HOME/.local/state}/ledge"
 
 pids=()
 while read -r pid binary arg _; do
@@ -29,5 +27,4 @@ for _ in $(seq 50); do
   sleep 0.1
 done
 kill -KILL "${pids[@]}" 2>/dev/null && echo "Killed what didn't exit in 5s" >&2 || true
-rm -f "$STATE/ledge.pid"
 echo "Stopped ${#pids[@]} ledge(s)" >&2

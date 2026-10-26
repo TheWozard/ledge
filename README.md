@@ -169,26 +169,23 @@ write one.
 ```sh
 ledge start                        # same flags as `ledge run`: --config, --headless
 ledge stop
-ledge restart                      # rereads the config; reuses start's flags unless given new ones
+ledge restart                      # rereads the config; reuses the running ledge's flags unless given new ones
 ```
 
-`start` waits until the API answers, and shows the log if ledge exits first. Its pid
-file and log (`ledge.log`) go in the state dir. `stop` signals the ledge `start` began,
-never a process that has reused its pid; if there isn't one, it asks whatever ledge
-answers on the socket to shut down through `POST /shutdown`, such as one run in a
-terminal or by another build. `start` refuses if something else already answers on
-the socket. `restart` checks the config before stopping anything, so a broken config
+A state dir's ledge is whatever answers on its socket, however it was started: by
+`ledge start`, in a terminal, or by another build. `start` does nothing if one already
+answers; otherwise it starts one, waits until its API answers, and shows the log
+(`ledge.log`, in the state dir) if it exits first. `stop` asks it to shut down through
+`POST /shutdown`, and kills it, by the pid it gave in `GET /status`, if it still answers
+after 5 seconds. `restart` reuses the running ledge's flags (or, if none is running, the
+last `start`'s), and checks the config before stopping anything, so a broken config
 leaves the running ledge running.
 
 While working on ledge, the [justfile](justfile) builds it from this repo first:
 `just start`, `just stop` and `just restart` build into the state dir and then run
 `ledge start`, `stop` or `restart`, passing on any flags. `just kill` stops every
-ledge built from this repo by its process, whatever state dir it uses, including one too old
-to have `POST /shutdown`.
+ledge built from this repo by its process, whatever state dir it uses.
 `just bar`, `just report`, `just feed` and `just clear` run the examples. Run `just` to list them.
-
-The build in the state dir and an installed `ledge` are different binaries, so each
-only stops or restarts the ledge it started itself.
 
 ## Examples
 
@@ -227,7 +224,7 @@ the bar, whoever sent the events.
 | `DELETE /events` | | `{"dismissed": n}`: every event goes, whoever sent it |
 | `GET /events` | | `{"events": [...]}`, highest priority first, then newest first |
 | `GET /schemas/{name}` | | the schema: `event` or `section` |
-| `GET /status` | | `{"version", "pid", "started"}` of the ledge that answers |
+| `GET /status` | | `{"version", "pid", "started", "options"}` of the ledge that answers; `options` are its flags, `{"config", "headless"}` |
 | `POST /shutdown` | | `{"shutdown": true}`, then ledge exits, closing the bar |
 
 Bodies are JSON, up to 8 MiB. A refused request gets a 400 with `{"error"}` saying
@@ -261,7 +258,7 @@ themes) are ledge-frontend. ledge is everything else:
 | `internal/store/` | the event, section and dismiss schemas, the `Event` type sent events are checked and decoded into, and the events file |
 | `internal/api/` | the HTTP server and the client `ledge event` uses |
 | `internal/config/` | the `--config` file and its schema |
-| `internal/background/` | `ledge start`, `stop` and `restart`: the background process, its pid file, log and saved flags |
+| `internal/background/` | `ledge start`, `stop` and `restart`: starting a background ledge, and finding and stopping one through its socket; its log and saved options |
 | `internal/update/` | `ledge update`: finding the latest release, checking its checksum, replacing the binary |
 | `internal/bar/` | connects the store to ledge-frontend's bar: events as cards of their kinds, reports as blocks, and what the pages ask for by id (dismiss, open a report or url, run a command) |
 | `internal/state/` | the state directory and the API socket |

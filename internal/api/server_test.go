@@ -21,7 +21,7 @@ func TestServer(t *testing.T) {
 	}
 	changes, shutdowns := 0, 0
 	server := &Server{Store: events, Changed: func() { changes++ }, Shutdown: func() { shutdowns++ }, Commands: true,
-		Started: time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)}
+		Started: time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC), Options: Options{Config: "/c.json"}}
 
 	for _, c := range []struct {
 		method, path, body string
@@ -43,7 +43,10 @@ func TestServer(t *testing.T) {
 		{"GET", "/events", "", 200, `"source": "c/d"`},
 		{"GET", "/schemas/event", "", 200, `"$id": "urn:ledge:event"`},
 		{"GET", "/schemas/nope", "", 404, "no schema"},
-		{"GET", "/status", "", 200, `"started": "2026-10-26T12:00:00Z"`},
+		{"GET", "/status", "", 200, `"started": "2026-10-26T12:00:00Z",
+  "options": {
+    "config": "/c.json"
+  }`},
 		{"POST", "/shutdown", "", 200, `"shutdown": true`},
 		{"DELETE", "/events", "", 200, `"dismissed": 2`},
 		{"DELETE", "/events", "", 200, `"dismissed": 0`},

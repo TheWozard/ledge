@@ -8,7 +8,7 @@
 //	DELETE /events           dismisses every event
 //	GET    /events           the current events, as the bar shows them
 //	GET    /schemas/{name}   a schema, as built in
-//	GET    /status           this ledge's version, pid and start time
+//	GET    /status           this ledge's version, pid, start time and options
 //	POST   /shutdown         stops ledge once it has replied
 //
 // Only your user can connect to the socket, and a web page can't reach a socket at
@@ -39,14 +39,15 @@ const MaxBody = 8 << 20
 
 // Server serves the API for one store. Changed, if set, is called after any request
 // that changes the store, and Shutdown after replying to POST /shutdown. Unless
-// Commands is set, an event with a command is refused. Started is when this ledge
-// started, for GET /status.
+// Commands is set, an event with a command is refused. Started and Options are when
+// this ledge started and what with, for GET /status.
 type Server struct {
 	Store    *store.Store
 	Changed  func()
 	Shutdown func()
 	Commands bool
 	Started  time.Time
+	Options  Options
 
 	once sync.Once
 	mux  *http.ServeMux
@@ -196,10 +197,29 @@ type Status struct {
 	Version string    `json:"version"`
 	PID     int       `json:"pid"`
 	Started time.Time `json:"started,omitzero"`
+	Options Options   `json:"options"`
+}
+
+// Options are what a ledge runs with: `ledge run`'s flags.
+type Options struct {
+	Config   string `json:"config,omitempty"` // the --config file's absolute path, or "" for none
+	Headless bool   `json:"headless,omitempty"`
+}
+
+// Args is the options as `ledge run` arguments.
+func (o Options) Args() []string {
+	var args []string
+	if o.Config != "" {
+		args = append(args, "--config", o.Config)
+	}
+	if o.Headless {
+		args = append(args, "--headless")
+	}
+	return args
 }
 
 func (s *Server) status(w http.ResponseWriter, r *http.Request) {
-	reply(w, http.StatusOK, Status{Version: version.Tag(), PID: os.Getpid(), Started: s.Started})
+	reply(w, http.StatusOK, Status{Version: version.Tag(), PID: os.Getpid(), Started: s.Started, Options: s.Options})
 }
 
 // shutdown replies, then stops ledge.

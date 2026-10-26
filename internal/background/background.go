@@ -1,10 +1,8 @@
 // Package background runs `ledge run` as a background process, and stops it: what
-// `ledge start`, `ledge stop` and `ledge restart` do. The process's pid goes in a pid
-// file, its output in a log, and the arguments it was started with in an args file,
-// all in the state dir.
-//
-// A pid is only acted on while its process is still `<this binary> run`, so a stale
-// pid file whose pid has been reused by something else is never signalled.
+// `ledge start`, `ledge stop` and `ledge restart` do. The ledge of a state dir is
+// whatever answers on its socket, however it was started, so that's what's asked: if
+// one is running, its status, and to shut down. Its output goes in a log, and the
+// options it was last started with in an options file, both in the state dir.
 package background
 
 import (
@@ -14,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -23,7 +20,7 @@ import (
 	"github.com/TheWozard/ledge/internal/state"
 )
 
-// How long start waits for the API to answer, and stop for the process to exit
+// How long start waits for the API to answer, and stop for it to stop answering
 // before killing it.
 var (
 	StartTimeout = 10 * time.Second
@@ -32,11 +29,10 @@ var (
 
 // Process is a background ledge: the binary that runs it and the files it keeps.
 type Process struct {
-	Binary   string // absolute path of the ledge binary
-	PIDFile  string
-	LogFile  string
-	ArgsFile string // the arguments of the last Start, for restart
-	Socket   string // where its API answers once it's up
+	Binary      string // absolute path of the ledge binary
+	LogFile     string
+	OptionsFile string // the options of the last Start, for restart
+	Socket      string // where its API answers once it's up
 }
 
 // New is the background ledge for this binary, keeping its files in dir, the state
@@ -50,50 +46,28 @@ func New(dir string) (*Process, error) {
 		return nil, err
 	}
 	return &Process{
-		Binary:   binary,
-		PIDFile:  filepath.Join(dir, "ledge.pid"),
-		LogFile:  filepath.Join(dir, "ledge.log"),
-		ArgsFile: filepath.Join(dir, "ledge.args.json"),
-		Socket:   state.Socket(dir),
+		Binary:      binary,
+		LogFile:     filepath.Join(dir, "ledge.log"),
+		OptionsFile: filepath.Join(dir, "ledge.options.json"),
+		Socket:      state.Socket(dir),
 	}, nil
 }
 
-// recordedPID is the pid in the pid file, whatever it now is.
-func (p *Process) recordedPID() (int, bool) {
-	data, err := os.ReadFile(p.PIDFile)
-	if err != nil {
-		return 0, false
-	}
-	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
-	return pid, err == nil && pid > 0
+// Status is the status of the ledge answering on the socket, or false if none does.
+func (p *Process) Status() (api.Status, bool) {
+	var status api.Status
+	err := api.Client{Socket: p.Socket}.Call("GET", "/status", nil, &status)
+	return status, err == nil
 }
 
-// Running is the pid of the background ledge, if it's still running.
-func (p *Process) Running() (int, bool) {
-	pid, ok := p.recordedPID()
-	if !ok {
-		return 0, false
+// Start runs `<binary> run` with options in the background and waits for its API to
+// answer. If a ledge already answers, it does nothing and returns that one's pid. If
+// the process exits first, the error carries its log.
+func (p *Process) Start(options api.Options) (pid int, started bool, err error) {
+	if status, ok := p.Status(); ok {
+		return status.PID, false, nil
 	}
-	command, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "command=").Output()
-	if err != nil || !strings.HasPrefix(strings.TrimSpace(string(command)), p.Binary+" run") {
-		return 0, false
-	}
-	return pid, true
-}
-
-// Start runs `<binary> run args...` in the background and waits for its API to answer.
-// It does nothing if it's already running, and refuses if something else already
-// answers on the socket. If the process exits first, the error carries its log.
-func (p *Process) Start(args []string) (pid int, started bool, err error) {
-	if pid, ok := p.Running(); ok {
-		return pid, false, nil
-	}
-	// Another ledge (run in a terminal, or by another build) would answer the readiness
-	// check below and make a failed start look like a success.
-	if p.answers() {
-		return 0, false, fmt.Errorf("something not started by `ledge start` already answers at %s; stop it first", p.Socket)
-	}
-	if err := state.Make(filepath.Dir(p.PIDFile)); err != nil {
+	if err := state.Make(filepath.Dir(p.LogFile)); err != nil {
 		return 0, false, err
 	}
 	log, err := os.OpenFile(p.LogFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
@@ -102,7 +76,7 @@ func (p *Process) Start(args []string) (pid int, started bool, err error) {
 	}
 	defer log.Close()
 	home, _ := os.UserHomeDir()
-	cmd := exec.Command(p.Binary, append([]string{"run"}, args...)...)
+	cmd := exec.Command(p.Binary, append([]string{"run"}, options.Args()...)...)
 	cmd.Dir = home
 	cmd.Stdout, cmd.Stderr = log, log
 	// Its own session, so it outlives the terminal that started it.
@@ -111,25 +85,19 @@ func (p *Process) Start(args []string) (pid int, started bool, err error) {
 		return 0, false, err
 	}
 	pid = cmd.Process.Pid
-	if err := os.WriteFile(p.PIDFile, []byte(strconv.Itoa(pid)+"\n"), 0o600); err != nil {
+	if err := p.saveOptions(options); err != nil {
 		cmd.Process.Kill()
-		return 0, false, err
-	}
-	if err := p.saveArgs(args); err != nil {
-		cmd.Process.Kill()
-		os.Remove(p.PIDFile)
 		return 0, false, err
 	}
 	exited := make(chan struct{})
 	go func() { cmd.Wait(); close(exited) }()
 
 	for deadline := time.Now().Add(StartTimeout); time.Now().Before(deadline); {
-		if p.answers() {
+		if _, ok := p.Status(); ok {
 			return pid, true, nil
 		}
 		select {
 		case <-exited:
-			os.Remove(p.PIDFile)
 			output, _ := os.ReadFile(p.LogFile)
 			return 0, false, fmt.Errorf("ledge exited before its API answered:\n%s", strings.TrimRight(string(output), "\n"))
 		case <-time.After(100 * time.Millisecond):
@@ -138,99 +106,62 @@ func (p *Process) Start(args []string) (pid int, started bool, err error) {
 	return pid, true, fmt.Errorf("started (pid %d) but the API isn't answering at %s yet; see %s", pid, p.Socket, p.LogFile)
 }
 
-// Stop ends the background ledge: SIGTERM, then SIGKILL if it hasn't exited after
-// StopTimeout. If this binary didn't start one, it asks whatever ledge answers on the
-// socket to shut down instead, such as one run in a terminal or by another build.
-// Returns false if nothing was running.
+// Stop asks the ledge answering on the socket to shut down, and waits StopTimeout for
+// it to stop answering. One that doesn't is killed, by the pid it gave. Returns false
+// if nothing was running.
 func (p *Process) Stop() (bool, error) {
-	pid, ok := p.Running()
+	status, ok := p.Status()
 	if !ok {
-		stopped, err := p.stopByAPI()
-		// The pid file is only stale if its process is gone. A live one may be a ledge
-		// started by another build of ledge, whose pid file this is too.
-		if recorded, ok := p.recordedPID(); !ok || !alive(recorded) {
-			os.Remove(p.PIDFile)
-		}
-		return stopped, err
-	}
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		return false, err
-	}
-	if err := process.Signal(syscall.SIGTERM); err != nil && !errors.Is(err, os.ErrProcessDone) {
-		return false, err
-	}
-	err = await(pid)
-	os.Remove(p.PIDFile)
-	return true, err
-}
-
-// stopByAPI asks the ledge answering on the socket to shut down, and waits StopTimeout
-// for its API to stop answering. Returns false if nothing answers.
-func (p *Process) stopByAPI() (bool, error) {
-	if !p.answers() {
 		return false, nil
 	}
 	var reply map[string]any
-	if err := (api.Client{Socket: p.Socket}).Call("POST", "/shutdown", nil, &reply); err != nil {
-		return false, fmt.Errorf("asking the ledge at %s to shut down: %w", p.Socket, err)
+	asked := api.Client{Socket: p.Socket}.Call("POST", "/shutdown", nil, &reply)
+	if asked == nil && p.await(StopTimeout) {
+		return true, nil
 	}
-	for deadline := time.Now().Add(StopTimeout); time.Now().Before(deadline); time.Sleep(100 * time.Millisecond) {
-		if !p.answers() {
-			return true, nil
-		}
+	// A pid of 1, or this process's, can't be a ledge to kill.
+	if status.PID <= 1 || status.PID == os.Getpid() {
+		return true, fmt.Errorf("the ledge at %s still answers %s after being asked to shut down", p.Socket, StopTimeout)
 	}
-	return true, fmt.Errorf("the ledge at %s still answers %s after being asked to shut down", p.Socket, StopTimeout)
+	if err := syscall.Kill(status.PID, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+		return true, err
+	}
+	p.await(StopTimeout)
+	return true, fmt.Errorf("pid %d didn't shut down after %s, so it was killed", status.PID, StopTimeout)
 }
 
-// await waits StopTimeout for pid to exit, then kills it.
-func await(pid int) error {
-	for deadline := time.Now().Add(StopTimeout); time.Now().Before(deadline); time.Sleep(100 * time.Millisecond) {
-		if !alive(pid) {
-			return nil
+// await waits up to timeout for the socket to stop answering. Returns false if it
+// still answers.
+func (p *Process) await(timeout time.Duration) bool {
+	for deadline := time.Now().Add(timeout); time.Now().Before(deadline); time.Sleep(100 * time.Millisecond) {
+		if _, ok := p.Status(); !ok {
+			return true
 		}
 	}
-	if err := syscall.Kill(pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
-		return err
-	}
-	return fmt.Errorf("pid %d didn't exit after %s, so it was killed", pid, StopTimeout)
+	return false
 }
 
-// LastArgs is what the last Start passed to `ledge run`, or false if nothing has
-// been started yet.
-func (p *Process) LastArgs() ([]string, bool, error) {
-	data, err := os.ReadFile(p.ArgsFile)
+// LastOptions is what the last Start ran with, or false if nothing has been started
+// yet.
+func (p *Process) LastOptions() (api.Options, bool, error) {
+	var options api.Options
+	data, err := os.ReadFile(p.OptionsFile)
 	if errors.Is(err, os.ErrNotExist) {
-		return nil, false, nil
+		return options, false, nil
 	}
 	if err != nil {
-		return nil, false, err
+		return options, false, err
 	}
-	var args []string
-	if err := json.Unmarshal(data, &args); err != nil {
-		return nil, false, fmt.Errorf("%s: %w", p.ArgsFile, err)
+	if err := json.Unmarshal(data, &options); err != nil {
+		return options, false, fmt.Errorf("%s: %w", p.OptionsFile, err)
 	}
-	return args, true, nil
+	return options, true, nil
 }
 
-func (p *Process) saveArgs(args []string) error {
-	if args == nil {
-		args = []string{}
-	}
-	data, err := json.Marshal(args)
+func (p *Process) saveOptions(options api.Options) error {
+	data, err := json.Marshal(options)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(p.ArgsFile, append(data, '\n'), 0o600)
-}
-
-func (p *Process) answers() bool {
-	var status api.Status
-	return api.Client{Socket: p.Socket}.Call("GET", "/status", nil, &status) == nil
-}
-
-// alive reports whether pid is still a process (a zombie counts as gone).
-func alive(pid int) bool {
-	state, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "state=").Output()
-	return err == nil && !strings.HasPrefix(strings.TrimSpace(string(state)), "Z")
+	return os.WriteFile(p.OptionsFile, append(data, '\n'), 0o600)
 }

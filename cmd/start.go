@@ -3,70 +3,63 @@ package cmd
 import (
 	"fmt"
 	"path/filepath"
-	"slices"
 
+	"github.com/TheWozard/ledge/internal/api"
 	"github.com/TheWozard/ledge/internal/background"
 	"github.com/TheWozard/ledge/internal/config"
 	"github.com/TheWozard/ledge/internal/state"
 	"github.com/spf13/cobra"
 )
 
-// runFlags are the flags start and restart pass on to `ledge run`.
-type runFlags struct {
-	config   string
-	headless bool
+// registerRunFlags adds `ledge run`'s flags to cmd, setting options: run, start and
+// restart take the same ones.
+func registerRunFlags(cmd *cobra.Command, options *api.Options) {
+	cmd.Flags().StringVar(&options.Config, "config", "", "settings `PATH` (JSON; default: built-in defaults)")
+	cmd.Flags().BoolVar(&options.Headless, "headless", false, "run only the API, with no windows")
 }
 
-func (f *runFlags) register(cmd *cobra.Command) {
-	cmd.Flags().StringVar(&f.config, "config", "", "window settings `PATH` (JSON; default: built-in defaults)")
-	cmd.Flags().BoolVar(&f.headless, "headless", false, "run only the API, with no windows")
-}
-
-// args is the flags as `ledge run` arguments. The background ledge runs in $HOME, so
-// a relative config path is made absolute.
-func (f *runFlags) args() ([]string, error) {
-	var args []string
-	if f.config != "" {
-		path, err := filepath.Abs(f.config)
+// absolute is options with the config's path made absolute: a background ledge runs
+// in $HOME, and its status should say which file it read.
+func absolute(options api.Options) (api.Options, error) {
+	if options.Config != "" {
+		path, err := filepath.Abs(options.Config)
 		if err != nil {
-			return nil, err
+			return options, err
 		}
-		args = append(args, "--config", path)
+		options.Config = path
 	}
-	if f.headless {
-		args = append(args, "--headless")
-	}
-	return args, nil
+	return options, nil
 }
 
-var startFlags runFlags
+var startOptions api.Options
 
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Run ledge in the background",
 	Long: `Run ledge in the background, as ` + "`ledge run`" + ` does in a terminal, and wait for its
-API to answer. Its output goes to ledge.log in the state dir. Does nothing if it's
-already running; ` + "`ledge stop`" + ` stops it.`,
+API to answer. Its output goes to ledge.log in the state dir. Does nothing if a ledge
+already answers on the state dir's socket; ` + "`ledge stop`" + ` stops it.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		args, err := startFlags.args()
+		options, err := absolute(startOptions)
 		if err != nil {
 			return err
 		}
-		return startWith(args)
+		return startWith(options)
 	},
 }
 
-// startWith starts `ledge run args...` in the background.
-func startWith(args []string) error {
+// startWith starts `ledge run` with options in the background.
+func startWith(options api.Options) error {
 	process, err := backgroundProcess()
 	if err != nil {
 		return err
 	}
-	if err := checkConfig(args); err != nil {
+	// A bad config fails straight away with its own message, before anything starts.
+	if _, err := config.Load(options.Config); err != nil {
 		return err
 	}
-	pid, started, err := process.Start(args)
+	pid, started, err := process.Start(options)
 	if err != nil {
 		return err
 	}
@@ -75,16 +68,6 @@ func startWith(args []string) error {
 		return nil
 	}
 	fmt.Printf("ledge started (pid %d, socket %s, log %s)\n", pid, process.Socket, process.LogFile)
-	return nil
-}
-
-// checkConfig loads the --config in `ledge run` arguments, so a bad config fails
-// straight away with its own message, before anything is started or stopped.
-func checkConfig(args []string) error {
-	if i := slices.Index(args, "--config"); i >= 0 && i+1 < len(args) {
-		_, err := config.Load(args[i+1])
-		return err
-	}
 	return nil
 }
 
@@ -98,6 +81,6 @@ func backgroundProcess() (*background.Process, error) {
 }
 
 func init() {
-	startFlags.register(startCmd)
+	registerRunFlags(startCmd, &startOptions)
 	rootCmd.AddCommand(startCmd)
 }
