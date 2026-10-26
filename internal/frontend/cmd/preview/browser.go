@@ -25,8 +25,9 @@ import (
 )
 
 // index is the page at /: a frame for each of the bar's windows, the bar along the
-// bottom at its height, and the window in front, a report or a card's menu, above it
-// at a report window's size. It runs in them what the bar asks.
+// bottom at its height, the report in front above it at a report window's size, and
+// a card's menu, while it's shown, to the left of that at its own size. It runs in
+// them what the bar asks.
 //
 //go:embed index.html
 var indexHTML string
@@ -152,11 +153,11 @@ func (s *browserServer) index(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	data := struct {
-		Name      string
-		Bar       int64
-		BarWindow int
-		BarHeight int
-	}{s.name, id, ui.BarWindow, barHeight}
+		Name                  string
+		Bar                   int64
+		BarWindow, MenuWindow int
+		BarHeight             int
+	}{s.name, id, ui.BarWindow, ui.MenuWindow, barHeight}
 	if err := index.Execute(w, data); err != nil {
 		log.Print(err)
 	}
@@ -247,14 +248,19 @@ func (s *browserServer) answer(w http.ResponseWriter, r *http.Request) {
 // event is something / does with the bar's windows' frames, in order: a window was
 // loaded with a page, its gen, so the frame loads it; JS is to be run in a window's
 // page, if it's still that gen, with what it gives back answering ask if that isn't
-// 0; or a window is in front, or with window 0, none is.
+// 0; a report is in front, or with window 0, none is; or the menu's window is shown,
+// at width by height, or hidden.
 type event struct {
-	Window int    `json:"window"`
-	Gen    int    `json:"gen,omitempty"`
-	Load   bool   `json:"load,omitempty"`
-	JS     string `json:"js,omitempty"`
-	Ask    int    `json:"ask,omitempty"`
-	Front  bool   `json:"front,omitempty"`
+	Window int     `json:"window"`
+	Gen    int     `json:"gen,omitempty"`
+	Load   bool    `json:"load,omitempty"`
+	JS     string  `json:"js,omitempty"`
+	Ask    int     `json:"ask,omitempty"`
+	Front  bool    `json:"front,omitempty"`
+	Show   bool    `json:"show,omitempty"`
+	Hide   bool    `json:"hide,omitempty"`
+	Width  float64 `json:"width,omitempty"`
+	Height float64 `json:"height,omitempty"`
 }
 
 // browserWindows is ui.Windows for a bar shown in the browser, in frames of /: what's
@@ -268,7 +274,6 @@ type browserWindows struct {
 	events  []event        // those / hasn't taken yet
 	taken   int            // how many events / has taken, and so were dropped
 	more    chan struct{}  // closed, and made again, as events are added
-	report  int            // the report last shown, in front again once the menu hides
 	asked   int            // the last EvalResult asked
 	answers map[int]chan answer
 }
@@ -347,9 +352,6 @@ func (w *browserWindows) LoadHTML(window int, html string) {
 	w.gen++
 	w.pages[window], w.gens[window] = html, w.gen
 	w.add(event{Window: window, Gen: w.gen, Load: true})
-	if window == ui.MenuWindow {
-		w.add(event{Window: window, Front: true}) // in front to load, as it's measured once it's ready
-	}
 }
 
 func (w *browserWindows) Eval(window int, js string) {
@@ -385,22 +387,21 @@ func (w *browserWindows) SetFrameless(int, bool)                     {}
 func (w *browserWindows) ShowWindow(window int) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.report = window
 	w.add(event{Window: window, Front: true})
 }
 
 func (w *browserWindows) CreatePopup(int) {}
 
-func (w *browserWindows) ShowPopup(window int, _, _ float64) {
+func (w *browserWindows) ShowPopup(window int, width, height float64) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.add(event{Window: window, Front: true})
+	w.add(event{Window: window, Show: true, Width: width, Height: height})
 }
 
-func (w *browserWindows) HidePopup(int) {
+func (w *browserWindows) HidePopup(window int) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.add(event{Window: w.report, Front: true})
+	w.add(event{Window: window, Hide: true})
 }
 
 // ShowMenu is never asked: the server gives every theme a menu of its own.
