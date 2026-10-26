@@ -48,7 +48,7 @@ func fakeLedge(mode string) {
 			go func() { time.Sleep(50 * time.Millisecond); os.Exit(0) }()
 			return
 		}
-		w.Write([]byte(`{"events": []}`))
+		w.Write([]byte(`{"version": "test", "pid": 1}`))
 	}))
 	fmt.Println("fake ledge up, args:", strings.Join(os.Args[1:], " "))
 	for range signals {
@@ -129,7 +129,7 @@ func TestStartReportsACrash(t *testing.T) {
 func TestStartRefusesATakenSocket(t *testing.T) {
 	p := newProcess(t, "normal")
 	other := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"events": []}`))
+		w.Write([]byte(`{"version": "test", "pid": 1}`))
 	})}
 	listener, err := net.Listen("unix", p.Socket)
 	if err != nil {
@@ -191,7 +191,7 @@ func TestStopReportsWhatKeepsAnswering(t *testing.T) {
 	defer func() { StopTimeout = 5 * time.Second }()
 	p := newProcess(t, "normal")
 	other := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"events": []}`))
+		w.Write([]byte(`{"version": "test", "pid": 1}`))
 	})}
 	listener, err := net.Listen("unix", p.Socket)
 	if err != nil {

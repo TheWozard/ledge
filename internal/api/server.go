@@ -1,12 +1,14 @@
 // Package api is ledge's JSON API on a Unix socket in the state dir, and a client
 // for it.
 //
-//	POST /event          one event, or a section ({"source", "items"}) that
-//	                     replaces a source's events; replies with the id(s)
-//	POST /dismiss        {"id": ...}, deleting that event
-//	POST /shutdown       {}, stopping ledge once it has replied
-//	GET  /events         the current events, as the bar shows them
-//	GET  /schemas/{name} a schema, as built in
+//	POST   /events           an event; replies with its id
+//	PUT    /sources/{source} {"items": [...]}, which become all of that source's
+//	                         events; replies with their ids
+//	DELETE /events/{id}      dismisses that event
+//	GET    /events           the current events, as the bar shows them
+//	GET    /schemas/{name}   a schema, as built in
+//	GET    /status           this ledge's version, pid and start time
+//	POST   /shutdown         stops ledge once it has replied
 //
 // Only your user can connect to the socket, and a web page can't reach a socket at
 // all, so nothing else can post events.
@@ -23,10 +25,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/TheWozard/ledge/internal/schema"
 	"github.com/TheWozard/ledge/internal/store"
+	"github.com/TheWozard/ledge/internal/version"
 )
 
 // MaxBody is the largest request body accepted.
@@ -34,12 +38,17 @@ const MaxBody = 8 << 20
 
 // Server serves the API for one store. Changed, if set, is called after any request
 // that changes the store, and Shutdown after replying to POST /shutdown. Unless
-// Commands is set, an event with a command is refused.
+// Commands is set, an event with a command is refused. Started is when this ledge
+// started, for GET /status.
 type Server struct {
 	Store    *store.Store
 	Changed  func()
 	Shutdown func()
 	Commands bool
+	Started  time.Time
+
+	once sync.Once
+	mux  *http.ServeMux
 }
 
 // Listen makes the API socket at path, which only your user can connect to. A socket
@@ -72,105 +81,162 @@ func Listen(path string) (net.Listener, error) {
 		listener.Close()
 		return nil, err
 	}
-	return listener, nil
+	return bufferedListener{listener}, nil
+}
+
+// SocketBuffer is the send and receive buffer of each end of a connection. macOS gives
+// a Unix socket 8 KiB, which would move a large body 8 KiB per syscall.
+const SocketBuffer = 4 << 20
+
+// bufferedListener widens the buffers of each connection it accepts.
+type bufferedListener struct{ net.Listener }
+
+func (l bufferedListener) Accept() (net.Conn, error) {
+	conn, err := l.Listener.Accept()
+	if err == nil {
+		widen(conn)
+	}
+	return conn, err
+}
+
+// widen gives conn SocketBuffer-byte buffers, if it's a Unix socket. A system that
+// won't allow that much keeps what it has.
+func widen(conn net.Conn) {
+	if unix, ok := conn.(*net.UnixConn); ok {
+		unix.SetReadBuffer(SocketBuffer)
+		unix.SetWriteBuffer(SocketBuffer)
+	}
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch {
-	case r.Method == http.MethodGet && r.URL.Path == "/events":
-		reply(w, http.StatusOK, map[string]any{"events": s.Store.Visible()})
-	case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/schemas/"):
-		name := strings.TrimPrefix(r.URL.Path, "/schemas/")
-		source, ok := store.Schemas.Source(name)
-		if !ok {
-			reply(w, http.StatusNotFound, map[string]any{
-				"error": fmt.Sprintf("no schema %q; there are %s", name, strings.Join(store.Schemas.Names(), ", "))})
-			return
-		}
-		w.Header().Set("Content-Type", "application/schema+json")
-		w.Write(source)
-	case r.Method == http.MethodPost && (r.URL.Path == "/event" || r.URL.Path == "/dismiss"):
-		s.post(w, r)
-	case r.Method == http.MethodPost && r.URL.Path == "/shutdown":
-		s.shutdown(w, r)
-	default:
-		reply(w, http.StatusNotFound, map[string]any{"error": fmt.Sprintf("no such path %s %s", r.Method, r.URL.Path)})
-	}
+	s.once.Do(func() {
+		s.mux = http.NewServeMux()
+		s.mux.HandleFunc("POST /events", s.addEvent)
+		s.mux.HandleFunc("PUT /sources/{source}", s.replaceSource)
+		s.mux.HandleFunc("DELETE /events/{id}", s.dismiss)
+		s.mux.HandleFunc("GET /events", s.events)
+		s.mux.HandleFunc("GET /schemas/{name}", s.schema)
+		s.mux.HandleFunc("GET /status", s.status)
+		s.mux.HandleFunc("POST /shutdown", s.shutdown)
+		s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			reply(w, http.StatusNotFound, map[string]any{"error": fmt.Sprintf("no such path %s %s", r.Method, r.URL.Path)})
+		})
+	})
+	s.mux.ServeHTTP(w, r)
 }
 
-func (s *Server) post(w http.ResponseWriter, r *http.Request) {
-	result, err := s.handle(r)
-	var refused *store.Error
-	switch {
-	case errors.As(err, &refused):
-		reply(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
-		return
-	case err != nil:
-		log.Printf("%s %s: %v", r.Method, r.URL.Path, err)
-		reply(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
+func (s *Server) addEvent(w http.ResponseWriter, r *http.Request) {
+	body, err := readJSON(r)
+	if err == nil {
+		err = s.checkCommand(body)
+	}
+	var id string
+	if err == nil {
+		id, err = s.Store.Add(body, time.Now())
+	}
+	s.respond(w, r, map[string]any{"id": id}, true, err)
+}
+
+func (s *Server) replaceSource(w http.ResponseWriter, r *http.Request) {
+	body, err := readJSON(r)
+	if err == nil {
+		err = store.Check("section", body)
+	}
+	var ids []string
+	if err == nil {
+		items := body.(map[string]any)["items"].([]any)
+		for i, item := range items {
+			if err = s.checkCommand(item); err != nil {
+				err = refuse("items/%d: %v", i, err)
+				break
+			}
+		}
+		if err == nil {
+			ids, err = s.Store.ReplaceSource(r.PathValue("source"), items, time.Now())
+		}
+	}
+	s.respond(w, r, map[string]any{"ids": ids}, true, err)
+}
+
+func (s *Server) dismiss(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	dismissed, err := s.Store.Remove(id)
+	if err == nil && !dismissed {
+		reply(w, http.StatusNotFound, map[string]any{"error": fmt.Sprintf("no event %q", id)})
 		return
 	}
-	reply(w, http.StatusOK, result)
-	if s.Changed != nil {
-		s.Changed()
+	s.respond(w, r, map[string]any{"dismissed": true}, true, err)
+}
+
+func (s *Server) events(w http.ResponseWriter, r *http.Request) {
+	reply(w, http.StatusOK, map[string]any{"events": s.Store.Visible()})
+}
+
+func (s *Server) schema(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	source, ok := store.Schemas.Source(name)
+	if !ok {
+		reply(w, http.StatusNotFound, map[string]any{
+			"error": fmt.Sprintf("no schema %q; there are %s", name, strings.Join(store.Schemas.Names(), ", "))})
+		return
 	}
+	w.Header().Set("Content-Type", "application/schema+json")
+	w.Write(source)
+}
+
+// Status is what GET /status replies.
+type Status struct {
+	Version string    `json:"version"`
+	PID     int       `json:"pid"`
+	Started time.Time `json:"started,omitzero"`
+}
+
+func (s *Server) status(w http.ResponseWriter, r *http.Request) {
+	reply(w, http.StatusOK, Status{Version: version.Tag(), PID: os.Getpid(), Started: s.Started})
 }
 
 // shutdown replies, then stops ledge.
 func (s *Server) shutdown(w http.ResponseWriter, r *http.Request) {
-	body, err := readJSON(r)
-	if err == nil {
-		err = store.Check("shutdown", body)
-	}
-	switch {
-	case err != nil:
-		reply(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
-	case s.Shutdown == nil:
+	if s.Shutdown == nil {
 		reply(w, http.StatusInternalServerError, map[string]any{"error": "this server can't be shut down"})
+		return
+	}
+	reply(w, http.StatusOK, map[string]any{"shutdown": true})
+	s.Shutdown()
+}
+
+// respond replies with result, or the error: a 400 for something sent that's refused,
+// otherwise a 500. If the request succeeded and changed the store, Changed is called.
+func (s *Server) respond(w http.ResponseWriter, r *http.Request, result any, changed bool, err error) {
+	var stored *store.Error
+	var refused *refusal
+	switch {
+	case errors.As(err, &stored) || errors.As(err, &refused):
+		reply(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+	case err != nil:
+		log.Printf("ledge: %s %s: %v", r.Method, r.URL.Path, err)
+		reply(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 	default:
-		reply(w, http.StatusOK, map[string]any{"shutdown": true})
-		s.Shutdown()
+		reply(w, http.StatusOK, result)
+		if changed && s.Changed != nil {
+			s.Changed()
+		}
 	}
 }
 
-func (s *Server) handle(r *http.Request) (map[string]any, error) {
-	body, err := readJSON(r)
-	if err != nil {
-		return nil, err
-	}
-	now := time.Now()
-	if r.URL.Path == "/dismiss" {
-		if err := store.Check("dismiss", body); err != nil {
-			return nil, err
-		}
-		dismissed, err := s.Store.Remove(body.(map[string]any)["id"].(string))
-		return map[string]any{"dismissed": dismissed}, err
-	}
-	if obj, ok := body.(map[string]any); ok {
-		if _, isSection := obj["items"]; isSection {
-			if err := store.Check("section", obj); err != nil {
-				return nil, err
-			}
-			for i, item := range obj["items"].([]any) {
-				if err := s.checkCommand(item); err != nil {
-					return nil, store.Refuse("items/%d: %v", i, err)
-				}
-			}
-			ids, err := s.Store.ReplaceSource(obj["source"].(string), obj["items"].([]any), now)
-			return map[string]any{"ids": ids}, err
-		}
-	}
-	if err := s.checkCommand(body); err != nil {
-		return nil, err
-	}
-	id, err := s.Store.Add(body, now)
-	return map[string]any{"id": id}, err
+// refusal is a request refused for what it sent, before it reaches the store.
+type refusal struct{ msg string }
+
+func (r *refusal) Error() string { return r.msg }
+
+func refuse(format string, args ...any) error {
+	return &refusal{fmt.Sprintf(format, args...)}
 }
 
 // checkCommand refuses an event with a command, unless commands are allowed.
 func (s *Server) checkCommand(event any) error {
 	if obj, ok := event.(map[string]any); ok && obj["command"] != nil && !s.Commands {
-		return store.Refuse(`this ledge doesn't run commands; set "commands": true in its --config to allow them`)
+		return refuse(`this ledge doesn't run commands; set "commands": true in its --config to allow them`)
 	}
 	return nil
 }
@@ -179,14 +245,14 @@ func readJSON(r *http.Request) (any, error) {
 	data, err := io.ReadAll(http.MaxBytesReader(nil, r.Body, MaxBody))
 	var tooBig *http.MaxBytesError
 	if errors.As(err, &tooBig) {
-		return nil, store.Refuse("body is over %d bytes", MaxBody)
+		return nil, refuse("body is over %d bytes", MaxBody)
 	}
 	if err != nil {
 		return nil, err
 	}
 	body, err := schema.Decode(data)
 	if err != nil {
-		return nil, store.Refuse("body isn't JSON: %v", err)
+		return nil, refuse("body isn't JSON: %v", err)
 	}
 	return body, nil
 }

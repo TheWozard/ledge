@@ -86,10 +86,10 @@ func (s *Store) ReplaceSource(source string, items []any, now time.Time) ([]stri
 	for i, item := range items {
 		event, err := Normalize(item, source, now)
 		if err != nil {
-			return nil, Refuse("items/%d: %v", i, err)
+			return nil, refuse("items/%d: %v", i, err)
 		}
 		if j := slices.Index(ids[:i], event.ID); j >= 0 {
-			return nil, Refuse("items/%d: id %q is items/%d's too", i, event.ID, j)
+			return nil, refuse("items/%d: id %q is items/%d's too", i, event.ID, j)
 		}
 		added[i] = event
 		ids[i] = event.ID
@@ -98,7 +98,7 @@ func (s *Store) ReplaceSource(source string, items []any, now time.Time) ([]stri
 	defer s.mu.Unlock()
 	for i, event := range added {
 		if err := s.claim(event); err != nil {
-			return nil, Refuse("items/%d: %v", i, err)
+			return nil, refuse("items/%d: %v", i, err)
 		}
 	}
 	next := slices.DeleteFunc(slices.Clone(s.events), func(e Event) bool { return e.Source == source })
@@ -111,7 +111,7 @@ func (s *Store) ReplaceSource(source string, items []any, now time.Time) ([]stri
 // claim refuses event if its id is another source's event. Callers hold mu.
 func (s *Store) claim(event Event) error {
 	if old, ok := s.find(event.ID); ok && old.Source != event.Source {
-		return Refuse("id %q is source %q's event; give it another id", event.ID, old.Source)
+		return refuse("id %q is source %q's event; give it another id", event.ID, old.Source)
 	}
 	return nil
 }

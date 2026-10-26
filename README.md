@@ -20,7 +20,7 @@ Then keep it up to date with:
 ```sh
 ledge update --check               # say whether there's a newer release
 ledge update                       # install it; a running ledge keeps the old one until `ledge restart`
-ledge version
+ledge version                      # this ledge's version, and the running one's
 ```
 
 From source, with Go and Xcode's command line tools: `go install ./ledge`. The bar's
@@ -38,7 +38,7 @@ ledge event '{"title": "Deploy finished", "priority": "high", "expires": "4h"}'
 some-feed | ledge event            # or JSON on stdin
 ledge event --list
 ledge event --dismiss <id>
-ledge event --schema event         # print a schema: dismiss, event, section
+ledge event --schema event         # print a schema: event, section
 ```
 
 The API listens on the socket `ledge.sock` in the state dir,
@@ -220,22 +220,27 @@ the bar, whoever sent the events.
 
 | Request | Body | Reply |
 |---|---|---|
-| `POST /event` | an event, or a section (`{"source", "items"}`) that replaces all of that source's events | `{"id"}`, or `{"ids"}` for a section |
-| `POST /dismiss` | `{"id"}` | `{"dismissed": true\|false}` |
-| `POST /shutdown` | `{}` | `{"shutdown": true}`, then ledge exits, closing the bar |
+| `POST /events` | an event | `{"id"}` |
+| `PUT /sources/{source}` | `{"items": [...]}`: events that replace all of that source's | `{"ids"}` |
+| `DELETE /events/{id}` | | `{"dismissed": true}`, or a 404 if there's no such event |
 | `GET /events` | | `{"events": [...]}`, highest priority first, then newest first |
-| `GET /schemas/{name}` | | the schema |
+| `GET /schemas/{name}` | | the schema: `event` or `section` |
+| `GET /status` | | `{"version", "pid", "started"}` of the ledge that answers |
+| `POST /shutdown` | | `{"shutdown": true}`, then ledge exits, closing the bar |
 
 Bodies are JSON, up to 8 MiB. A refused request gets a 400 with `{"error"}` saying
-which schema rule it broke.
+which schema rule it broke. `ledge event` takes a section as `{"source", "items"}` and
+sends it to `PUT /sources/{source}`.
 
 Sending an event with an id replaces that event, but only from the same source: an id
 belongs to the source that first sent it (`manual` if none), so a section can't replace
-another source's events. Without `ledge event`, use any HTTP client that can talk
-to a Unix socket; the host name is ignored:
+another source's events.
+
+Without `ledge event`, use any HTTP client that can talk to a Unix socket; the host
+name is ignored:
 
 ```sh
-curl --unix-socket ~/.local/state/ledge/ledge.sock http://ledge/event -d '{"title": "Hello"}'
+curl --unix-socket ~/.local/state/ledge/ledge.sock http://ledge/events -d '{"title": "Hello"}'
 ```
 
 A web page can't reach a Unix socket, and the socket is only open to your user, so

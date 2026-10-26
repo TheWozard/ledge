@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"slices"
 	"strings"
@@ -59,17 +61,8 @@ What can be sent is defined by JSON Schemas; print one with --schema.`,
 			}
 			return printJSON(reply.Events)
 		case eventDismiss != "":
-			body, _ := json.Marshal(map[string]string{"id": eventDismiss})
-			var reply struct {
-				Dismissed bool `json:"dismissed"`
-			}
-			if err := client.Call("POST", "/dismiss", body, &reply); err != nil {
-				return err
-			}
-			if !reply.Dismissed {
-				return fmt.Errorf("no event %q", eventDismiss)
-			}
-			return nil
+			var reply struct{}
+			return client.Call("DELETE", "/events/"+url.PathEscape(eventDismiss), nil, &reply)
 		}
 		var text []byte
 		if len(args) == 1 {
@@ -77,24 +70,37 @@ What can be sent is defined by JSON Schemas; print one with --schema.`,
 		} else if text, err = io.ReadAll(os.Stdin); err != nil {
 			return err
 		}
-		var parsed any
-		if err := json.Unmarshal(text, &parsed); err != nil {
-			return fmt.Errorf("not JSON (%v)", err)
+		// A section is {"source", "items"}: its items go to PUT /sources/{source}.
+		var section struct {
+			Source *string            `json:"source"`
+			Items  *[]json.RawMessage `json:"items"`
+		}
+		if json.Unmarshal(text, &section) == nil && section.Items != nil {
+			if section.Source == nil || *section.Source == "" {
+				return errors.New(`a section needs a "source" to replace`)
+			}
+			body, err := json.Marshal(map[string]any{"items": *section.Items})
+			if err != nil {
+				return err
+			}
+			var reply struct {
+				IDs []string `json:"ids"`
+			}
+			if err := client.Call("PUT", "/sources/"+url.PathEscape(*section.Source), body, &reply); err != nil {
+				return err
+			}
+			for _, id := range reply.IDs {
+				fmt.Println(id)
+			}
+			return nil
 		}
 		var reply struct {
-			ID  string   `json:"id"`
-			IDs []string `json:"ids"`
+			ID string `json:"id"`
 		}
-		if err := client.Call("POST", "/event", text, &reply); err != nil {
+		if err := client.Call("POST", "/events", text, &reply); err != nil {
 			return err
 		}
-		if reply.IDs != nil {
-			if len(reply.IDs) > 0 {
-				fmt.Println(strings.Join(reply.IDs, "\n"))
-			}
-		} else {
-			fmt.Println(reply.ID)
-		}
+		fmt.Println(reply.ID)
 		return nil
 	},
 }

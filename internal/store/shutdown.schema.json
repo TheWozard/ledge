@@ -1,8 +1,0 @@
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:ledge:shutdown",
-  "title": "ledge shutdown",
-  "description": "Sent to POST /shutdown: stops the ledge, its bar and its API. Replies {\"shutdown\": true}, then exits.",
-  "type": "object",
-  "additionalProperties": false
-}

@@ -63,7 +63,7 @@ var runCmd = &cobra.Command{
 		// POST /shutdown stops it as a signal would.
 		ctx, shutdown := context.WithCancel(ctx)
 		defer shutdown()
-		server := &api.Server{Store: events, Shutdown: shutdown, Commands: cfg.Commands}
+		server := &api.Server{Store: events, Shutdown: shutdown, Commands: cfg.Commands, Started: time.Now().UTC().Truncate(time.Second)}
 		if runHeadless {
 			return serve(ctx, listener, server)
 		}

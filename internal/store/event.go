@@ -22,8 +22,7 @@ import (
 //go:embed *.schema.json
 var schemaFiles embed.FS
 
-// Schemas is what can be sent: event, plus section and dismiss for the other request
-// bodies.
+// Schemas is what can be sent: an event, or a section of a source's events.
 var Schemas = mustLoad()
 
 func mustLoad() *schema.Set {
@@ -185,8 +184,8 @@ type Error struct{ msg string }
 
 func (e *Error) Error() string { return e.msg }
 
-// Refuse is an *Error with the reason.
-func Refuse(format string, args ...any) error {
+// refuse is an *Error with the reason.
+func refuse(format string, args ...any) error {
 	return &Error{fmt.Sprintf(format, args...)}
 }
 
@@ -200,7 +199,7 @@ func Check(name string, value any) error {
 		if where == "" {
 			where = name
 		}
-		return Refuse("%s schema: %s: %s", name, where, invalid.Message)
+		return refuse("%s schema: %s: %s", name, where, invalid.Message)
 	}
 	return err
 }
@@ -212,7 +211,7 @@ func Normalize(raw any, source string, received time.Time) (Event, error) {
 	obj, ok := raw.(map[string]any)
 	if !ok {
 		text, _ := json.Marshal(raw)
-		return Event{}, Refuse("expected a JSON object, got %.200s", text)
+		return Event{}, refuse("expected a JSON object, got %.200s", text)
 	}
 	if err := Check("event", obj); err != nil {
 		return Event{}, err
@@ -287,7 +286,7 @@ func resolveTime(text, what string, received time.Time) (time.Time, error) {
 		count, err := strconv.ParseInt(match[1], 10, 64)
 		unit := unitSeconds[match[2]]
 		if err != nil || count > math.MaxInt64/int64(time.Second)/unit {
-			return time.Time{}, Refuse("%s %q is too far away", what, text)
+			return time.Time{}, refuse("%s %q is too far away", what, text)
 		}
 		return received.UTC().Truncate(time.Second).Add(time.Duration(count*unit) * time.Second), nil
 	}
@@ -327,5 +326,5 @@ func parseTime(text, what string) (time.Time, error) {
 			return moment, nil
 		}
 	}
-	return time.Time{}, Refuse("%s %q isn't an ISO 8601 time or a duration like \"30m\"", what, text)
+	return time.Time{}, refuse("%s %q isn't an ISO 8601 time or a duration like \"30m\"", what, text)
 }

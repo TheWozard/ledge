@@ -172,7 +172,7 @@ func (p *Process) stopByAPI() (bool, error) {
 		return false, nil
 	}
 	var reply map[string]any
-	if err := (api.Client{Socket: p.Socket}).Call("POST", "/shutdown", []byte("{}"), &reply); err != nil {
+	if err := (api.Client{Socket: p.Socket}).Call("POST", "/shutdown", nil, &reply); err != nil {
 		return false, fmt.Errorf("asking the ledge at %s to shut down: %w", p.Socket, err)
 	}
 	for deadline := time.Now().Add(StopTimeout); time.Now().Before(deadline); time.Sleep(100 * time.Millisecond) {
@@ -225,10 +225,8 @@ func (p *Process) saveArgs(args []string) error {
 }
 
 func (p *Process) answers() bool {
-	var reply struct {
-		Events []any `json:"events"`
-	}
-	return api.Client{Socket: p.Socket}.Call("GET", "/events", nil, &reply) == nil
+	var status api.Status
+	return api.Client{Socket: p.Socket}.Call("GET", "/status", nil, &status) == nil
 }
 
 // alive reports whether pid is still a process (a zombie counts as gone).

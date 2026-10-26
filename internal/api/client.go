@@ -59,7 +59,11 @@ func (c Client) http() *http.Client {
 			// A connection is cheap, and a kept one would outlive this client.
 			DisableKeepAlives: true,
 			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-				return dialer.DialContext(ctx, "unix", c.Socket)
+				conn, err := dialer.DialContext(ctx, "unix", c.Socket)
+				if err == nil {
+					widen(conn)
+				}
+				return conn, err
 			},
 		},
 	}

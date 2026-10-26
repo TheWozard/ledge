@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/TheWozard/ledge/internal/store"
 )
@@ -18,51 +20,44 @@ func TestServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	changes, shutdowns := 0, 0
-	server := &Server{Store: events, Changed: func() { changes++ }, Shutdown: func() { shutdowns++ }, Commands: true}
-
-	do := func(method, path, body string, headers map[string]string) (int, string) {
-		t.Helper()
-		request := httptest.NewRequest(method, path, strings.NewReader(body))
-		if body != "" {
-			request.Header.Set("Content-Type", "application/json")
-		}
-		for key, value := range headers {
-			request.Header.Set(key, value)
-		}
-		recorder := httptest.NewRecorder()
-		server.ServeHTTP(recorder, request)
-		return recorder.Code, recorder.Body.String()
-	}
+	server := &Server{Store: events, Changed: func() { changes++ }, Shutdown: func() { shutdowns++ }, Commands: true,
+		Started: time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)}
 
 	for _, c := range []struct {
 		method, path, body string
-		headers            map[string]string
 		status             int
 		want               string
 	}{
-		{"POST", "/event", `{"id": "a", "title": "A"}`, nil, 200, `"id": "a"`},
-		{"POST", "/event", `{"source": "ci", "items": [{"id": "b", "title": "B"}]}`, nil, 200, `"ids": [`},
-		{"POST", "/event", `{"items": []}`, nil, 400, "section schema: section: missing property 'source'"},
-		{"POST", "/event", `{"title": "x"} {}`, nil, 400, "body isn't JSON"},
-		{"POST", "/event", `{"title": "` + strings.Repeat("x", MaxBody) + `"}`, nil, 400, "body is over"},
-		{"POST", "/dismiss", `{"id": "a"}`, nil, 200, `"dismissed": true`},
-		{"POST", "/dismiss", `{"id": "a"}`, nil, 200, `"dismissed": false`},
-		{"POST", "/dismiss", `{"id": ""}`, nil, 400, "dismiss schema: id"},
-		{"GET", "/events", "", nil, 200, `"title": "B"`},
-		{"GET", "/schemas/event", "", nil, 200, `"$id": "urn:ledge:event"`},
-		{"POST", "/shutdown", `{"now": true}`, nil, 400, "shutdown schema"},
-		{"POST", "/shutdown", `{}`, nil, 200, `"shutdown": true`},
-		{"GET", "/schemas/nope", "", nil, 404, "no schema"},
-		{"GET", "/event", "", nil, 404, "no such path"},
+		{"POST", "/events", `{"id": "a", "title": "A"}`, 200, `"id": "a"`},
+		{"POST", "/events", `{"id": "a/b", "title": "A slash"}`, 200, `"id": "a/b"`},
+		{"PUT", "/sources/ci", `{"items": [{"id": "b", "title": "B"}]}`, 200, `"ids": [`},
+		{"PUT", "/sources/c%2Fd", `{"items": [{"id": "c", "title": "C"}]}`, 200, `"ids": [`},
+		{"PUT", "/sources/ci", `{"source": "ci", "items": []}`, 400, "section schema: section: additional properties 'source'"},
+		{"PUT", "/sources/ci", `{"items": [{"nope": 1}]}`, 400, "items/0: event schema"},
+		{"POST", "/events", `{"title": "x"} {}`, 400, "body isn't JSON"},
+		{"POST", "/events", `{"title": "` + strings.Repeat("x", MaxBody) + `"}`, 400, "body is over"},
+		{"DELETE", "/events/a", "", 200, `"dismissed": true`},
+		{"DELETE", "/events/a", "", 404, `no event \"a\"`},
+		{"DELETE", "/events/a%2Fb", "", 200, `"dismissed": true`},
+		{"GET", "/events", "", 200, `"title": "B"`},
+		{"GET", "/events", "", 200, `"source": "c/d"`},
+		{"GET", "/schemas/event", "", 200, `"$id": "urn:ledge:event"`},
+		{"GET", "/schemas/nope", "", 404, "no schema"},
+		{"GET", "/status", "", 200, `"started": "2026-10-26T12:00:00Z"`},
+		{"POST", "/shutdown", "", 200, `"shutdown": true`},
+		{"POST", "/event", `{"title": "x"}`, 404, "no such path POST /event"},
+		{"DELETE", "/events", "", 404, "no such path DELETE /events"},
 	} {
-		status, body := do(c.method, c.path, c.body, c.headers)
-		if status != c.status || !strings.Contains(body, c.want) {
-			t.Errorf("%s %s %.60s: %d %s; want %d containing %q", c.method, c.path, c.body, status, body, c.status, c.want)
+		recorder := httptest.NewRecorder()
+		server.ServeHTTP(recorder, httptest.NewRequest(c.method, c.path, strings.NewReader(c.body)))
+		if body := recorder.Body.String(); recorder.Code != c.status || !strings.Contains(body, c.want) {
+			t.Errorf("%s %s %.60s: %d %s; want %d containing %q", c.method, c.path, c.body, recorder.Code, body, c.status, c.want)
 		}
 	}
-	// The two events, the section and both dismisses, refused ones not counted.
-	if changes != 4 {
-		t.Errorf("Changed called %d times, want 4", changes)
+	// Two events, two sections and two dismisses: refused ones, and a dismiss of
+	// nothing, aren't changes.
+	if changes != 6 {
+		t.Errorf("Changed called %d times, want 6", changes)
 	}
 	if shutdowns != 1 {
 		t.Errorf("Shutdown called %d times, want 1", shutdowns)
@@ -76,15 +71,15 @@ func TestCommandsAreOptIn(t *testing.T) {
 	}
 	for _, commands := range []bool{false, true} {
 		server := &Server{Store: events, Commands: commands}
-		for _, body := range []string{
-			`{"title": "Log in", "command": "aws sso login"}`,
-			`{"source": "s", "items": [{"title": "a"}, {"title": "Log in", "command": "aws sso login"}]}`,
+		for _, request := range []struct{ method, path, body string }{
+			{"POST", "/events", `{"title": "Log in", "command": "aws sso login"}`},
+			{"PUT", "/sources/s", `{"items": [{"title": "a"}, {"title": "Log in", "command": "aws sso login"}]}`},
 		} {
 			recorder := httptest.NewRecorder()
-			server.ServeHTTP(recorder, httptest.NewRequest("POST", "/event", strings.NewReader(body)))
+			server.ServeHTTP(recorder, httptest.NewRequest(request.method, request.path, strings.NewReader(request.body)))
 			refused := recorder.Code == 400 && strings.Contains(recorder.Body.String(), `set \"commands\": true`)
 			if refused == commands {
-				t.Errorf("commands %v, %s: %d %s", commands, body, recorder.Code, recorder.Body)
+				t.Errorf("commands %v, %s: %d %s", commands, request.body, recorder.Code, recorder.Body)
 			}
 		}
 		// Refused, a section doesn't add the items without commands either.
@@ -134,5 +129,47 @@ func TestListen(t *testing.T) {
 
 	if _, err := Listen(path); err == nil || !strings.Contains(err.Error(), "already running") {
 		t.Errorf("Listen over a live socket = %v", err)
+	}
+}
+
+// Both ends of a connection get SocketBuffer-byte buffers: the listener's and the
+// client's.
+func TestSocketBuffers(t *testing.T) {
+	dir, err := os.MkdirTemp("", "ledge")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	listener, err := Listen(filepath.Join(dir, "ledge.sock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	accepted := make(chan net.Conn, 1)
+	go func() {
+		conn, _ := listener.Accept()
+		accepted <- conn
+	}()
+	client, err := net.Dial("unix", filepath.Join(dir, "ledge.sock"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	widen(client)
+	server := <-accepted
+	defer server.Close()
+
+	for name, conn := range map[string]net.Conn{"client": client, "server": server} {
+		raw, err := conn.(*net.UnixConn).SyscallConn()
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw.Control(func(fd uintptr) {
+			for _, option := range []int{syscall.SO_SNDBUF, syscall.SO_RCVBUF} {
+				if size, err := syscall.GetsockoptInt(int(fd), syscall.SOL_SOCKET, option); err != nil || size < SocketBuffer {
+					t.Errorf("%s: socket option %d = %d, %v; want at least %d", name, option, size, err, SocketBuffer)
+				}
+			}
+		})
 	}
 }

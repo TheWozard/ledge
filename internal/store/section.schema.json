@@ -2,12 +2,11 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:ledge:section",
   "title": "ledge section",
-  "description": "Everything one source currently has to show. Sent to POST /event, it replaces all of that source's events with `items`.",
+  "description": "Everything one source currently has to show. Sent to PUT /sources/{source}, it replaces all of that source's events with `items`.",
   "type": "object",
   "properties": {
-    "source": {"type": "string", "minLength": 1, "description": "The source to replace. Each item's own `source` is overridden by this one."},
-    "items": {"type": "array", "description": "Events, each checked against event.schema.json. An empty list clears the source."}
+    "items": {"type": "array", "description": "Events, each checked against event.schema.json; each one's `source` is overridden by the path's. An empty list clears the source."}
   },
-  "required": ["source", "items"],
+  "required": ["items"],
   "additionalProperties": false
 }
