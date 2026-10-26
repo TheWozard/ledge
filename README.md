@@ -37,9 +37,9 @@ ledge run                          # the bar and the API; --config
 ledge run --headless               # the API only, without the bar
 ledge event '{"title": "Deploy finished", "priority": "high", "expires": "4h"}'
 some-feed | ledge event            # or JSON on stdin
-ledge event --list
-ledge event --dismiss <id>
-ledge event --schema event         # print a schema: event, section
+ledge list                         # the current events, as JSON
+ledge dismiss <id>...
+ledge schema event                 # print a schema: event, section
 ```
 
 The API listens on the socket `ledge.sock` in the state dir,
@@ -143,7 +143,7 @@ event's title in the bar's theme. You send what to show; ledge decides how it lo
 | `note` | a callout in a colour, named as for cards or `#rrggbb` |
 | `link` | an http(s) link, which opens in your browser |
 
-The schema (`ledge event --schema event`) checks a report when it's sent. Text is
+The schema (`ledge schema event`) checks a report when it's sent. Text is
 always shown as text, never as HTML, and the page can't do anything but draw it. To
 change a report, send the event again with the same id. Each card's report has its
 own window; Cmd-C, Cmd-A and Cmd-W work in it. The theme draws its title bar, which

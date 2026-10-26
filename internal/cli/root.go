@@ -5,6 +5,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/TheWozard/ledge/internal/api"
+	"github.com/TheWozard/ledge/internal/state"
 	"github.com/TheWozard/ledge/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -18,6 +20,15 @@ checks everything it's sent against JSON Schemas.`,
 	Version:       version.Tag(),
 	SilenceUsage:  true,
 	SilenceErrors: true,
+}
+
+// client calls the API of the state dir's ledge.
+func client() (api.Client, error) {
+	dir, err := state.Dir()
+	if err != nil {
+		return api.Client{}, err
+	}
+	return api.Client{Socket: state.Socket(dir)}, nil
 }
 
 func Execute() {
