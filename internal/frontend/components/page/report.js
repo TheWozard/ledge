@@ -10,33 +10,19 @@ for (const action of ["close", "minimise", "zoom"]) {
 // only once it's been clicked.
 document.querySelector("main").focus({ preventScroll: true });
 
-// unwrap puts a Block's elements in place of the <template> it comes in, each marked
-// data-block with its id, so the report's blocks stay the <article>'s children.
-function unwrap(template) {
-  const nodes = [...template.content.childNodes];
-  for (const node of nodes) {
-    if (node.nodeType === Node.ELEMENT_NODE) node.dataset.block = template.dataset.block;
-  }
-  template.replaceWith(...nodes);
-}
-for (const template of document.querySelectorAll("article > template[data-block]")) unwrap(template);
+const article = document.querySelector("article");
 
-// replaceBlock replaces the block with id by html, a Block with that id rendered by
-// Go, its text escaped. Without such a block, it does nothing.
-function replaceBlock(id, html) {
-  const old = document.querySelectorAll(`article > [data-block="${CSS.escape(id)}"]`);
-  if (old.length === 0) return;
-  const parsed = document.createElement("template");
-  parsed.innerHTML = html;
-  const template = parsed.content.querySelector("template[data-block]");
-  old[0].before(template);
-  unwrap(template);
-  for (const node of old) node.remove();
+// update shows title in the title bar, and html, rendered by Go from ReportContent,
+// with its text escaped, as the report. It morphs the <article> into html, so what's
+// still there keeps its element, and the report its scroll.
+function update(title, html) {
+  titlebar.querySelector("span").textContent = title;
+  Idiomorph.morph(article, html, { morphStyle: "innerHTML" });
 }
 
-// What's clicked in the report, such as a Buttons' button, posts its id; the app also
-// calls setBusy once the page is ready, and after replacing a block.
-clickable(document.querySelector("article"));
+// What's clicked in the report, such as a Buttons' button, posts its id; the app
+// calls setBusy with every update, and once the page is ready.
+clickable(article);
 
-// Once loaded, the page can take replaceBlock and setBusy; until then the app waits.
+// Once loaded, the page can take update and setBusy; until then the app waits.
 send("ready");

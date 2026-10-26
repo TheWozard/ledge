@@ -9,14 +9,13 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 // ReportPage is the report window's page, styled by themeCSS (a theme.Theme's
-// Report): title in the title bar the page draws, and blocks under it, top to
-// bottom, scrolling under the title bar. A block is any component; the ones in
-// blocks.templ are Heading, Paragraph, Fields, Table, List, Code, Note, Link and
-// Buttons, and any of them can be given an id with Block. Its layout is
-// page/report.css, and its script page/report.js, which posts {action: "ready"} once
-// loaded, and from then takes replaceBlock(id, html), with html rendered from a Block
-// with that id, and replaces that block with it, and setBusy(ids), which marks
-// data-busy what's clicked with those ids.
+// Report): a title bar the page draws, and an empty <article> under it that scrolls
+// under the title bar. It posts {action: "ready"} once loaded, and from then takes
+// update(title, html), with html rendered from ReportContent: it shows title in its
+// title bar, and morphs the <article> into html, so what's still there keeps its
+// element and the report its scroll. It also takes setBusy(ids), which marks
+// data-busy what's clicked with those ids. Its layout is page/report.css, and its
+// script page/report.js.
 //
 // Apart from ready, the page posts to window.webkit.messageHandlers.ledge only
 // {action: "click", id, event} when something with data-click is clicked, with the
@@ -27,7 +26,7 @@ import templruntime "github.com/a-h/templ/runtime"
 // (the second of a double-click zooms), and the title bar's buttons, when a theme
 // shows them, close, minimise and zoom it. A Link is a real <a>; clicking one asks
 // the window to navigate, which the app decides on.
-func ReportPage(themeCSS string, title string, blocks []templ.Component) templ.Component {
+func ReportPage(themeCSS string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -60,30 +59,11 @@ func ReportPage(themeCSS string, title string, blocks []templ.Component) templ.C
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</head><body><header class=\"titlebar\"><span>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</head><body><header class=\"titlebar\"><span></span><button class=\"minimise\" title=\"Minimise\" aria-label=\"Minimise\"></button><button class=\"zoom\" title=\"Zoom\" aria-label=\"Zoom\"></button><button class=\"close\" title=\"Close\" aria-label=\"Close\"></button></header><main tabindex=\"-1\"><article></article></main>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		var templ_7745c5c3_Var2 string
-		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(title)
-		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/report.templ`, Line: 31, Col: 41}
-		}
-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</span><button class=\"minimise\" title=\"Minimise\" aria-label=\"Minimise\"></button><button class=\"zoom\" title=\"Zoom\" aria-label=\"Zoom\"></button><button class=\"close\" title=\"Close\" aria-label=\"Close\"></button></header><main tabindex=\"-1\"><article>")
-		if templ_7745c5c3_Err != nil {
-			return templ_7745c5c3_Err
-		}
-		for _, block := range blocks {
-			templ_7745c5c3_Err = block.Render(ctx, templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</article></main>")
+		templ_7745c5c3_Err = script(idiomorph).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -95,9 +75,44 @@ func ReportPage(themeCSS string, title string, blocks []templ.Component) templ.C
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</body></html>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</body></html>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// ReportContent is what a report shows in its page's <article>: blocks, top to
+// bottom. A block is any component; the ones in blocks.templ are Heading, Paragraph,
+// Fields, Table, List, Code, Note, Link and Buttons, and any of them can be given an
+// id with Block.
+func ReportContent(blocks []templ.Component) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var2 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var2 == nil {
+			templ_7745c5c3_Var2 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		for _, block := range blocks {
+			templ_7745c5c3_Err = block.Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
 		}
 		return nil
 	})

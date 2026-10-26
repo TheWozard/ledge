@@ -50,15 +50,26 @@ func TestReportWindow(t *testing.T) {
 	if got := evalIn(t, w, `location.href`); got != `"about:blank"` {
 		t.Errorf("the link moved the report to %s", got)
 	}
-	// Showing its id again replaces it, in the same window.
+	// Showing its id again replaces it, in the same window, and the same page.
+	evalIn(t, w, `window.kept = true`)
 	if again := showReport(t, "report", "Another", []templ.Component{components.Paragraph("Second version")}); again != w {
 		t.Errorf("showing the same id again opened window %d, not %d", again, w)
 	}
 	waitIn(t, w, `document.querySelector("p")?.textContent`, `"Second version"`)
+	for js, want := range map[string]string{
+		`document.querySelector(".titlebar span").textContent`:   `"Another"`,
+		`document.querySelectorAll("main > article > *").length`: "1",
+		`window.kept === true`:                                   "true",
+	} {
+		if got := evalIn(t, w, js); got != want {
+			t.Errorf("shown again, %s = %s, want %s", js, got, want)
+		}
+	}
 }
 
 // A block with an id is drawn as itself, and ShowReportBlock replaces only it, leaving
-// the report's scroll. A report that isn't open, or a block it hasn't, is left alone.
+// the rest of the report's elements and its scroll. A report that isn't open, or a
+// block it hasn't, is left alone.
 func TestReportBlock(t *testing.T) {
 	gui(t)
 	blocks := []templ.Component{components.Heading("Top")}
@@ -67,7 +78,7 @@ func TestReportBlock(t *testing.T) {
 	}
 	blocks = append(blocks, components.Block("status", components.Note("Running", "blue")), components.Paragraph("After"))
 	w := showReport(t, "blocks", "Blocks", blocks)
-	waitIn(t, w, `document.querySelector(".note")?.dataset.block`, `"status"`)
+	waitIn(t, w, `document.querySelectorAll("main > article > *").length`, fmt.Sprint(len(blocks)))
 	evalIn(t, w, `window.kept = document.querySelector("h2");
 		document.querySelector("main").scrollTop = 200, true`)
 	if got := evalIn(t, w, `document.querySelector("main").scrollTop`); got != "200" {
@@ -78,22 +89,22 @@ func TestReportBlock(t *testing.T) {
 	if err != nil || !open {
 		t.Fatalf("ShowReportBlock = %v, %v", open, err)
 	}
-	waitIn(t, w, `document.querySelector("[data-block=status]")?.tagName`, `"P"`)
+	const status = `[...document.querySelectorAll("main > article > *")].at(-2)`
+	waitIn(t, w, status+`.tagName`, `"P"`)
 	for js, want := range map[string]string{
-		`document.querySelector("[data-block=status]").textContent`:                 `"<b>Done</b>"`,
-		`document.querySelectorAll("template, .note").length`:                       "0",
-		`[...document.querySelectorAll("main > article > *")].at(-2).dataset.block`: `"status"`,
-		`document.querySelector("main > article > :last-child").textContent`:        `"After"`,
-		`document.querySelector("h2") === window.kept`:                              "true",
-		`document.querySelector("main").scrollTop`:                                  "200",
+		status + `.textContent`:                                              `"<b>Done</b>"`,
+		`document.querySelectorAll(".note, p b").length`:                     "0",
+		`document.querySelector("main > article > :last-child").textContent`: `"After"`,
+		`document.querySelector("h2") === window.kept`:                       "true",
+		`document.querySelector("main").scrollTop`:                           "200",
 	} {
 		if got := evalIn(t, w, js); got != want {
 			t.Errorf("%s = %s, want %s", js, got, want)
 		}
 	}
 
-	if _, err := testBar.ShowReportBlock("blocks", "missing", components.Paragraph("Lost")); err != nil {
-		t.Fatal(err)
+	if open, err := testBar.ShowReportBlock("blocks", "missing", components.Paragraph("Lost")); open || err != nil {
+		t.Errorf("ShowReportBlock of a block the report hasn't = %v, %v", open, err)
 	}
 	if got := evalIn(t, w, `document.querySelectorAll("main > article > *").length`); got != fmt.Sprint(len(blocks)) {
 		t.Errorf("%s blocks after replacing a missing one, want %d", got, len(blocks))
@@ -296,14 +307,16 @@ func TestNavigate(t *testing.T) {
 	}
 }
 
-// A report's page is loaded and its window shown when it's shown, and what's done to
-// it before the page is ready waits for it. Its clicks reach only its own Clicks, not
-// the bar's nor another window's, until it's closed, and a block replaced with
-// ShowReportBlock brings its own in place of the old.
+// A report's page is loaded and its window shown when it's first shown, and what's
+// shown in it, and done to it, waits for the page to be ready. Shown again, the page
+// is given what it shows, not loaded again, unless the theme has changed. Its clicks
+// reach only its own Clicks, as they are now, not the bar's nor another window's, until
+// it's closed; a block replaced with ShowReportBlock brings its own in place of the
+// old, and one the report hasn't is left alone.
 func TestReportMessages(t *testing.T) {
-	b, f := fakeBar(t, theme.Theme{})
+	b, f := fakeBar(t, theme.Theme{Report: "/* first */"})
 	b.Render(components.Cards([]components.Basic{{ID: "fbar", Title: "Bar", Click: record("fake open fbar")}}))
-	if err := b.ShowReport("fr", "Fake report", []templ.Component{
+	if err := b.ShowReport("fr", "Fake <report>", []templ.Component{
 		components.Buttons([]components.Button{{ID: "go", Title: "Go", Click: record("fake report go")}}),
 		components.Block("more", components.Buttons([]components.Button{{ID: "old", Title: "Old", Click: record("fake report old")}})),
 	}); err != nil {
@@ -312,20 +325,25 @@ func TestReportMessages(t *testing.T) {
 	b.mu.Lock()
 	w := b.reports["fr"].window
 	b.mu.Unlock()
-	if !strings.Contains(f.page(w), "Fake report") || !f.showing(w) {
-		t.Fatalf("the report's window is showing %v, with %s", f.showing(w), f.page(w))
+	if !strings.Contains(f.page(w), "/* first */") || f.loadCount(w) != 1 || !f.showing(w) {
+		t.Fatalf("the report's window, loaded %d times, is showing %v, with %s", f.loadCount(w), f.showing(w), f.page(w))
 	}
 	if open, err := b.ShowReportBlock("fr", "more", components.Buttons([]components.Button{
 		{ID: "new", Title: "New", Click: record("fake report new")},
 	})); !open || err != nil {
 		t.Fatalf("ShowReportBlock = %v, %v", open, err)
 	}
+	if open, err := b.ShowReportBlock("fr", "missing", components.Paragraph("Lost")); open || err != nil {
+		t.Errorf("ShowReportBlock of a block the report hasn't = %v, %v", open, err)
+	}
 	if ran := f.ran(w); len(ran) != 0 {
 		t.Fatalf("before its page was ready, the report ran %q", ran)
 	}
 	post(b, w, `{"action": "ready"}`)
-	if ran := f.ran(w); len(ran) != 2 || !strings.HasPrefix(ran[0], `replaceBlock("more", `) || ran[1] != "setBusy([])" {
-		t.Errorf("once ready, the report ran %q, want the block replaced, then the busy marks", ran)
+	ran := f.ran(w)
+	if len(ran) != 3 || !strings.HasPrefix(ran[0], `update("Fake \u003creport\u003e", `) || !strings.Contains(ran[0], `data-click=\"block/more/old\"`) ||
+		!strings.Contains(ran[1], `data-click=\"block/more/new\"`) || strings.Contains(ran[1], "old") || ran[2] != "setBusy([])" {
+		t.Errorf("once ready, the report ran %q, want it shown, then with its block replaced, then the busy marks", ran)
 	}
 
 	for _, id := range []string{"go", "block/more/new", "block/more/old", "card/fbar/click"} {
@@ -338,26 +356,42 @@ func TestReportMessages(t *testing.T) {
 	if open, _ := b.ShowReportBlock("fake-not-open", "more", components.Paragraph("Lost")); open {
 		t.Error("ShowReportBlock found a report that isn't open")
 	}
-	// Shown again while one of its buttons runs, its fresh page has it busy.
+
+	// Shown again while one of its buttons runs, it's given what to show, with that
+	// button busy, without loading its page again.
 	release, done := make(chan bool), make(chan bool)
 	blocks := []templ.Component{components.Buttons([]components.Button{{ID: "slow", Title: "Slow", Click: func(components.ClickEvent) { <-release }}})}
 	if err := b.ShowReport("fr", "Fake report", blocks); err != nil {
 		t.Fatal(err)
 	}
-	post(b, w, `{"action": "ready"}`)
 	go func() { post(b, w, `{"action": "click", "id": "slow"}`); done <- true }()
 	eventually(t, "slow to be busy", func() bool { return f.last(w) == `setBusy(["slow"])` })
 	if err := b.ShowReport("fr", "Fake report", blocks); err != nil {
 		t.Fatal(err)
 	}
-	post(b, w, `{"action": "ready"}`)
-	if got := f.last(w); got != `setBusy(["slow"])` {
-		t.Errorf("shown again while slow runs, the report ran %s once ready", got)
+	if got := f.last(w); !strings.HasPrefix(got, "update(") || !strings.HasSuffix(got, `; setBusy(["slow"])`) || f.loadCount(w) != 1 {
+		t.Errorf("shown again while slow runs, the report, loaded %d times, ran %s", f.loadCount(w), got)
 	}
 	close(release)
 	<-done
 	if got := f.last(w); got != "setBusy([])" {
 		t.Errorf("once slow is done, the report ran %s", got)
+	}
+
+	// In another theme, its page is loaded again, in that theme, and given what to
+	// show once it's ready.
+	b.mu.Lock()
+	b.options.Theme.Report = "/* second */"
+	b.mu.Unlock()
+	if err := b.ShowReport("fr", "Fake report", blocks); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(f.page(w), "/* second */") || f.loadCount(w) != 2 || len(f.ran(w)) != 0 {
+		t.Errorf("in another theme, the report, loaded %d times, ran %q before it was ready", f.loadCount(w), f.ran(w))
+	}
+	post(b, w, `{"action": "ready"}`)
+	if ran := f.ran(w); len(ran) == 0 || !strings.HasPrefix(ran[0], "update(") {
+		t.Errorf("once ready in another theme, the report ran %q", ran)
 	}
 
 	b.closed(w)

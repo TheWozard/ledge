@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/a-h/templ"
@@ -15,21 +16,21 @@ import (
 
 // ShowReport shows title and blocks in id's report window, in the bar's theme, and
 // brings it forward. Each id has its own window: showing an id again replaces what
-// its window shows, and one that's been closed opens anew. id is the app's, such as
-// the card or action the report is for. A block is any component; components
-// has the usual ones. Clicking what's in them, such as a Buttons' button, calls its
-// Click, as one on the bar does, until the report is shown again or closed.
+// its window shows, keeping its scroll, and one that's been closed opens anew. id is
+// the app's, such as the card or action the report is for. A block is any component;
+// components has the usual ones. Clicking what's in them, such as a Buttons' button,
+// calls its Click, as one on the bar does, until the report is shown again or closed.
+// The blocks are rendered with the bar's lock held, as cards are, so they mustn't
+// call back into the bar.
 func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
+	blocks = slices.Clone(blocks)
 	b.mu.Lock()
 	t := b.options.Theme
-	b.mu.Unlock()
-	var html bytes.Buffer
-	clicks := &components.Clicks{}
-	ctx := components.WithClicks(context.Background(), clicks)
-	if err := components.ReportPage(t.Report, title, blocks).Render(ctx, &html); err != nil {
+	html, clicks, err := renderReport(blocks)
+	if err != nil {
+		b.mu.Unlock()
 		return err
 	}
-	b.mu.Lock()
 	p := b.report(id)
 	b.mu.Unlock()
 	// These wait for the main thread, which can be waiting for the lock to say a
@@ -38,9 +39,15 @@ func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	b.native.SetTitle(p.window, title)
 	b.native.SetAppearance(p.window, t.Frame.Appearance)
 	b.native.SetFrameless(p.window, t.Frame.Frameless)
-	// The page and its Clicks change together, so they always match.
 	b.mu.Lock()
-	p.load(html.String(), clicks)
+	if !p.hasPage || p.css != t.Report {
+		if err := b.loadReport(p, t.Report); err != nil {
+			b.mu.Unlock()
+			return err
+		}
+	}
+	p.title, p.blocks = title, blocks
+	p.show(title, html, clicks)
 	b.mu.Unlock()
 	b.native.ShowWindow(p.window)
 	return nil
@@ -48,35 +55,59 @@ func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 
 // ShowReportBlock replaces the block given blockID with components.Block in id's
 // report by block, leaving the rest of the report, its scroll and where its window
-// is as they are. It reports whether id's report is open; if it is but has no such
-// block, nothing changes. Called just after ShowReport, the block is replaced once
-// the new page has loaded.
+// is as they are. It reports whether id's report is open with such a block; if not,
+// nothing changes. Called just after ShowReport, the block is replaced once the new
+// page has loaded.
 func (b *Bar) ShowReportBlock(id, blockID string, block templ.Component) (bool, error) {
-	b.mu.Lock()
-	_, ok := b.reports[id]
-	b.mu.Unlock()
-	if !ok {
-		return false, nil
-	}
-	var html strings.Builder
-	clicks := &components.Clicks{}
-	ctx := components.WithClicks(context.Background(), clicks)
-	if err := components.Block(blockID, block).Render(ctx, &html); err != nil {
-		return true, err
-	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	p, ok := b.reports[id]
 	if !ok {
-		return false, nil // closed meanwhile
+		return false, nil
 	}
-	p.clicks.Replace(clicks)
-	// Marshalled, the id and html are JS strings; <, > and & are escaped in them.
-	idJS, _ := json.Marshal(blockID)
-	htmlJS, _ := json.Marshal(html.String())
-	// The busy marks go with it, as the block's new elements haven't any.
-	p.eval("replaceBlock(" + string(idJS) + ", " + string(htmlJS) + "); " + p.busyJS())
+	blocks, ok := components.ReplaceBlock(p.blocks, blockID, block)
+	if !ok {
+		return false, nil
+	}
+	html, clicks, err := renderReport(blocks)
+	if err != nil {
+		return true, err
+	}
+	p.blocks = blocks
+	p.show(p.title, html, clicks)
 	return true, nil
+}
+
+// renderReport renders blocks as a report shows them, and the Clicks in them.
+func renderReport(blocks []templ.Component) (string, *components.Clicks, error) {
+	var html strings.Builder
+	clicks := &components.Clicks{}
+	err := components.ReportContent(blocks).Render(components.WithClicks(context.Background(), clicks), &html)
+	return html.String(), clicks, err
+}
+
+// loadReport loads p, a report's page, afresh, in css, the theme's stylesheet for it.
+// Call it with the bar's lock held.
+func (b *Bar) loadReport(p *page, css string) error {
+	var html bytes.Buffer
+	if err := components.ReportPage(css).Render(context.Background(), &html); err != nil {
+		return err
+	}
+	p.css = css
+	p.load(html.String())
+	return nil
+}
+
+// show has p, a report's page, show title and html, rendered from ReportContent with
+// clicks, the Clicks in it, from then; until it's ready, it waits. Call it with the
+// bar's lock held.
+func (p *page) show(title, html string, clicks *components.Clicks) {
+	p.clicks = clicks
+	// Marshalled, the title and html are JS strings; <, > and & are escaped in them.
+	titleJS, _ := json.Marshal(title)
+	htmlJS, _ := json.Marshal(html)
+	// The busy marks go with it, in one go, as on the bar.
+	p.eval("update(" + string(titleJS) + ", " + string(htmlJS) + "); " + p.busyJS())
 }
 
 // report is id's report's page, given a new window if it hasn't one open. Each

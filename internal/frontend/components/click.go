@@ -31,12 +31,10 @@ type ClickEvent struct {
 }
 
 // Clicks is the Clicks on a page, put there by ClickID as it's rendered with
-// WithClicks: each by the id the page has for it, and the ids each scope put there,
-// a card's or a report's Block's, so a scope's can be replaced with Replace. The zero
-// Clicks is empty and ready to use.
+// WithClicks, each by the id the page has for it. The zero Clicks is empty and ready
+// to use.
 type Clicks struct {
-	byID    map[string]Click
-	byScope map[scope][]string
+	byID map[string]Click
 }
 
 // scope is what the Clicks rendered in it belong to: a card's frame ("card") or its
@@ -50,37 +48,10 @@ func (c *Clicks) Click(id string) Click { return c.byID[id] }
 // IDs is the ids of the Clicks, sorted.
 func (c *Clicks) IDs() []string { return slices.Sorted(maps.Keys(c.byID)) }
 
-// Replace replaces the Clicks of each scope from was rendered in by from's.
-func (c *Clicks) Replace(from *Clicks) {
-	for s, ids := range from.byScope {
-		for _, id := range c.byScope[s] {
-			delete(c.byID, id)
-		}
-		for _, id := range ids {
-			c.add(s, id, from.byID[id])
-		}
-	}
-}
-
-// enter notes that s has been rendered, even if nothing in it is clickable, so
-// Replace takes away what it had.
-func (c *Clicks) enter(s scope) {
-	if c.byScope == nil {
-		c.byScope = map[scope][]string{}
-	}
-	if _, ok := c.byScope[s]; !ok {
-		c.byScope[s] = nil
-	}
-}
-
-// add puts click in c as id, in scope s.
-func (c *Clicks) add(s scope, id string, click Click) {
+// add puts click in c as id.
+func (c *Clicks) add(id string, click Click) {
 	if c.byID == nil {
 		c.byID = map[string]Click{}
-	}
-	c.enter(s)
-	if _, ok := c.byID[id]; !ok {
-		c.byScope[s] = append(c.byScope[s], id)
 	}
 	c.byID[id] = click
 }
@@ -126,7 +97,7 @@ func ClickID(ctx context.Context, id string, click Click) string {
 	s, _ := ctx.Value(scopeKey{}).(scope)
 	full := pageID(s, id)
 	if clicks, ok := ctx.Value(clicksKey{}).(*Clicks); ok && click != nil {
-		clicks.add(s, full, click)
+		clicks.add(full, click)
 	}
 	return full
 }
@@ -140,12 +111,9 @@ func pageID(s scope, id string) string {
 	return url.PathEscape(s.kind) + "/" + url.PathEscape(s.id) + "/" + url.PathEscape(id)
 }
 
-// inScope is c rendered in s, so the Clicks in it are s's.
+// inScope is c rendered in s, so the ids of the Clicks in it are s's.
 func inScope(s scope, c templ.Component) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
-		if clicks, ok := ctx.Value(clicksKey{}).(*Clicks); ok {
-			clicks.enter(s)
-		}
 		return c.Render(context.WithValue(ctx, scopeKey{}, s), w)
 	})
 }

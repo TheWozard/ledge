@@ -6,20 +6,30 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/a-h/templ"
+
 	"github.com/TheWozard/ledge-frontend/components"
 )
 
-// page is what a window shows, the bar or a report: a page rendered in Go, which posts
-// the ids of what's clicked in it. It has the Clicks it was rendered with, which of
-// them are running, and whether it's loaded. Its fields are guarded by the bar's lock.
+// page is what a window shows, the bar or a report: a page loaded once, into which
+// what it shows, rendered in Go, is morphed, and which posts the ids of what's clicked
+// in it. It has the Clicks of what it was last given to show, which of them are
+// running, and whether it's loaded. Its fields are guarded by the bar's lock.
 type page struct {
 	native  native
 	window  int
 	name    string   // what the log calls it: "the bar", or "report window 3"
+	hasPage bool     // a page has been loaded into it, ready or not
 	ready   bool     // it's posted "ready" since it was last loaded
 	queued  []string // the JS to run in it once it's ready
 	clicks  *components.Clicks
 	running map[string]bool // the ids of its Clicks running, which it marks busy
+
+	// A report's page has what it shows, so a block of it can be replaced, and the
+	// stylesheet it was loaded with, so it's loaded again in another.
+	css    string
+	title  string
+	blocks []templ.Component
 }
 
 // pageMessages is what the bar's and a report's page can post, each action with
@@ -32,10 +42,10 @@ func newPage(n native, window int, name string) *page {
 	return &page{native: n, window: window, name: name, clicks: &components.Clicks{}, running: map[string]bool{}}
 }
 
-// load replaces what p shows by html, with clicks, the Clicks in it. Until the new
-// page is ready, what's evaluated in it waits.
-func (p *page) load(html string, clicks *components.Clicks) {
-	p.ready, p.queued, p.clicks = false, nil, clicks
+// load replaces p's page by html. Until the new page is ready, what's evaluated in it
+// waits; what was waiting for the old one is dropped.
+func (p *page) load(html string) {
+	p.hasPage, p.ready, p.queued = true, false, nil
 	p.native.LoadHTML(p.window, html)
 }
 

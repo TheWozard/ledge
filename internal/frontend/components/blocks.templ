@@ -127,13 +127,3 @@ templ Buttons(buttons []Button) {
 		}
 	</div>
 }
-
-// Block is block with an id, unique in its report, so ShowReportBlock can replace it
-// later and leave the rest of the report as it is, with any Clicks in it. It's drawn
-// as block alone: the page marks its elements data-block, with its id, rather than
-// wrapping them.
-templ Block(id string, block templ.Component) {
-	<template data-block={ id }>
-		@inScope(scope{"block", id}, block)
-	</template>
-}

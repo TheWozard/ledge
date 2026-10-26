@@ -15,13 +15,21 @@ func TestBarPage(t *testing.T) {
 		"<script>var Idiomorph=", `Idiomorph.morph(app, html, {`)
 }
 
-// The report page draws its title bar, escaping the title, and the blocks in its
-// <article>, under its theme, with its script.
+// The report page draws its title bar and an empty <article>, under its theme, with
+// its script, which morphs what it's given into the <article>.
 func TestReportPage(t *testing.T) {
-	html := render(t, ReportPage(":root { --page: #fff; }", "CI <failed>", []templ.Component{Heading("Jobs")}))
+	html := render(t, ReportPage(":root { --page: #fff; }"))
 	contains(t, html,
-		`<span>CI &lt;failed&gt;</span>`, `<button class="close"`,
+		`<header class="titlebar"><span></span>`, `<button class="close"`,
 		"<style>\n:root { --page: #fff; }</style>",
-		"<article><h2>Jobs</h2></article>",
-		`frame("drag")`)
+		"<article></article>",
+		`frame("drag")`, "<script>var Idiomorph=", `Idiomorph.morph(article, html, {`)
+}
+
+// A report's content is its blocks, top to bottom, and nothing else.
+func TestReportContent(t *testing.T) {
+	html := render(t, ReportContent([]templ.Component{Heading("Jobs"), Block("x", Paragraph("CI <failed>"))}))
+	if want := "<h2>Jobs</h2><p>CI &lt;failed&gt;</p>"; html != want {
+		t.Errorf("the report's content is %s, want %s", html, want)
+	}
 }

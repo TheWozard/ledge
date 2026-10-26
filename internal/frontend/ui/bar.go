@@ -69,7 +69,7 @@ func open(options Options, n native) (*Bar, error) {
 		}
 	})
 	b.mu.Lock()
-	b.bar.load(html, &components.Clicks{})
+	b.bar.load(html)
 	b.mu.Unlock()
 	return b, nil
 }

@@ -40,10 +40,33 @@ func TestBlocks(t *testing.T) {
 	lacks(t, html.String(), "<b>not bold", "extra", `href="javascript:`)
 }
 
-// A block with an id comes in a template with it, its text escaped.
+// A block with an id is drawn as itself, its text escaped. ReplaceBlock replaces only
+// the Block with its id, as a Block with it, and leaves the blocks it's given as they
+// are; without one, nothing changes.
 func TestBlock(t *testing.T) {
-	html := render(t, Block(`"x"`, Paragraph("<b>")))
-	contains(t, html, `<template data-block="&#34;x&#34;"><p>&lt;b&gt;</p></template>`)
+	if html := render(t, Block(`"x"`, Paragraph("<b>"))); html != `<p>&lt;b&gt;</p>` {
+		t.Errorf("the block is %s", html)
+	}
+	blocks := []templ.Component{Heading("Top"), Block("x", Paragraph("Old")), Block("y", Paragraph("Kept"))}
+	replaced, ok := ReplaceBlock(blocks, "x", Buttons([]Button{{ID: "go", Title: "Go", Click: nothing}}))
+	if !ok {
+		t.Fatal("ReplaceBlock didn't find x")
+	}
+	html, clicks := renderClicks(t, ReportContent(replaced))
+	contains(t, html, "<h2>Top</h2>", `data-click="block/x/go"`, "<p>Kept</p>")
+	lacks(t, html, "Old")
+	if !slices.Equal(clicks.IDs(), []string{"block/x/go"}) {
+		t.Errorf("replaced, the Clicks have %q", clicks.IDs())
+	}
+	if render(t, ReportContent(blocks)) != "<h2>Top</h2><p>Old</p><p>Kept</p>" {
+		t.Error("ReplaceBlock changed the blocks it was given")
+	}
+	if same, ok := ReplaceBlock(blocks, "z", Paragraph("Lost")); ok || len(same) != len(blocks) {
+		t.Error("ReplaceBlock replaced a Block that isn't there")
+	}
+	if _, ok := ReplaceBlock([]templ.Component{Paragraph("x")}, "", Paragraph("Lost")); ok {
+		t.Error("ReplaceBlock replaced a block without an id")
+	}
 }
 
 // A Buttons' button shows its title escaped, with its colour; one with a Click has
@@ -53,7 +76,7 @@ func TestBlock(t *testing.T) {
 func TestButtons(t *testing.T) {
 	var got []string
 	click := func(name string) Click { return func(ClickEvent) { got = append(got, name) } }
-	html, clicks := renderClicks(t, ReportPage("", "Report", []templ.Component{
+	html, clicks := renderClicks(t, ReportContent([]templ.Component{
 		Buttons([]Button{{ID: "rerun", Title: "<Rerun>", Color: "yellow", Click: click("rerun")}, {ID: "off", Title: "Off", Color: "purple"}}),
 		Block("more", Buttons([]Button{{ID: "cancel", Title: "Cancel", Color: "#e0362c", Click: click("cancel")}})),
 		Block("again", Buttons([]Button{{ID: "cancel", Title: "Cancel", Click: click("cancel again")}})),
@@ -73,16 +96,6 @@ func TestButtons(t *testing.T) {
 	}
 	if strings.Join(got, ",") != "cancel again,cancel,rerun" {
 		t.Errorf("the buttons' Clicks called %v", got)
-	}
-
-	// Replacing a block's Clicks takes away those it had and leaves the rest; a block
-	// rendered without any takes away all it had.
-	_, more := renderClicks(t, Block("more", Buttons([]Button{{ID: "approve", Title: "Approve", Click: click("approve")}})))
-	_, again := renderClicks(t, Block("again", Paragraph("Done.")))
-	clicks.Replace(more)
-	clicks.Replace(again)
-	if ids := []string{"block/more/approve", "rerun"}; !slices.Equal(clicks.IDs(), ids) {
-		t.Errorf("replaced, the Clicks have %q, want %q", clicks.IDs(), ids)
 	}
 
 	// Rendered without Clicks, a button has its id, and nothing takes its Click.

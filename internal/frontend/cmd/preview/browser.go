@@ -34,14 +34,23 @@ window.webkit = { messageHandlers: { ledge: { postMessage(message) {
 } } } };
 </script>`
 
-// reportStub logs what the report page posts, to the app or its window, and opens its
-// links in a new tab rather than in its frame.
-const reportStub = `<base target="_blank"><script>
+// reportStub logs what the report page posts, to the app or its window, shows title
+// and html, rendered from ReportContent, once it's ready, as the app does, and opens
+// its links in a new tab rather than in its frame.
+func reportStub(title, html string) string {
+	// Marshalled, the title and html are JS strings; <, > and & are escaped in them.
+	titleJS, _ := json.Marshal(title)
+	htmlJS, _ := json.Marshal(html)
+	return `<base target="_blank"><script>
 window.webkit = { messageHandlers: {
-  ledge: { postMessage(message) { console.log("report posted", message); } },
+  ledge: { postMessage(message) {
+    console.log("report posted", message);
+    if (message.action === "ready") update(` + string(titleJS) + `, ` + string(htmlJS) + `);
+  } },
   frame: { postMessage(message) { console.log("report posted to its window", message); } },
 } };
 </script>`
+}
 
 // menuStub logs what a card's menu page posts.
 const menuStub = `<script>
@@ -123,7 +132,12 @@ func (s *browserServer) bar(w http.ResponseWriter, r *http.Request) {
 // report serves the report for ?id=.
 func (s *browserServer) report(w http.ResponseWriter, r *http.Request) {
 	title, blocks := s.sample.report(r.URL.Query().Get("id"))
-	s.page(w, func(th theme.Theme) templ.Component { return components.ReportPage(th.Report, title, blocks) }, reportStub)
+	var html bytes.Buffer
+	if err := components.ReportContent(blocks).Render(context.Background(), &html); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.page(w, func(th theme.Theme) templ.Component { return components.ReportPage(th.Report) }, reportStub(title, html.String()))
 }
 
 // menu serves the menu of the card whose element id is ?id=, as its theme draws it;

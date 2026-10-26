@@ -1,14 +1,13 @@
 package components
 
 // ReportPage is the report window's page, styled by themeCSS (a theme.Theme's
-// Report): title in the title bar the page draws, and blocks under it, top to
-// bottom, scrolling under the title bar. A block is any component; the ones in
-// blocks.templ are Heading, Paragraph, Fields, Table, List, Code, Note, Link and
-// Buttons, and any of them can be given an id with Block. Its layout is
-// page/report.css, and its script page/report.js, which posts {action: "ready"} once
-// loaded, and from then takes replaceBlock(id, html), with html rendered from a Block
-// with that id, and replaces that block with it, and setBusy(ids), which marks
-// data-busy what's clicked with those ids.
+// Report): a title bar the page draws, and an empty <article> under it that scrolls
+// under the title bar. It posts {action: "ready"} once loaded, and from then takes
+// update(title, html), with html rendered from ReportContent: it shows title in its
+// title bar, and morphs the <article> into html, so what's still there keeps its
+// element and the report its scroll. It also takes setBusy(ids), which marks
+// data-busy what's clicked with those ids. Its layout is page/report.css, and its
+// script page/report.js.
 //
 // Apart from ready, the page posts to window.webkit.messageHandlers.ledge only
 // {action: "click", id, event} when something with data-click is clicked, with the
@@ -19,7 +18,7 @@ package components
 // (the second of a double-click zooms), and the title bar's buttons, when a theme
 // shows them, close, minimise and zoom it. A Link is a real <a>; clicking one asks
 // the window to navigate, which the app decides on.
-templ ReportPage(themeCSS string, title string, blocks []templ.Component) {
+templ ReportPage(themeCSS string) {
 	<!DOCTYPE html>
 	<html lang="en">
 		<head>
@@ -28,16 +27,23 @@ templ ReportPage(themeCSS string, title string, blocks []templ.Component) {
 			@style(themeCSS)
 		</head>
 		<body>
-			<header class="titlebar"><span>{ title }</span><button class="minimise" title="Minimise" aria-label="Minimise"></button><button class="zoom" title="Zoom" aria-label="Zoom"></button><button class="close" title="Close" aria-label="Close"></button></header>
+			<header class="titlebar"><span></span><button class="minimise" title="Minimise" aria-label="Minimise"></button><button class="zoom" title="Zoom" aria-label="Zoom"></button><button class="close" title="Close" aria-label="Close"></button></header>
 			<main tabindex="-1">
-				<article>
-					for _, block := range blocks {
-						@block
-					}
-				</article>
+				<article></article>
 			</main>
+			@script(idiomorph)
 			@script(ledgeJS)
 			@script(reportJS)
 		</body>
 	</html>
+}
+
+// ReportContent is what a report shows in its page's <article>: blocks, top to
+// bottom. A block is any component; the ones in blocks.templ are Heading, Paragraph,
+// Fields, Table, List, Code, Note, Link and Buttons, and any of them can be given an
+// id with Block.
+templ ReportContent(blocks []templ.Component) {
+	for _, block := range blocks {
+		@block
+	}
 }
