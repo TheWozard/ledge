@@ -11,8 +11,8 @@ var restartFlags runFlags
 
 var restartCmd = &cobra.Command{
 	Use:   "restart",
-	Short: "Stop the background ledge and start it again",
-	Long: `Stop the ledge started with ` + "`ledge start`" + ` and start it again, reading its config file
+	Short: "Stop the running ledge and start it again in the background",
+	Long: `Stop the running ledge, as ` + "`ledge stop`" + ` does, and start it again, reading its config file
 afresh. Without flags it starts with the flags the last ` + "`ledge start`" + ` used; with
 any flag, it uses only the flags given. Starts it if it wasn't running. If the config
 is invalid, the running ledge is left running.`,

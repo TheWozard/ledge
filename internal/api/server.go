@@ -3,6 +3,7 @@
 //	POST /event          one event, or a section ({"source", "items"}) that
 //	                     replaces a source's events; replies with the id(s)
 //	POST /dismiss        {"id": ...}, deleting that event
+//	POST /shutdown       {}, stopping ledge once it has replied
 //	GET  /events         the current events, as the bar shows them
 //	GET  /schemas/{name} a schema, as built in
 //
@@ -30,10 +31,11 @@ import (
 const MaxBody = 1 << 20
 
 // Server serves the API for one store. Changed, if set, is called after any request
-// that changes the store.
+// that changes the store, and Shutdown after replying to POST /shutdown.
 type Server struct {
-	Store   *store.Store
-	Changed func()
+	Store    *store.Store
+	Changed  func()
+	Shutdown func()
 }
 
 // Listen binds the API port on 127.0.0.1 only.
@@ -66,6 +68,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write(source)
 	case r.Method == http.MethodPost && (r.URL.Path == "/event" || r.URL.Path == "/dismiss"):
 		s.post(w, r)
+	case r.Method == http.MethodPost && r.URL.Path == "/shutdown":
+		s.shutdown(w, r)
 	default:
 		reply(w, http.StatusNotFound, map[string]any{"error": fmt.Sprintf("no such path %s %s", r.Method, r.URL.Path)})
 	}
@@ -86,6 +90,23 @@ func (s *Server) post(w http.ResponseWriter, r *http.Request) {
 	reply(w, http.StatusOK, result)
 	if s.Changed != nil {
 		s.Changed()
+	}
+}
+
+// shutdown replies, then stops ledge.
+func (s *Server) shutdown(w http.ResponseWriter, r *http.Request) {
+	body, err := readJSON(r)
+	if err == nil {
+		err = store.Check("shutdown", body)
+	}
+	switch {
+	case err != nil:
+		reply(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+	case s.Shutdown == nil:
+		reply(w, http.StatusInternalServerError, map[string]any{"error": "this server can't be shut down"})
+	default:
+		reply(w, http.StatusOK, map[string]any{"shutdown": true})
+		s.Shutdown()
 	}
 }
 

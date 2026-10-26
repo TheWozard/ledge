@@ -16,7 +16,8 @@ import (
 
 // The test binary stands in for ledge: run as `<test binary> run`, with
 // BACKGROUND_TEST_MODE set, it acts as a ledge whose API answers on
-// BACKGROUND_TEST_PORT. The mode "crash" exits at once; "stubborn" ignores SIGTERM.
+// BACKGROUND_TEST_PORT, and exits when POST /shutdown asks. The mode "crash" exits at
+// once; "stubborn" ignores SIGTERM.
 func TestMain(m *testing.M) {
 	if mode := os.Getenv("BACKGROUND_TEST_MODE"); mode != "" && len(os.Args) > 1 && os.Args[1] == "run" {
 		fakeLedge(mode)
@@ -38,6 +39,12 @@ func fakeLedge(mode string) {
 		os.Exit(1)
 	}
 	go http.Serve(listener, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/shutdown" {
+			w.Write([]byte(`{"shutdown": true}`))
+			w.(http.Flusher).Flush()
+			go func() { time.Sleep(50 * time.Millisecond); os.Exit(0) }()
+			return
+		}
 		w.Write([]byte(`{"events": []}`))
 	}))
 	fmt.Println("fake ledge up, args:", strings.Join(os.Args[1:], " "))
@@ -145,6 +152,51 @@ func TestStopKillsAStubbornProcess(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	if alive(pid) {
 		t.Error("still running after the kill")
+	}
+}
+
+// A ledge this binary didn't start, such as one run in a terminal, is stopped through
+// its API.
+func TestStopAsksTheAPI(t *testing.T) {
+	p := newProcess(t, "normal")
+	other := exec.Command(os.Args[0], "run")
+	if err := other.Start(); err != nil {
+		t.Fatal(err)
+	}
+	exited := make(chan struct{})
+	go func() { other.Wait(); close(exited) }()
+	t.Cleanup(func() { other.Process.Kill() })
+	for deadline := time.Now().Add(5 * time.Second); !p.answers(); time.Sleep(50 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("the other ledge never answered")
+		}
+	}
+	if stopped, err := p.Stop(); !stopped || err != nil {
+		t.Fatalf("Stop = %v, %v", stopped, err)
+	}
+	select {
+	case <-exited:
+	case <-time.After(5 * time.Second):
+		t.Error("the other ledge didn't exit")
+	}
+}
+
+// Something that answers but doesn't shut down is reported.
+func TestStopReportsWhatKeepsAnswering(t *testing.T) {
+	StopTimeout = 300 * time.Millisecond
+	defer func() { StopTimeout = 5 * time.Second }()
+	p := newProcess(t, "normal")
+	other := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"events": []}`))
+	})}
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p.Port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	go other.Serve(listener)
+	defer other.Close()
+	if _, err := p.Stop(); err == nil || !strings.Contains(err.Error(), "still answers") {
+		t.Fatalf("Stop = %v", err)
 	}
 }
 

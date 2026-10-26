@@ -14,8 +14,8 @@ func TestServer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	changes := 0
-	server := &Server{Store: events, Changed: func() { changes++ }}
+	changes, shutdowns := 0, 0
+	server := &Server{Store: events, Changed: func() { changes++ }, Shutdown: func() { shutdowns++ }}
 
 	do := func(method, path, body string, headers map[string]string) (int, string) {
 		t.Helper()
@@ -49,6 +49,9 @@ func TestServer(t *testing.T) {
 		{"POST", "/dismiss", `{"id": ""}`, nil, 400, "dismiss schema: id"},
 		{"GET", "/events", "", nil, 200, `"title": "B"`},
 		{"GET", "/schemas/event", "", nil, 200, `"$id": "urn:ledge:event"`},
+		{"POST", "/shutdown", `{"now": true}`, nil, 400, "shutdown schema"},
+		{"POST", "/shutdown", `{}`, map[string]string{"Origin": "https://example.com"}, 400, "browser page"},
+		{"POST", "/shutdown", `{}`, nil, 200, `"shutdown": true`},
 		{"GET", "/schemas/nope", "", nil, 404, "no schema"},
 		{"GET", "/event", "", nil, 404, "no such path"},
 	} {
@@ -60,5 +63,8 @@ func TestServer(t *testing.T) {
 	// The two events, the section and both dismisses, refused ones not counted.
 	if changes != 4 {
 		t.Errorf("Changed called %d times, want 4", changes)
+	}
+	if shutdowns != 1 {
+		t.Errorf("Shutdown called %d times, want 1", shutdowns)
 	}
 }

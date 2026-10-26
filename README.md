@@ -161,15 +161,18 @@ ledge restart                      # rereads the config; reuses start's flags un
 ```
 
 `start` waits until the API answers, and shows the log if ledge exits first. Its pid
-file and log (`ledge.log`) go in the state dir. `stop` only acts on the ledge `start`
-began, never on one run in a terminal or a process that has reused its pid, and
-`start` refuses if something else already answers on the port. `restart` checks the
-config before stopping anything, so a broken config leaves the running ledge running.
+file and log (`ledge.log`) go in the state dir. `stop` signals the ledge `start` began,
+never a process that has reused its pid; if there isn't one, it asks whatever ledge
+answers on the port to shut down through `POST /shutdown`, such as one run in a
+terminal or by another build. `start` refuses if something else already answers on
+the port. `restart` checks the config before stopping anything, so a broken config
+leaves the running ledge running.
 
 While working on ledge, the [justfile](justfile) builds it from this repo first:
 `just start`, `just stop` and `just restart` build into the state dir and then run
 `ledge start`, `stop` or `restart`, passing on any flags. `just kill` stops every
-ledge built from this repo, however it was started, such as one left by `go run`.
+ledge built from this repo by its process, whatever port it's on, including one too old
+to have `POST /shutdown`.
 `just bar`, `just report`, `just feed` and `just clear` run the examples. Run `just` to list them.
 
 The build in the state dir and an installed `ledge` are different binaries, so each
@@ -206,6 +209,7 @@ the bar, whoever sent the events.
 |---|---|---|
 | `POST /event` | an event, or a section (`{"source", "items"}`) that replaces all of that source's events | `{"id"}`, or `{"ids"}` for a section |
 | `POST /dismiss` | `{"id"}` | `{"dismissed": true\|false}` |
+| `POST /shutdown` | `{}` | `{"shutdown": true}`, then ledge exits, closing the bar |
 | `GET /events` | | `{"events": [...]}`, highest priority first, then newest first |
 | `GET /schemas/{name}` | | the schema |
 

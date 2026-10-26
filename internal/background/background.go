@@ -137,16 +137,19 @@ func (p *Process) Start(args []string) (pid int, started bool, err error) {
 }
 
 // Stop ends the background ledge: SIGTERM, then SIGKILL if it hasn't exited after
-// StopTimeout. Returns false if it wasn't running.
+// StopTimeout. If this binary didn't start one, it asks whatever ledge answers on the
+// port to shut down instead, such as one run in a terminal or by another build.
+// Returns false if nothing was running.
 func (p *Process) Stop() (bool, error) {
 	pid, ok := p.Running()
 	if !ok {
+		stopped, err := p.stopByAPI()
 		// The pid file is only stale if its process is gone. A live one may be a ledge
 		// started by another build of ledge, whose pid file this is too.
 		if recorded, ok := p.recordedPID(); !ok || !alive(recorded) {
 			os.Remove(p.PIDFile)
 		}
-		return false, nil
+		return stopped, err
 	}
 	process, err := os.FindProcess(pid)
 	if err != nil {
@@ -155,17 +158,40 @@ func (p *Process) Stop() (bool, error) {
 	if err := process.Signal(syscall.SIGTERM); err != nil && !errors.Is(err, os.ErrProcessDone) {
 		return false, err
 	}
+	err = await(pid)
+	os.Remove(p.PIDFile)
+	return true, err
+}
+
+// stopByAPI asks the ledge answering on the port to shut down, and waits StopTimeout
+// for its API to stop answering. Returns false if nothing answers.
+func (p *Process) stopByAPI() (bool, error) {
+	if !p.answers() {
+		return false, nil
+	}
+	var reply map[string]any
+	if err := (api.Client{Port: p.Port}).Call("POST", "/shutdown", []byte("{}"), &reply); err != nil {
+		return false, fmt.Errorf("asking the ledge on port %d to shut down: %w", p.Port, err)
+	}
 	for deadline := time.Now().Add(StopTimeout); time.Now().Before(deadline); time.Sleep(100 * time.Millisecond) {
-		if !alive(pid) {
-			os.Remove(p.PIDFile)
+		if !p.answers() {
 			return true, nil
 		}
 	}
-	if err := process.Signal(syscall.SIGKILL); err != nil && !errors.Is(err, os.ErrProcessDone) {
-		return false, err
+	return true, fmt.Errorf("the ledge on port %d still answers %s after being asked to shut down", p.Port, StopTimeout)
+}
+
+// await waits StopTimeout for pid to exit, then kills it.
+func await(pid int) error {
+	for deadline := time.Now().Add(StopTimeout); time.Now().Before(deadline); time.Sleep(100 * time.Millisecond) {
+		if !alive(pid) {
+			return nil
+		}
 	}
-	os.Remove(p.PIDFile)
-	return true, fmt.Errorf("pid %d didn't exit after %s, so it was killed", pid, StopTimeout)
+	if err := syscall.Kill(pid, syscall.SIGKILL); err != nil && !errors.Is(err, syscall.ESRCH) {
+		return err
+	}
+	return fmt.Errorf("pid %d didn't exit after %s, so it was killed", pid, StopTimeout)
 }
 
 // LastArgs is what the last Start passed to `ledge run`, or false if nothing has

@@ -63,9 +63,12 @@ var runCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		server := &api.Server{Store: events}
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
+		// POST /shutdown stops it as a signal would.
+		ctx, shutdown := context.WithCancel(ctx)
+		defer shutdown()
+		server := &api.Server{Store: events, Shutdown: shutdown}
 		if runHeadless {
 			return serve(ctx, listener, server)
 		}
