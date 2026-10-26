@@ -1,6 +1,6 @@
 // Package api is ledge's JSON API on 127.0.0.1, and a client for it.
 //
-//	POST /event          one event or status, or a section ({"source", "items"}) that
+//	POST /event          one event, or a section ({"source", "items"}) that
 //	                     replaces a source's events; replies with the id(s)
 //	POST /dismiss        {"id": ...}, deleting that event
 //	GET  /events         the current events, as the bar shows them

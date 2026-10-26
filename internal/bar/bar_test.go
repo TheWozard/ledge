@@ -45,7 +45,7 @@ func (r *recorder) has(url string) bool {
 	return false
 }
 
-// testStart runs a status's bash command for real, but only records `open`.
+// testStart runs an event's bash command for real, but only records `open`.
 func testStart(cmd *exec.Cmd) error {
 	if filepath.Base(cmd.Path) == "open" {
 		opened.mu.Lock()

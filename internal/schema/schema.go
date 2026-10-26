@@ -121,6 +121,10 @@ func (s *Set) Validate(name string, value any) error {
 	}
 	cause := best(invalid)
 	message := cause.ErrorKind.LocalizedString(printer)
+	// A property no rule allows fails `unevaluatedProperties: false` as a false schema.
+	if _, ok := cause.ErrorKind.(*kind.FalseSchema); ok {
+		message = "not a property this object can have"
+	}
 	// A failed `not` only says the value shouldn't have matched. The schemas give
 	// those rules a description to report instead.
 	if _, ok := cause.ErrorKind.(*kind.Not); ok {
@@ -132,7 +136,9 @@ func (s *Set) Validate(name string, value any) error {
 }
 
 // best is the error to report: of the innermost errors, the one nearest the top of
-// the value, since that's where the most is wrong. Ties go to the first.
+// the value, since that's where the most is wrong. Ties go to the first. A property
+// that's unevaluated only because it failed its own rules is reported by those, so a
+// false schema is the last resort.
 func best(err *jsonschema.ValidationError) *jsonschema.ValidationError {
 	if len(err.Causes) == 0 {
 		return err
@@ -140,11 +146,17 @@ func best(err *jsonschema.ValidationError) *jsonschema.ValidationError {
 	var found *jsonschema.ValidationError
 	for _, cause := range err.Causes {
 		leaf := best(cause)
-		if found == nil || len(leaf.InstanceLocation) < len(found.InstanceLocation) {
+		if found == nil || falseSchema(found) && !falseSchema(leaf) ||
+			falseSchema(found) == falseSchema(leaf) && len(leaf.InstanceLocation) < len(found.InstanceLocation) {
 			found = leaf
 		}
 	}
 	return found
+}
+
+func falseSchema(err *jsonschema.ValidationError) bool {
+	_, ok := err.ErrorKind.(*kind.FalseSchema)
+	return ok
 }
 
 // notDescription is the description of the `not` in the schema at location

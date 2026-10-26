@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
-# Example cards and statuses on the bar. A card opens a report (shown in the
-# report window) or a file:// url of a local page this script writes (opened in your
-# browser), so they work offline.
+# Example cards of every kind on the bar. A card opens a report (shown in a report
+# window), a file:// url of a local page this script writes (opened in your
+# browser), so they work offline, or runs a command.
 #
-#   bar.sh [CARDS [STATUSES]]  the examples, plus CARDS extra cards and STATUSES extra
-#                              statuses (so the row scrolls sideways)
-#   bar.sh clear             remove everything this script sent, and its pages
+#   bar.sh [CARDS]   the examples, plus CARDS extra cards (so the row scrolls sideways)
+#   bar.sh clear     remove everything this script sent, and its pages
 #
 # Sends with $LEDGE (default: ledge on PATH, else built from this repo) to
 # $LEDGE_PORT (default 47391). Try it on a scratch instance:
 #
 #   go run ./ledge run --port 47392 &
-#   LEDGE_PORT=47392 scripts/bar.sh 15 12
+#   LEDGE_PORT=47392 scripts/bar.sh 15
 
 set -euo pipefail
 
@@ -62,7 +61,6 @@ if [[ "${1:-}" == "clear" ]]; then
   exit
 fi
 cards="${1:-0}"
-pills="${2:-0}"
 
 # Cards: each priority, a description, a long title that clamps, a report, a
 # url, and text that looks like HTML but must show as plain text.
@@ -82,18 +80,24 @@ send '{"id": "bar-url", "source": "example-bar", "title": "Opens a local page in
 send '{"id": "bar-html", "source": "example-bar", "title": "<b>Not bold</b> <img src=x onerror=alert(1)>",
        "description": "Event text is untrusted, so this should show the markup as text."}'
 
-# Statuses: plain, a colour schedule, a command, a url and a hex colour.
-send '{"kind": "status", "id": "bar-ok", "source": "example-bar", "title": "Build", "color": "green",
-       "detail": "main is green"}'
-send '{"kind": "status", "id": "bar-session", "source": "example-bar", "title": "Session", "color": "green",
-       "schedule": [{"at": "1m", "color": "yellow"}, {"at": "2m", "color": "red"}],
-       "detail": "Turns yellow in 1 minute and red in 2."}'
-send '{"kind": "status", "id": "bar-command", "source": "example-bar", "title": "Log in", "color": "blue",
-       "command": "echo logged in", "detail": "Clicking runs the command; its output goes to commands.log."}'
-# Only http(s) urls make a status clickable, so this one can't be a local page.
-send '{"kind": "status", "id": "bar-link", "source": "example-bar", "title": "Status page", "color": "gray",
-       "url": "https://example.com", "detail": "Clicking opens https://example.com."}'
-send '{"kind": "status", "id": "bar-hex", "source": "example-bar", "title": "Custom colour", "color": "#9b59b6"}'
+# The other kinds, a colour schedule and a command.
+send '{"kind": "timer", "id": "bar-session", "source": "example-bar", "title": "Session", "color": "green",
+       "end": "2m", "schedule": [{"at": "1m", "color": "yellow"}, {"at": "2m", "color": "red"}],
+       "description": "Yellow in 1 minute, red in 2."}'
+send '{"kind": "timer", "id": "bar-incident", "source": "example-bar", "title": "Incident open", "priority": "high",
+       "start": "'"$(date -u -v-7M +%Y-%m-%dT%H:%M:%SZ)"'", "description": "Counts up."}'
+send '{"kind": "progress", "id": "bar-progress", "source": "example-bar", "title": "Deploy", "value": 0.6,
+       "label": "3/5", "description": "Rolling out"}'
+send '{"kind": "stat", "id": "bar-stat", "source": "example-bar", "title": "Error rate", "value": "2.3%",
+       "change": "↑0.8", "change_color": "red", "history": [1.2, 1.4, 1.1, 1.5, 1.9, 2.3], "description": "last hour"}'
+send '{"kind": "checks", "id": "bar-checks", "source": "example-bar", "title": "CI on main",
+       "checks": [{"name": "lint", "state": "passed"}, {"name": "test", "state": "failed"},
+                  {"name": "build", "state": "running"}, {"name": "deploy", "state": "pending"},
+                  {"name": "docs", "state": "skipped"}]}'
+send '{"kind": "message", "id": "bar-message", "source": "example-bar", "title": "#deploys", "from": "Ada Lovelace",
+       "sent": "'"$(date -u -v-5M +%Y-%m-%dT%H:%M:%SZ)"'", "description": "Rolling back the 14:02 deploy now."}'
+send '{"id": "bar-command", "source": "example-bar", "title": "Log in", "color": "blue",
+       "command": "echo logged in", "description": "Clicking runs the command; its output goes to commands.log."}'
 
 # Extra cards take turns: a report, a url, then neither.
 priorities=(high medium low "")
@@ -106,8 +110,4 @@ for i in $(seq 1 "$cards"); do
   esac
   send "{\"id\": \"bar-card-$i\", \"source\": \"$SOURCE\", \"title\": \"Card $i of $cards\"${priority:+, \"priority\": \"$priority\"}$opens}"
 done
-colors=(green yellow red blue gray)
-for i in $(seq 1 "$pills"); do
-  send "{\"kind\": \"status\", \"id\": \"bar-pill-$i\", \"source\": \"$SOURCE\", \"title\": \"Status $i of $pills\", \"color\": \"${colors[$(( i % 5 ))]}\"}"
-done
-echo "Sent 7 cards and 5 statuses, plus $cards extra cards and $pills extra statuses; pages in $PAGES" >&2
+echo "Sent 14 cards, plus $cards extra cards; pages in $PAGES" >&2

@@ -48,7 +48,7 @@ func TestServer(t *testing.T) {
 		{"POST", "/dismiss", `{"id": "a"}`, nil, 200, `"dismissed": false`},
 		{"POST", "/dismiss", `{"id": ""}`, nil, 400, "dismiss schema: id"},
 		{"GET", "/events", "", nil, 200, `"title": "B"`},
-		{"GET", "/schemas/status", "", nil, 200, `"$id": "urn:ledge:status"`},
+		{"GET", "/schemas/event", "", nil, 200, `"$id": "urn:ledge:event"`},
 		{"GET", "/schemas/nope", "", nil, 404, "no schema"},
 		{"GET", "/event", "", nil, 404, "no such path"},
 	} {

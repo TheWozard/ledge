@@ -22,19 +22,20 @@ var (
 
 var eventCmd = &cobra.Command{
 	Use:   "event [JSON]",
-	Short: "Send an event or status, or list, dismiss or describe them",
-	Long: `Send JSON to ledge: an event, a status, or a section ({"source": ..., "items": [...]})
+	Short: "Send an event, or list, dismiss or describe them",
+	Long: `Send JSON to ledge: an event, or a section ({"source": ..., "items": [...]})
 that replaces all of a source's events. Without an argument, the JSON is read from
 stdin. Prints the id to update or dismiss it by (one per item for a section).
 
 What can be sent is defined by JSON Schemas; print one with --schema.`,
 	Example: `  ledge event '{"title": "Deploy finished", "priority": "high", "expires": "4h"}'
-  ledge event '{"kind": "status", "id": "aws-auth", "title": "AWS", "color": "green",
+  ledge event '{"kind": "timer", "id": "aws-auth", "title": "AWS", "end": "1h", "color": "green",
+                "command": "aws sso login",
                 "schedule": [{"at": "50m", "color": "yellow"}, {"at": "1h", "color": "red"}]}'
   some-feed | ledge event
   ledge event --list
   ledge event --dismiss aws-auth
-  ledge event --schema status`,
+  ledge event --schema event`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if (eventList || eventDismiss != "" || eventSchema != "") && len(args) > 0 {
@@ -118,7 +119,7 @@ func printJSON(value any) error {
 
 func init() {
 	eventCmd.Flags().BoolVar(&eventList, "list", false, "print the current events as JSON")
-	eventCmd.Flags().StringVar(&eventDismiss, "dismiss", "", "remove the event or status with this `ID`")
+	eventCmd.Flags().StringVar(&eventDismiss, "dismiss", "", "remove the event with this `ID`")
 	eventCmd.Flags().StringVar(&eventSchema, "schema", "",
 		"print the JSON schema called `NAME` ("+strings.Join(store.Schemas.Names(), ", ")+")")
 	eventCmd.MarkFlagsMutuallyExclusive("list", "dismiss", "schema")

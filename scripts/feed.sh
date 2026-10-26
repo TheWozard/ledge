@@ -68,7 +68,7 @@ send '{"source": "example-feed", "items": [
   {"id": "feed-1", "title": "Feed item 1", "description": "Opens the feed report.",
    "report": [{"type": "text", "text": "Feed report, first version: sent with items 1 and 2."}]},
   {"id": "feed-2", "title": "Feed item 2", "priority": "medium", "description": "Opens a local page.", "url": "'"$link"'"},
-  {"kind": "status", "id": "feed-status", "title": "Feed", "color": "yellow"}]}'
+  {"kind": "progress", "id": "feed-progress", "title": "Feed", "value": 0.5, "label": "1/2", "color": "yellow"}]}'
 echo "Sent the feed; replacing it in ${seconds}s..." >&2
 sleep "$seconds"
 
@@ -76,5 +76,5 @@ send '{"source": "example-feed", "items": [
   {"id": "feed-3", "title": "Feed item 3 (replaced 1 and 2)", "expires": "1m",
    "description": "Expires 1 minute after it was sent. Opens the second report.",
    "report": [{"type": "text", "text": "Feed report, second version: sent when item 3 replaced items 1 and 2."}]},
-  {"kind": "status", "id": "feed-status", "title": "Feed", "color": "green"}]}'
+  {"kind": "progress", "id": "feed-progress", "title": "Feed", "value": 1, "label": "2/2", "color": "green"}]}'
 echo "Replaced the feed" >&2

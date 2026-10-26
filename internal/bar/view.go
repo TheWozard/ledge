@@ -1,6 +1,7 @@
 package bar
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -27,75 +28,74 @@ func hex(color string) string {
 	return color
 }
 
-// view is events as the bar shows them, as of now: statuses first, then the rest, in
-// the store's order. The events have been checked against the schemas.
+// view is events as the bar shows them, as of now, in the store's order. The events
+// have been checked against the schema.
 func (b *Bar) view(events []store.Event, now time.Time) []components.Card {
-	var statuses, cards []components.Card
-	for _, event := range events {
-		if event["kind"] == "status" {
-			statuses = append(statuses, b.status(event, now))
-		} else {
-			cards = append(cards, b.card(event))
-		}
+	cards := make([]components.Card, len(events))
+	for i, event := range events {
+		cards[i] = b.card(event, now)
 	}
-	return append(statuses, cards...)
+	return cards
 }
 
-func (b *Bar) card(event store.Event) components.Card {
+// card is the event as a card of its kind, as of now. One with a schedule is drawn
+// again at its next step, for its colour.
+func (b *Bar) card(event store.Event, now time.Time) components.Card {
 	id := text(event, "id")
-	c := components.Basic{
+	basic := components.Basic{
 		ID:          id,
 		Title:       text(event, "title"),
 		Description: text(event, "description"),
-		Color:       priorities[text(event, "priority")],
 		Dismiss:     func(components.ClickEvent) { b.dismiss(id) },
 	}
-	if event["report"] != nil || text(event, "url") != "" {
-		c.Click = func(components.ClickEvent) { b.open(id) }
+	if event["report"] != nil || text(event, "url") != "" || text(event, "command") != "" {
+		basic.Click = func(components.ClickEvent) { b.open(id) }
 	}
-	return c
-}
-
-// status is a card in the colour of the latest step of its schedule that's passed
-// as of now. One with a schedule counts down to its last step, and is drawn again at
-// its next step, for its colour.
-func (b *Bar) status(event store.Event, now time.Time) components.Card {
-	id := text(event, "id")
-	c := components.Basic{ID: id, Title: text(event, "title"), Description: text(event, "detail")}
-	switch {
-	case text(event, "command") != "":
-		c.Click = func(components.ClickEvent) { b.run(id) }
-	// Only an http(s) url makes the card a link; open checks again.
-	case web.MatchString(text(event, "url")):
-		c.Click = func(components.ClickEvent) { b.open(id) }
+	basic.Color = priorities[text(event, "priority")]
+	if color := text(event, "color"); color != "" {
+		basic.Color = hex(color)
 	}
-
-	color := text(event, "color")
-	var current, next, last time.Time
+	var next time.Time
 	for _, step := range list(event["schedule"]) {
 		step, _ := step.(map[string]any)
-		at := when(step["at"])
-		if !at.After(now) && !at.Before(current) {
-			current, color = at, text(step, "color")
-		}
-		if at.After(now) && (next.IsZero() || at.Before(next)) {
+		// The store keeps the steps in time order.
+		if at := when(step["at"]); at.After(now) {
 			next = at
+			break
 		}
-		if at.After(last) {
-			last = at
+		basic.Color = hex(text(step, "color"))
+	}
+
+	var card components.Card = basic
+	switch event["kind"] {
+	case "timer":
+		card = components.Timer{Basic: basic, Start: when(event["start"]), End: when(event["end"])}
+	case "progress":
+		card = components.Progress{Basic: basic, Value: number(event["value"]), Label: text(event, "label")}
+	case "stat":
+		stat := components.Stat{Basic: basic, Value: fmt.Sprint(event["value"]), Change: text(event, "change"),
+			ChangeColor: text(event, "change_color")}
+		for _, value := range list(event["history"]) {
+			stat.History = append(stat.History, number(value))
 		}
+		card = stat
+	case "checks":
+		checks := components.Checks{Basic: basic}
+		for _, check := range list(event["checks"]) {
+			check, _ := check.(map[string]any)
+			checks.Checks = append(checks.Checks, components.Check{Name: text(check, "name"), State: text(check, "state")})
+		}
+		card = checks
+	case "message":
+		card = components.Message{Basic: basic, From: text(event, "from"), Avatar: text(event, "avatar"), Sent: when(event["sent"])}
 	}
-	if color == "" {
-		color = "gray"
+	if next.IsZero() {
+		return card
 	}
-	c.Color = hex(color)
-	if last.IsZero() {
-		return c
-	}
-	return recolored{components.Timer{Basic: c, End: last}, next, b.Render}
+	return recolored{card, next, b.Render}
 }
 
-// recolored is a status's card that's drawn again at next, when its colour changes.
+// recolored is a card that's drawn again at next, when its colour changes.
 type recolored struct {
 	components.Card
 	next   time.Time
@@ -104,10 +104,7 @@ type recolored struct {
 
 func (r recolored) Frame() components.Frame {
 	f := r.Card.Frame()
-	f.Ends, f.Complete = r.next, nil
-	if !r.next.IsZero() {
-		f.Complete = r.redraw
-	}
+	f.Ends, f.Complete = r.next, r.redraw
 	return f
 }
 
@@ -157,6 +154,19 @@ func text(object map[string]any, key string) string {
 func list(value any) []any {
 	l, _ := value.([]any)
 	return l
+}
+
+// number is a JSON number, which the schema's decoder and the store keep as a
+// json.Number.
+func number(value any) float64 {
+	switch n := value.(type) {
+	case json.Number:
+		f, _ := n.Float64()
+		return f
+	case float64:
+		return n
+	}
+	return 0
 }
 
 // texts is a list of strings or numbers, as strings.

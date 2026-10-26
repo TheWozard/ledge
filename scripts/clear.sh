@@ -3,7 +3,7 @@
 #
 #   clear.sh         remove everything bar.sh, report.sh and feed.sh sent and the pages
 #                    they wrote, and nothing else
-#   clear.sh --all   remove every event and status on the bar, whoever sent it
+#   clear.sh --all   remove every event on the bar, whoever sent it
 #
 # Sends with $LEDGE (default: ledge on PATH, else built from this repo) to
 # $LEDGE_PORT (default 47391).

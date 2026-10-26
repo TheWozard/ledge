@@ -42,56 +42,66 @@ func normalize(t *testing.T, body string) store.Event {
 
 func TestView(t *testing.T) {
 	events := []store.Event{
-		normalize(t, `{"id": "deploy", "title": "Deploy", "description": "done", "source": "ci", "priority": "high",
-			"url": "https://example.com/deploy"}`),
+		normalize(t, `{"id": "deploy", "title": "Deploy", "description": "done", "priority": "high", "url": "https://example.com/deploy"}`),
 		normalize(t, `{"id": "notes", "title": "Notes", "report": [{"type": "text", "text": "x"}]}`),
-		normalize(t, `{"id": "plain", "title": "Plain"}`),
-		normalize(t, `{"kind": "status", "id": "aws", "title": "AWS", "color": "green", "command": "aws sso login",
-			"detail": "Session", "schedule": [{"at": "2026-10-15T11:00:00Z", "color": "yellow"},
-			{"at": "2026-10-15T13:00:00Z", "color": "red"}, {"at": "2026-10-15T14:00:00Z", "color": "#123456"}]}`),
-		normalize(t, `{"kind": "status", "id": "web", "title": "Web", "url": "https://example.com"}`),
-		normalize(t, `{"kind": "status", "id": "file", "title": "File", "url": "file:///etc/hosts"}`),
+		normalize(t, `{"id": "plain", "title": "Plain", "priority": "low", "color": "#123456"}`),
+		normalize(t, `{"kind": "timer", "id": "aws", "title": "AWS", "color": "green", "command": "aws sso login",
+			"end": "2h", "schedule": [{"at": "2026-10-15T11:00:00Z", "color": "yellow"}, {"at": "1h", "color": "red"}]}`),
+		normalize(t, `{"kind": "progress", "id": "progress", "title": "Upload", "value": 0.4, "label": "2/5"}`),
+		normalize(t, `{"kind": "stat", "id": "stat", "title": "Errors", "value": 2.5, "change": "↑1", "change_color": "red",
+			"history": [1, 2, 2.5]}`),
+		normalize(t, `{"kind": "checks", "id": "checks", "title": "CI", "checks": [{"name": "lint", "state": "passed"},
+			{"name": "test", "state": "failed"}]}`),
+		normalize(t, `{"kind": "message", "id": "message", "title": "#general", "from": "Ada Lovelace", "sent": "2026-10-15T11:55:00Z"}`),
 	}
 	cards := (&Bar{}).view(events, now)
-	if len(cards) != 6 {
-		t.Fatalf("%d cards, want 6", len(cards))
+	if len(cards) != len(events) {
+		t.Fatalf("%d cards, want %d", len(cards), len(events))
 	}
-	var ids []string
+	var kinds []string
 	for _, c := range cards {
-		ids = append(ids, c.Frame().ID)
+		kinds = append(kinds, c.Frame().ID+":"+c.Frame().Kind)
 	}
-	// Statuses come first.
-	if got := strings.Join(ids, " "); got != "aws web file deploy notes plain" {
-		t.Errorf("order = %s", got)
+	if got := strings.Join(kinds, " "); got != "deploy:basic notes:basic plain:basic aws:timer progress:progress stat:stat checks:checks message:message" {
+		t.Errorf("kinds = %s", got)
 	}
 
-	deploy := cards[3].(components.Basic)
+	deploy := cards[0].(components.Basic)
 	if deploy.Title != "Deploy" || deploy.Description != "done" || deploy.Color != colors["red"] ||
 		deploy.Click == nil || deploy.Dismiss == nil {
 		t.Errorf("deploy card = %+v", deploy)
 	}
-	if cards[4].Frame().Click == nil {
+	if cards[1].Frame().Click == nil {
 		t.Error("a card with a report should open")
 	}
-	if plain := cards[5].Frame(); plain.Click != nil || plain.Color != "" {
+	// A colour beats the priority's; nothing to open makes it unclickable.
+	if plain := cards[2].Frame(); plain.Click != nil || plain.Color != "#123456" {
 		t.Errorf("a plain card = %+v", plain)
 	}
 
-	// aws is yellow, from its first step, until its second, and counts down to its last.
-	aws := cards[0].Frame()
-	if aws.Kind != "timer" || aws.Color != colors["yellow"] || aws.Click == nil || aws.Dismiss != nil ||
-		!aws.Ends.Equal(now.Add(time.Hour)) || aws.Complete == nil {
+	// aws is yellow, from the step that's passed, until the next, and counts down to its end.
+	aws := cards[3].Frame()
+	if aws.Color != colors["yellow"] || aws.Click == nil || !aws.Ends.Equal(now.Add(time.Hour)) || aws.Complete == nil {
 		t.Errorf("aws card = %+v", aws)
 	}
-	if timer := cards[0].(recolored).Card.(components.Timer); !timer.End.Equal(now.Add(2*time.Hour)) || timer.Description != "Session" {
+	if timer := cards[3].(recolored).Card.(components.Timer); !timer.End.Equal(now.Add(2*time.Hour)) || !timer.Start.IsZero() {
 		t.Errorf("aws timer = %+v", timer)
 	}
-	if last := (&Bar{}).view(events[3:4], now.Add(3*time.Hour))[0].Frame(); last.Color != "#123456" || last.Complete != nil {
-		t.Errorf("aws after its last step = %+v", last)
+	if last := (&Bar{}).view(events[3:4], now.Add(90*time.Minute))[0]; last.Frame().Color != colors["red"] || last.Frame().Complete != nil {
+		t.Errorf("aws after its last step = %+v", last.Frame())
 	}
-	// Only an http(s) url makes a status clickable; one without a colour is gray.
-	if web, file := cards[1].Frame(), cards[2].Frame(); web.Click == nil || file.Click != nil || web.Color != colors["gray"] {
-		t.Errorf("web %+v, file %+v", web, file)
+
+	if p := cards[4].(components.Progress); p.Value != 0.4 || p.Label != "2/5" {
+		t.Errorf("progress = %+v", p)
+	}
+	if s := cards[5].(components.Stat); s.Value != "2.5" || s.Change != "↑1" || s.ChangeColor != "red" || len(s.History) != 3 || s.History[2] != 2.5 {
+		t.Errorf("stat = %+v", s)
+	}
+	if c := cards[6].(components.Checks); len(c.Checks) != 2 || c.Checks[1].Name != "test" || c.Checks[1].State != "failed" {
+		t.Errorf("checks = %+v", c)
+	}
+	if m := cards[7].(components.Message); m.From != "Ada Lovelace" || !m.Sent.Equal(now.Add(-5*time.Minute)) {
+		t.Errorf("message = %+v", m)
 	}
 }
 

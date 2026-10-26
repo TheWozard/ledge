@@ -21,7 +21,7 @@ func decode(t *testing.T, text string) any {
 }
 
 func TestNormalize(t *testing.T) {
-	event, err := Normalize(decode(t, `{"kind": "status", "title": "AWS", "expires": "2d",
+	event, err := Normalize(decode(t, `{"kind": "timer", "title": "AWS", "expires": "2d", "end": "2h",
 		"schedule": [{"at": "1h", "color": "red"}, {"at": "2026-10-14T14:30:00+02:00", "color": "yellow"}]}`), "", received)
 	if err != nil {
 		t.Fatal(err)
@@ -33,6 +33,7 @@ func TestNormalize(t *testing.T) {
 		"source":   "manual",
 		"received": "2026-10-14T12:00:00+00:00",
 		"expires":  "2026-10-16T12:00:00+00:00",
+		"end":      "2026-10-14T14:00:00+00:00",
 	}
 	for key, want := range checks {
 		if event[key] != want {
@@ -51,11 +52,19 @@ func TestNormalize(t *testing.T) {
 
 func TestNormalizeRefuses(t *testing.T) {
 	for body, want := range map[string]string{
-		`[1]`:                             "expected a JSON object",
-		`{"kind": 3, "title": "x"}`:       "kind 3 isn't one of event, status",
-		`{"tittle": "x"}`:                 "event schema: event: missing property 'title'",
-		`{"title": "x", "expires": "no"}`: `expires "no" isn't an ISO 8601 time`,
-		`{"title": "x", "url": "https://a", "report": []}`:                                        "`url` and `report` can't both be set",
+		`[1]`:                              "expected a JSON object",
+		`{"kind": "status", "title": "x"}`: "kind: value must be one of 'basic', 'timer'",
+		`{"title": "x", "url": "https://a", "command": "ls"}`:                         "only one of `url`, `report` and `command` can be set",
+		`{"title": "x", "value": 3}`:                                                  "value: not a property this object can have",
+		`{"kind": "timer", "title": "x"}`:                                             "a timer needs `start`, `end` or both",
+		`{"kind": "timer", "title": "x", "start": "soon"}`:                            `start "soon" isn't an ISO 8601 time`,
+		`{"kind": "progress", "title": "x", "value": 2}`:                              "value: maximum: got 2, want 1",
+		`{"kind": "stat", "title": "x"}`:                                              "missing property 'value'",
+		`{"kind": "checks", "title": "x", "checks": [{"name": "a", "state": "ok"}]}`:  "checks/0/state: value must be one of",
+		`{"kind": "message", "title": "x", "from": "a", "avatar": "https://a/b.png"}`: "avatar: 'https://a/b.png' does not match pattern",
+		`{"tittle": "x"}`:                                                                         "event schema: event: missing property 'title'",
+		`{"title": "x", "expires": "no"}`:                                                         `expires "no" isn't an ISO 8601 time`,
+		`{"title": "x", "url": "https://a", "report": []}`:                                        "only one of `url`, `report` and `command` can be set",
 		`{"title": "x", "report": "notes.html"}`:                                                  "report: got string, want array",
 		`{"title": "x", "report": []}`:                                                            "report: minItems: got 0, want 1",
 		`{"title": "x", "report": [{"text": "t"}]}`:                                               "report/0: missing property 'type'",

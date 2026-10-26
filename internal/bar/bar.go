@@ -1,7 +1,6 @@
 // Package bar connects the store to the bar from ledge-frontend: it turns events into
 // the cards and reports the frontend shows, and carries out what clicking them asks
-// for, by id: dismissing an event, opening its report or url, running a status's
-// command.
+// for, by id: dismissing an event, opening its report or url, running its command.
 package bar
 
 import (
@@ -22,13 +21,13 @@ type Bar struct {
 	stateDir string // where commands.log goes
 	ui       *ui.Bar
 
-	// start runs a command in the background: `open` for a url, or a status's
+	// start runs a command in the background: `open` for a url, or an event's
 	// command. Tests replace it.
 	start func(*exec.Cmd) error
 }
 
 // Open creates the bar, places it and loads its page. Call it after ui.Init and
-// before ui.Run. Status commands' output goes to commands.log in stateDir.
+// before ui.Run. Events' commands' output goes to commands.log in stateDir.
 func Open(events *store.Store, cfg config.Config, stateDir string) (*Bar, error) {
 	b := &Bar{store: events, stateDir: stateDir, start: startDetached}
 	th, err := theme.Builtin(cfg.Theme)

@@ -16,32 +16,17 @@ func TestCardOpensURL(t *testing.T) {
 	eventually(t, "open file:///tmp/ledge-test-page.html", func() bool { return opened.has("file:///tmp/ledge-test-page.html") })
 }
 
-func TestStatusOpensOnlyWebURLs(t *testing.T) {
-	gui(t)
-	add(t, `{"kind": "status", "id": "status-web", "title": "Web status", "url": "https://example.com/status"}`)
-	click(t, cardJS("Web status"))
-	eventually(t, "open https://example.com/status", func() bool { return opened.has("https://example.com/status") })
-
-	// A non-http(s) url doesn't make a status's card clickable, and ledge doesn't
-	// open one even when asked.
-	add(t, `{"kind": "status", "id": "status-file", "title": "File status", "url": "file:///etc/hosts"}`)
-	testBar.open("status-file")
-	if opened.has("file:///etc/hosts") {
-		t.Error("opened a status's file:// url")
-	}
-}
-
-func TestStatusRunsCommand(t *testing.T) {
+func TestCardRunsCommand(t *testing.T) {
 	gui(t)
 	marker := filepath.Join(t.TempDir(), "ran")
-	add(t, `{"kind": "status", "id": "status-run", "title": "Run status", "command": "echo ran in $PWD; touch `+marker+`"}`)
-	click(t, cardJS("Run status"))
+	add(t, `{"id": "card-run", "title": "Card with a command", "command": "echo ran in $PWD; touch `+marker+`"}`)
+	click(t, cardJS("Card with a command"))
 	eventually(t, "the command to run", func() bool { _, err := os.Stat(marker); return err == nil })
 
 	home, _ := os.UserHomeDir()
 	eventually(t, "the command's output in commands.log", func() bool {
 		data, _ := os.ReadFile(filepath.Join(testDir, "commands.log"))
-		return strings.Contains(string(data), "Run status (status-run): echo ran in") &&
+		return strings.Contains(string(data), "Card with a command (card-run): echo ran in") &&
 			strings.Contains(string(data), "ran in "+home+"\n")
 	})
 }

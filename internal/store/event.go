@@ -21,8 +21,8 @@ import (
 //go:embed *.schema.json
 var schemaFiles embed.FS
 
-// Schemas is what can be sent: event and status, plus section and dismiss for the
-// other request bodies.
+// Schemas is what can be sent: event, plus section and dismiss for the other request
+// bodies.
 var Schemas = mustLoad()
 
 func mustLoad() *schema.Set {
@@ -32,10 +32,6 @@ func mustLoad() *schema.Set {
 	}
 	return set
 }
-
-// Kinds are the values of `kind`, each with a schema of the same name. An object
-// without `kind` is an event.
-var Kinds = []string{"event", "status"}
 
 // Priorities in sort order, highest first.
 var Priorities = []string{"high", "medium", "low"}
@@ -47,7 +43,7 @@ var duration = regexp.MustCompile(`^(\d+)([smhd])$`)
 
 var unitSeconds = map[string]int64{"s": 1, "m": 60, "h": 3600, "d": 86400}
 
-// Event is one event or status, as stored and as served.
+// Event is one event, as stored and as served.
 type Event = map[string]any
 
 // Error is something sent that should be refused, with the reason.
@@ -75,25 +71,16 @@ func Check(name string, value any) error {
 	return err
 }
 
-// Normalize validates one event or status against its schema and returns it with an
-// `id`, a `source`, a `received` time and its times resolved. A non-empty source
-// overrides the event's own.
+// Normalize validates one event against the event schema and returns it with an `id`,
+// a `source`, a `received` time and its times resolved. A non-empty source overrides
+// the event's own.
 func Normalize(raw any, source string, received time.Time) (Event, error) {
 	obj, ok := raw.(map[string]any)
 	if !ok {
 		text, _ := json.Marshal(raw)
 		return nil, Refuse("expected a JSON object, got %.200s", text)
 	}
-	kind := "event"
-	if value, present := obj["kind"]; present {
-		name, _ := value.(string)
-		if !slices.Contains(Kinds, name) {
-			text, _ := json.Marshal(value)
-			return nil, Refuse("kind %s isn't one of %s", text, strings.Join(Kinds, ", "))
-		}
-		kind = name
-	}
-	if err := Check(kind, obj); err != nil {
+	if err := Check("event", obj); err != nil {
 		return nil, err
 	}
 
@@ -105,12 +92,14 @@ func Normalize(raw any, source string, received time.Time) (Event, error) {
 		source = "manual"
 	}
 	event["source"] = source
-	if text, ok := event["expires"].(string); ok {
-		moment, err := resolveTime(text, "expires", received)
-		if err != nil {
-			return nil, err
+	for _, key := range []string{"expires", "start", "end", "sent"} {
+		if text, ok := event[key].(string); ok {
+			moment, err := resolveTime(text, key, received)
+			if err != nil {
+				return nil, err
+			}
+			event[key] = moment.Format(TimeLayout)
 		}
-		event["expires"] = moment.Format(TimeLayout)
 	}
 	if steps, ok := event["schedule"].([]any); ok {
 		type step struct {

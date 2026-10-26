@@ -1,9 +1,9 @@
 # ledge
 
 A desktop bar for macOS, along one edge of the screen. Scripts, hooks and CI push
-events and statuses to a JSON API on `127.0.0.1`, which checks everything it's sent
-against JSON Schemas. Both show as cards, statuses first; clicking one opens its
-report, its url or runs its command.
+events to a JSON API on `127.0.0.1`, which checks everything it's sent against JSON
+Schemas. Each event is a card, of one of several kinds (timers, progress, stats,
+checks, messages); clicking one opens its report or its url, or runs its command.
 
 ## Install
 
@@ -38,7 +38,7 @@ ledge event '{"title": "Deploy finished", "priority": "high", "expires": "4h"}'
 some-feed | ledge event            # or JSON on stdin
 ledge event --list
 ledge event --dismiss <id>
-ledge event --schema event         # print a schema: dismiss, event, section, status
+ledge event --schema event         # print a schema: dismiss, event, section
 ```
 
 The API listens on port 47391; set `$LEDGE_PORT` to change it. Events are kept in
@@ -69,14 +69,38 @@ path or command itself.
 
 - **A card with a `url`** runs `open <url>`, so it opens in whatever app handles it.
 - **A card with a `report`** shows it in the report window (below).
-- **A status with a `command`** runs it with `bash -lc` in your home directory, in its
+- **A card with a `command`** runs it with `bash -lc` in your home directory, in its
   own session so it outlives ledge. Its output is appended to `commands.log` in the
-  state dir, after a line naming the status. Nothing tracks whether it worked; to
-  update the status, have the command send it again.
-- **A status with an http(s) `url`** opens it.
+  state dir, after a line naming the event. Nothing tracks whether it worked; to
+  update the card, have the command send it again.
 
-A status is in the colour of the latest step of its `schedule` that's passed, and one
-with a schedule counts down to its last step. An event's `priority` colours its card.
+An event has at most one of the three. The × on a card dismisses it.
+
+### Kinds of card
+
+Every event has a `title`, and can have a `description`, a `priority` (which sorts
+it), a `color` (a named colour, `green`, `yellow`, `red`, `blue` or `gray`, or
+`#rrggbb`; otherwise its priority's), and a `schedule` of colour changes, each
+`{"at", "color"}`: the card shows the colour of the latest step that's passed. Its
+`kind` says what else it shows:
+
+| Kind | Shows | Takes |
+|---|---|---|
+| `basic` (default) | the title and description | |
+| `timer` | a countdown to `end`, filling from `start` if it has one, or a count up from `start` alone | `start`, `end` (at least one) |
+| `progress` | how far along something is, as a percent or a `label` such as `"3/5"` | `value` (0 to 1), `label` |
+| `stat` | a number, how it moved, and a sparkline | `value`, `change` (such as `"↑0.8"`), `change_color`, `history` (numbers, oldest first) |
+| `checks` | a mark and name for each check, such as a CI run's jobs | `checks`: `{"name", "state"}`, state `passed`, `failed`, `running`, `pending` or `skipped` |
+| `message` | an avatar, who it's from and when, then the title (a subject or channel) and the description | `from`, `sent`, `avatar` (a base64 `data:` URL of an image; otherwise their initials) |
+
+Times (`start`, `end`, `sent`, `expires`, a schedule's `at`) are ISO 8601 or a
+duration from when it's sent, such as `"30m"`. A login that expires, turning yellow
+then red as it runs out, and logging in again when clicked:
+
+```json
+{"kind": "timer", "id": "aws-auth", "title": "AWS", "end": "1h", "color": "green", "command": "aws sso login",
+ "schedule": [{"at": "50m", "color": "yellow"}, {"at": "1h", "color": "red"}]}
+```
 
 ### Reports
 
@@ -103,7 +127,7 @@ event's title in the bar's theme. You send what to show; ledge decides how it lo
 | `table` | `columns`, then `rows` of cells; short rows are padded, long ones cut |
 | `list` | bullets, or numbers with `"ordered": true` |
 | `code` | fixed-width text, such as a log; long lines scroll sideways |
-| `note` | a callout in a colour, named as for statuses or `#rrggbb` |
+| `note` | a callout in a colour, named as for cards or `#rrggbb` |
 | `link` | an http(s) link, which opens in your browser |
 
 The schema (`ledge event --schema event`) checks a report when it's sent. Text is
@@ -163,13 +187,12 @@ LEDGE_PORT=47392 scripts/bar.sh
 
 | Script | Shows |
 |---|---|
-| `bar.sh [CARDS [STATUSES]]` | cards (each priority, a description, a clamped long title, a report, a url, HTML-looking text shown as plain text) and statuses (plain, a colour schedule, a command, a url, a hex colour). Extra CARDS and STATUSES make the row scroll sideways: `bar.sh 15 12`. Extra cards take turns with a report, a url and neither. |
+| `bar.sh [CARDS]` | cards of every kind: each priority, a description, a clamped long title, a report, a url, a command, a colour schedule, and HTML-looking text shown as plain text. Extra CARDS make the row scroll sideways: `bar.sh 15`. Extra cards take turns with a report, a url and neither. |
 | `report.sh` | a report with one of each block, notes in every colour and an https link; plus a long report to scroll, whose HTML-looking text shows as text |
-| `feed.sh [SECONDS]` | a feed's section, replaced by a smaller one after a pause (default 5s), whose card then expires in 1 minute. The swap sends a new report, so the card's report differs before and after. |
+| `feed.sh [SECONDS]` | a feed's section, with a progress card, replaced by a smaller one after a pause (default 5s), whose card then expires in 1 minute. The swap sends a new report, so the card's report differs before and after. |
 
 `bar.sh` and `feed.sh` write the pages their card urls open under
-`$TMPDIR/ledge-examples/`. The urls are `file://` urls, so clicking a card works offline. A status's url has
-to be http(s) to be clickable, so `bar.sh`'s status links to `https://example.com`.
+`$TMPDIR/ledge-examples/`. The urls are `file://` urls, so clicking a card works offline.
 
 Each takes `clear` to remove what it sent and the pages it wrote, and nothing else:
 `scripts/bar.sh clear`.
@@ -180,7 +203,7 @@ the bar, whoever sent the events.
 
 | Request | Body | Reply |
 |---|---|---|
-| `POST /event` | an event, a status, or a section (`{"source", "items"}`) that replaces all of that source's events | `{"id"}`, or `{"ids"}` for a section |
+| `POST /event` | an event, or a section (`{"source", "items"}`) that replaces all of that source's events | `{"id"}`, or `{"ids"}` for a section |
 | `POST /dismiss` | `{"id"}` | `{"dismissed": true\|false}` |
 | `GET /events` | | `{"events": [...]}`, highest priority first, then newest first |
 | `GET /schemas/{name}` | | the schema |
@@ -199,12 +222,12 @@ themes) are ledge-frontend. ledge is everything else:
 | `ledge/` | `main`, which hands off to `cmd` |
 | `cmd/` | the CLI, one file per subcommand (cobra) |
 | `internal/schema/` | compiles a directory of JSON Schemas and picks the error to report |
-| `internal/store/` | the event, status, section and dismiss schemas, normalizing events, and the event file |
+| `internal/store/` | the event, section and dismiss schemas, normalizing events, and the event file |
 | `internal/api/` | the HTTP server and the client `ledge event` uses |
 | `internal/config/` | the `--config` file and its schema |
 | `internal/background/` | `ledge start`, `stop` and `restart`: the background process, its pid file, log and saved flags |
 | `internal/update/` | `ledge update`: finding the latest release, checking its checksum, replacing the binary |
-| `internal/bar/` | connects the store to ledge-frontend's bar: events and statuses as cards, reports as blocks, and what the pages ask for by id (dismiss, open a report or url, run a command) |
+| `internal/bar/` | connects the store to ledge-frontend's bar: events as cards of their kinds, reports as blocks, and what the pages ask for by id (dismiss, open a report or url, run a command) |
 | `internal/state/` | the state directory and port |
 | `internal/version/` | version metadata, set with `-ldflags` at release time |
 
@@ -251,7 +274,7 @@ LEDGE_GUI_TEST=1 go test ./internal/bar
 They check that the bar reaches ledge: a click dismisses from the store, opens a
 report or url, or runs a command. They read the pages' DOM through ledge-frontend's
 shim, and click from JavaScript; `open` is recorded rather than run, so they never
-open your browser, but status commands do run. How the bar and reports look and
+open your browser, but commands do run. How the bar and reports look and
 behave is tested in ledge-frontend.
 
 ## License

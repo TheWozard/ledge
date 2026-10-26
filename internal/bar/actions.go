@@ -6,33 +6,28 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"syscall"
 	"time"
 
 	"github.com/TheWozard/ledge/internal/store"
 )
 
-// web is the urls a status's card opens: only http(s) ones make it clickable, and
-// open checks again.
-var web = regexp.MustCompile(`(?i)^https?://`)
-
-// open is what clicking a card does: show the event's report, or open its url.
+// open is what clicking a card does: show the event's report, open its url, or run
+// its command.
 func (b *Bar) open(id string) {
 	event, ok := b.store.Get(id)
 	if !ok {
 		return
 	}
-	target, _ := event["url"].(string)
 	switch {
-	case event["kind"] == "status":
-		if web.MatchString(target) {
-			b.openURL(target)
-		}
 	case event["report"] != nil:
 		b.showReport(event)
-	case target != "":
-		b.openURL(target)
+	case text(event, "url") != "":
+		b.openURL(text(event, "url"))
+	case text(event, "command") != "":
+		if err := b.runCommand(event, text(event, "command")); err != nil {
+			log.Printf("ledge: running the command of %s: %v", id, err)
+		}
 	}
 }
 
@@ -44,20 +39,9 @@ func (b *Bar) openURL(target string) {
 	}
 }
 
-// run starts the command of the status with this id: with `bash -lc`, so it gets
-// your login PATH, in $HOME, with its output appended to commands.log. It runs in its
-// own session, so stopping ledge doesn't stop it. Nothing tracks whether it worked.
-func (b *Bar) run(id string) {
-	event, ok := b.store.Get(id)
-	command, _ := event["command"].(string)
-	if !ok || command == "" {
-		return
-	}
-	if err := b.runCommand(event, command); err != nil {
-		log.Printf("ledge: running the command of %s: %v", id, err)
-	}
-}
-
+// runCommand starts the event's command: with `bash -lc`, so it gets your login
+// PATH, in $HOME, with its output appended to commands.log. It runs in its own
+// session, so stopping ledge doesn't stop it. Nothing tracks whether it worked.
 func (b *Bar) runCommand(event store.Event, command string) error {
 	if err := os.MkdirAll(b.stateDir, 0o755); err != nil {
 		return err

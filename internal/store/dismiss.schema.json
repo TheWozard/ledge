@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:ledge:dismiss",
   "title": "ledge dismiss",
-  "description": "Sent to POST /dismiss: deletes the event or status with this id.",
+  "description": "Sent to POST /dismiss: deletes the event with this id.",
   "type": "object",
   "properties": {
     "id": {"type": "string", "minLength": 1}
