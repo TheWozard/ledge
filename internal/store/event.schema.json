@@ -53,7 +53,7 @@
              "required": ["text"], "additionalProperties": false},
     "note": {"description": "A callout in a colour: a named colour (green, yellow, red, blue or gray, as for cards) or #rrggbb. Default gray.",
              "properties": {"type": true, "text": {"$ref": "#/$defs/text"},
-                            "color": {"type": "string", "pattern": "^(green|yellow|red|blue|gray|#[0-9a-fA-F]{6})$"}},
+                            "color": {"$ref": "#/$defs/color"}},
              "required": ["text"], "additionalProperties": false},
     "link": {"description": "A link that opens in your browser. Only http(s) urls.",
              "properties": {"type": true, "text": {"$ref": "#/$defs/text"}, "url": {"type": "string", "pattern": "^[hH][tT][tT][pP][sS]?://"}},

@@ -2,13 +2,9 @@ version: 2
 
 project_name: ledge
 
-before:
-  hooks:
-    - go mod tidy
-
 builds:
   - id: ledge
-    main: ./ledge
+    main: .
     binary: ledge
     # The window shim is Objective-C built through cgo against AppKit and WebKit, so
     # ledge builds only for macOS, on a macOS runner. Go passes -arch to clang, so one

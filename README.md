@@ -23,10 +23,11 @@ ledge update                       # install it; a running ledge keeps the old o
 ledge version                      # this ledge's version, and the running one's
 ```
 
-From source, with Go and Xcode's command line tools: `go install ./ledge`. The bar's
+From source, with Go and Xcode's command line tools:
+`go install github.com/TheWozard/ledge@latest`, or `go install .` in a clone. The bar's
 windows, pages and themes are [ledge-frontend](https://github.com/TheWozard/ledge-frontend),
-a Go module that `go.mod` takes from GitHub. A source build reports its version as `dev` and won't `update`; install a
-release instead.
+a Go module that `go.mod` takes from GitHub. `go install …@v1.2.3` reports that
+version; a build from a checkout reports `dev` with its commit, and won't `update`.
 
 ## Usage
 
@@ -196,7 +197,7 @@ ledge built from this repo by its process, whatever state dir it uses.
 
 ```sh
 export XDG_STATE_HOME=/tmp/ledge-scratch
-go run ./ledge run &
+go run . run &
 scripts/bar.sh
 ```
 
@@ -252,8 +253,9 @@ themes) are ledge-frontend. ledge is everything else:
 
 | Path | What it is |
 |---|---|
-| `ledge/` | `main`, which hands off to `cmd` |
-| `cmd/` | the CLI, one file per subcommand (cobra) |
+| `main.go` | `main`, which hands off to `internal/cli` |
+| `internal/cli/` | the CLI, one file per subcommand (cobra) |
+| `internal/app/` | `ledge run`: the store, the API on the socket, pruning, and the bar unless headless |
 | `internal/schema/` | compiles a directory of JSON Schemas and picks the error to report |
 | `internal/store/` | the event, section and dismiss schemas, the `Event` type sent events are checked and decoded into, and the events file |
 | `internal/api/` | the HTTP server and the client `ledge event` uses |

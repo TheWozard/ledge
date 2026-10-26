@@ -1,7 +1,8 @@
-package cmd
+package cli
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/TheWozard/ledge/internal/version"
@@ -20,6 +21,9 @@ checks everything it's sent against JSON Schemas.`,
 }
 
 func Execute() {
+	// Every log line says it's ledge's, after the time.
+	log.SetFlags(log.LstdFlags | log.Lmsgprefix)
+	log.SetPrefix("ledge: ")
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "ledge:", err)
 		os.Exit(1)

@@ -27,7 +27,7 @@ kill:
 # Build ledge into the state dir.
 build:
     @mkdir -p "$(dirname "{{bin}}")"
-    @go build -o "{{bin}}" ./ledge
+    @go build -o "{{bin}}" .
 
 # Example cards of every kind, plus extra ones to scroll: `just bar 15`.
 bar *args:

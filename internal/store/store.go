@@ -55,7 +55,7 @@ func Open(path string) (*Store, error) {
 		if err == nil {
 			err = fmt.Errorf("it's version %d, not %d", f.Version, fileVersion)
 		}
-		log.Printf("ledge: starting with no events, as %s can't be read (%v); it's kept as %s.bad", path, err, path)
+		log.Printf("starting with no events, as %s can't be read (%v); it's kept as %s.bad", path, err, path)
 		return s, os.Rename(path, path+".bad")
 	}
 	s.events = f.Events

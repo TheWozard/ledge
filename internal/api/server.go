@@ -241,7 +241,7 @@ func (s *Server) respond(w http.ResponseWriter, r *http.Request, result any, cha
 	case errors.As(err, &stored) || errors.As(err, &refused):
 		reply(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
 	case err != nil:
-		log.Printf("ledge: %s %s: %v", r.Method, r.URL.Path, err)
+		log.Printf("%s %s: %v", r.Method, r.URL.Path, err)
 		reply(w, http.StatusInternalServerError, map[string]any{"error": err.Error()})
 	default:
 		reply(w, http.StatusOK, result)

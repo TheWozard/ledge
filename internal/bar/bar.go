@@ -48,14 +48,14 @@ func Open(events *store.Store, cfg config.Config, stateDir string) (*Bar, error)
 // Render shows the store's current events. Safe from any goroutine.
 func (b *Bar) Render() {
 	if err := b.ui.Render(b.view(b.store.Visible(), time.Now())); err != nil {
-		log.Printf("ledge: rendering the bar: %v", err)
+		log.Printf("rendering the bar: %v", err)
 	}
 }
 
 // dismiss removes the event with this id, as its card's × asks.
 func (b *Bar) dismiss(id string) {
 	if _, err := b.store.Remove(id); err != nil {
-		log.Printf("ledge: dismissing %s: %v", id, err)
+		log.Printf("dismissing %s: %v", id, err)
 	}
 	b.Render()
 }

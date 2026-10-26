@@ -10,7 +10,7 @@
 # instance:
 #
 #   export XDG_STATE_HOME=/tmp/ledge-scratch
-#   go run ./ledge run &
+#   go run . run &
 #   scripts/bar.sh 15
 
 set -euo pipefail

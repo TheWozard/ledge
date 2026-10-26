@@ -26,7 +26,7 @@ func (b *Bar) open(id string) {
 		b.openURL(event.URL)
 	case event.Command != "" && b.commands:
 		if err := b.runCommand(event); err != nil {
-			log.Printf("ledge: running the command of %s: %v", id, err)
+			log.Printf("running the command of %s: %v", id, err)
 		}
 	}
 }
@@ -35,7 +35,7 @@ func (b *Bar) open(id string) {
 // schema makes a url start with a scheme, so it can't be taken for an option.
 func (b *Bar) openURL(target string) {
 	if err := b.start(exec.Command("open", target)); err != nil {
-		log.Printf("ledge: opening %s: %v", target, err)
+		log.Printf("opening %s: %v", target, err)
 	}
 }
 

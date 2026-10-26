@@ -85,6 +85,16 @@ func Load(fsys fs.FS) (*Set, error) {
 	return set, nil
 }
 
+// MustLoad is Load for schemas built into the binary, which can't be wrong at run time:
+// it panics if they don't load.
+func MustLoad(fsys fs.FS) *Set {
+	set, err := Load(fsys)
+	if err != nil {
+		panic(err)
+	}
+	return set
+}
+
 // Names lists the schemas, sorted.
 func (s *Set) Names() []string {
 	names := make([]string, 0, len(s.sources))

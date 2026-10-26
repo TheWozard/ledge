@@ -64,6 +64,7 @@ func TestNormalizeRefuses(t *testing.T) {
 		`{"title": "x", "report": [{"type": "chart"}]}`:                                           "report/0/type: value must be one of 'heading', 'text'",
 		`{"title": "x", "report": [{"type": "heading"}]}`:                                         "report/0: missing property 'text'",
 		`{"title": "x", "report": [{"type": "text", "text": "t", "color": "red"}]}`:               "report/0: additional properties 'color' not allowed",
+		`{"title": "x", "report": [{"type": "note", "text": "t", "color": "pink"}]}`:              "report/0/color: 'pink' does not match pattern",
 		`{"title": "x", "report": [{"type": "link", "text": "t", "url": "javascript:alert(1)"}]}`: "report/0/url: 'javascript:alert(1)' does not match pattern",
 		`{"title": "x", "report": [{"type": "table", "columns": ["a"], "rows": [[{}]]}]}`:         "report/0/rows/0/0: got object, want number or string",
 		`{"title": "x", "report": [{"type": "fields", "items": [{"label": "a"}]}]}`:               "report/0/items/0: missing property 'value'",

@@ -23,15 +23,7 @@ import (
 var schemaFiles embed.FS
 
 // Schemas is what can be sent: an event, or a section of a source's events.
-var Schemas = mustLoad()
-
-func mustLoad() *schema.Set {
-	set, err := schema.Load(schemaFiles)
-	if err != nil {
-		panic(err)
-	}
-	return set
-}
+var Schemas = schema.MustLoad(schemaFiles)
 
 // Priorities in sort order, highest first.
 var Priorities = []string{"high", "medium", "low"}

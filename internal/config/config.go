@@ -17,13 +17,7 @@ import (
 //go:embed *.schema.json
 var schemaFiles embed.FS
 
-var schemas = func() *schema.Set {
-	set, err := schema.Load(schemaFiles)
-	if err != nil {
-		panic(err)
-	}
-	return set
-}()
+var schemas = schema.MustLoad(schemaFiles)
 
 // Config is the window settings, and whether events may carry commands.
 type Config struct {
