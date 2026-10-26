@@ -12,11 +12,13 @@ import (
 	"syscall"
 	"testing"
 	"time"
+
+	"github.com/TheWozard/ledge/internal/api"
 )
 
 // The test binary stands in for ledge: run as `<test binary> run`, with
-// BACKGROUND_TEST_MODE set, it acts as a ledge whose API answers on
-// BACKGROUND_TEST_PORT, and exits when POST /shutdown asks. The mode "crash" exits at
+// BACKGROUND_TEST_MODE set, it acts as a ledge whose API answers on the socket
+// BACKGROUND_TEST_SOCKET, and exits when POST /shutdown asks. The mode "crash" exits at
 // once; "stubborn" ignores SIGTERM.
 func TestMain(m *testing.M) {
 	if mode := os.Getenv("BACKGROUND_TEST_MODE"); mode != "" && len(os.Args) > 1 && os.Args[1] == "run" {
@@ -33,7 +35,8 @@ func fakeLedge(mode string) {
 	}
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGTERM)
-	listener, err := net.Listen("tcp", "127.0.0.1:"+os.Getenv("BACKGROUND_TEST_PORT"))
+	// As ledge does, so a socket left by an earlier fake that exited is replaced.
+	listener, err := api.Listen(os.Getenv("BACKGROUND_TEST_SOCKET"))
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -55,25 +58,26 @@ func fakeLedge(mode string) {
 	}
 }
 
-func freePort(t *testing.T) int {
+// shortTempDir is a temporary directory with a short path, unlike t.TempDir(): a
+// socket's path must fit in 104 bytes.
+func shortTempDir(t *testing.T) string {
 	t.Helper()
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	dir, err := os.MkdirTemp("", "ledge")
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer listener.Close()
-	return listener.Addr().(*net.TCPAddr).Port
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	return dir
 }
 
 func newProcess(t *testing.T, mode string) *Process {
 	t.Helper()
-	port := freePort(t)
-	t.Setenv("BACKGROUND_TEST_MODE", mode)
-	t.Setenv("BACKGROUND_TEST_PORT", strconv.Itoa(port))
-	p, err := New(t.TempDir(), port)
+	p, err := New(shortTempDir(t))
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Setenv("BACKGROUND_TEST_MODE", mode)
+	t.Setenv("BACKGROUND_TEST_SOCKET", p.Socket)
 	t.Cleanup(func() {
 		if pid, ok := p.Running(); ok {
 			syscall.Kill(pid, syscall.SIGKILL)
@@ -122,12 +126,12 @@ func TestStartReportsACrash(t *testing.T) {
 	}
 }
 
-func TestStartRefusesATakenPort(t *testing.T) {
+func TestStartRefusesATakenSocket(t *testing.T) {
 	p := newProcess(t, "normal")
 	other := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"events": []}`))
 	})}
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p.Port))
+	listener, err := net.Listen("unix", p.Socket)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +193,7 @@ func TestStopReportsWhatKeepsAnswering(t *testing.T) {
 	other := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"events": []}`))
 	})}
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p.Port))
+	listener, err := net.Listen("unix", p.Socket)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -26,14 +25,13 @@ const pruneEvery = 30 * time.Second
 
 var (
 	runConfig   string
-	runPort     int
 	runHeadless bool
 )
 
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run the bar and the JSON API",
-	Long: `Run the bar and the JSON API on 127.0.0.1.
+	Long: `Run the bar and the JSON API, on the socket ledge.sock in the state dir.
 
 --headless runs only the API, with no windows.`,
 	Args: cobra.NoArgs,
@@ -41,12 +39,6 @@ var runCmd = &cobra.Command{
 		cfg, err := config.Load(runConfig)
 		if err != nil {
 			return err
-		}
-		port := runPort
-		if port == 0 {
-			if port, err = state.Port(); err != nil {
-				return err
-			}
 		}
 		dir, err := state.Dir()
 		if err != nil {
@@ -59,7 +51,7 @@ var runCmd = &cobra.Command{
 		if _, err := events.Prune(time.Now()); err != nil {
 			return err
 		}
-		listener, err := api.Listen(port)
+		listener, err := api.Listen(state.Socket(dir))
 		if err != nil {
 			return err
 		}
@@ -122,7 +114,6 @@ func serve(ctx context.Context, listener net.Listener, server *api.Server) error
 
 func init() {
 	runCmd.Flags().StringVar(&runConfig, "config", "", "window settings `PATH` (JSON; default: built-in defaults)")
-	runCmd.Flags().IntVar(&runPort, "port", 0, fmt.Sprintf("API port (default: $LEDGE_PORT or %d)", state.DefaultPort))
 	runCmd.Flags().BoolVar(&runHeadless, "headless", false, "run only the API, with no windows")
 	rootCmd.AddCommand(runCmd)
 }

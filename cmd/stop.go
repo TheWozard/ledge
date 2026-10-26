@@ -10,11 +10,11 @@ var stopCmd = &cobra.Command{
 	Use:   "stop",
 	Short: "Stop the running ledge",
 	Long: `Stop the ledge started with ` + "`ledge start`" + `: ask it to exit, and kill it if it hasn't
-after 5 seconds. If it didn't start one, stop whatever ledge answers on the port
+after 5 seconds. If it didn't start one, stop whatever ledge answers on the socket
 (one run in a terminal, or by another build) through POST /shutdown.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		process, err := backgroundProcess(0)
+		process, err := backgroundProcess()
 		if err != nil {
 			return err
 		}

@@ -2,35 +2,35 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"time"
 )
 
-// Client calls the API of the ledge on one port.
+// Client calls the API of the ledge on one socket.
 type Client struct {
-	Port int
+	Socket string
 }
-
-var httpClient = &http.Client{Timeout: 5 * time.Second}
 
 // Call sends body (nil for none) and decodes the reply into out. An error reply
 // becomes an error carrying the server's message.
 func (c Client) Call(method, path string, body []byte, out any) error {
-	url := fmt.Sprintf("http://127.0.0.1:%d%s", c.Port, path)
-	request, err := http.NewRequest(method, url, bytes.NewReader(body))
+	// The host is a placeholder: every request goes to the socket.
+	request, err := http.NewRequest(method, "http://ledge"+path, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
 	if body != nil {
 		request.Header.Set("Content-Type", "application/json")
 	}
-	response, err := httpClient.Do(request)
+	response, err := c.http().Do(request)
 	if err != nil {
-		return fmt.Errorf("no ledge API on 127.0.0.1:%d (%w); is ledge running?", c.Port, unwrapURL(err))
+		return fmt.Errorf("no ledge API at %s (%w); is ledge running?", c.Socket, unwrapURL(err))
 	}
 	defer response.Body.Close()
 	data, err := io.ReadAll(response.Body)
@@ -49,6 +49,20 @@ func (c Client) Call(method, path string, body []byte, out any) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
 	dec.UseNumber()
 	return dec.Decode(out)
+}
+
+func (c Client) http() *http.Client {
+	var dialer net.Dialer
+	return &http.Client{
+		Timeout: 5 * time.Second,
+		Transport: &http.Transport{
+			// A connection is cheap, and a kept one would outlive this client.
+			DisableKeepAlives: true,
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				return dialer.DialContext(ctx, "unix", c.Socket)
+			},
+		},
+	}
 }
 
 // unwrapURL drops the "Get http://...:" that net/http puts in front of the cause.

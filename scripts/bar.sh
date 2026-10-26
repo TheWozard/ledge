@@ -6,11 +6,12 @@
 #   bar.sh [CARDS]   the examples, plus CARDS extra cards (so the row scrolls sideways)
 #   bar.sh clear     remove everything this script sent, and its pages
 #
-# Sends with $LEDGE (default: ledge on PATH, else built from this repo) to
-# $LEDGE_PORT (default 47391). Try it on a scratch instance:
+# Sends with $LEDGE (default: ledge on PATH, else built from this repo) to the ledge
+# of $XDG_STATE_HOME. Try it on a scratch instance:
 #
-#   go run ./ledge run --port 47392 &
-#   LEDGE_PORT=47392 scripts/bar.sh 15
+#   export XDG_STATE_HOME=/tmp/ledge-scratch
+#   go run ./ledge run &
+#   scripts/bar.sh 15
 
 set -euo pipefail
 

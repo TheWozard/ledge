@@ -10,8 +10,8 @@
 #   feed.sh [SECONDS]   pause SECONDS before the swap (default 5)
 #   feed.sh clear       remove everything this script sent, and its pages
 #
-# Sends with $LEDGE (default: ledge on PATH, else built from this repo) to
-# $LEDGE_PORT (default 47391).
+# Sends with $LEDGE (default: ledge on PATH, else built from this repo) to the ledge
+# of $XDG_STATE_HOME.
 
 set -euo pipefail
 

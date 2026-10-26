@@ -5,8 +5,8 @@
 #                    they wrote, and nothing else
 #   clear.sh --all   remove every event on the bar, whoever sent it
 #
-# Sends with $LEDGE (default: ledge on PATH, else built from this repo) to
-# $LEDGE_PORT (default 47391).
+# Sends with $LEDGE (default: ledge on PATH, else built from this repo) to the ledge
+# of $XDG_STATE_HOME.
 
 set -euo pipefail
 

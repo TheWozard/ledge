@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/TheWozard/ledge/internal/api"
+	"github.com/TheWozard/ledge/internal/state"
 )
 
 // How long start waits for the API to answer, and stop for the process to exit
@@ -35,11 +36,12 @@ type Process struct {
 	PIDFile  string
 	LogFile  string
 	ArgsFile string // the arguments of the last Start, for restart
-	Port     int    // where its API answers once it's up
+	Socket   string // where its API answers once it's up
 }
 
-// New is the background ledge for this binary, keeping its files in dir.
-func New(dir string, port int) (*Process, error) {
+// New is the background ledge for this binary, keeping its files in dir, the state
+// directory.
+func New(dir string) (*Process, error) {
 	binary, err := os.Executable()
 	if err != nil {
 		return nil, err
@@ -52,7 +54,7 @@ func New(dir string, port int) (*Process, error) {
 		PIDFile:  filepath.Join(dir, "ledge.pid"),
 		LogFile:  filepath.Join(dir, "ledge.log"),
 		ArgsFile: filepath.Join(dir, "ledge.args.json"),
-		Port:     port,
+		Socket:   state.Socket(dir),
 	}, nil
 }
 
@@ -81,15 +83,15 @@ func (p *Process) Running() (int, bool) {
 
 // Start runs `<binary> run args...` in the background and waits for its API to answer.
 // It does nothing if it's already running, and refuses if something else already
-// answers on the port. If the process exits first, the error carries its log.
+// answers on the socket. If the process exits first, the error carries its log.
 func (p *Process) Start(args []string) (pid int, started bool, err error) {
 	if pid, ok := p.Running(); ok {
 		return pid, false, nil
 	}
-	// Another ledge (run in a terminal, or desktop-view on the same port) would answer
-	// the readiness check below and make a failed start look like a success.
+	// Another ledge (run in a terminal, or by another build) would answer the readiness
+	// check below and make a failed start look like a success.
 	if p.answers() {
-		return 0, false, fmt.Errorf("something not started by `ledge start` already answers on port %d; stop it first", p.Port)
+		return 0, false, fmt.Errorf("something not started by `ledge start` already answers at %s; stop it first", p.Socket)
 	}
 	if err := os.MkdirAll(filepath.Dir(p.PIDFile), 0o755); err != nil {
 		return 0, false, err
@@ -133,12 +135,12 @@ func (p *Process) Start(args []string) (pid int, started bool, err error) {
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
-	return pid, true, fmt.Errorf("started (pid %d) but the API isn't answering on port %d yet; see %s", pid, p.Port, p.LogFile)
+	return pid, true, fmt.Errorf("started (pid %d) but the API isn't answering at %s yet; see %s", pid, p.Socket, p.LogFile)
 }
 
 // Stop ends the background ledge: SIGTERM, then SIGKILL if it hasn't exited after
 // StopTimeout. If this binary didn't start one, it asks whatever ledge answers on the
-// port to shut down instead, such as one run in a terminal or by another build.
+// socket to shut down instead, such as one run in a terminal or by another build.
 // Returns false if nothing was running.
 func (p *Process) Stop() (bool, error) {
 	pid, ok := p.Running()
@@ -163,22 +165,22 @@ func (p *Process) Stop() (bool, error) {
 	return true, err
 }
 
-// stopByAPI asks the ledge answering on the port to shut down, and waits StopTimeout
+// stopByAPI asks the ledge answering on the socket to shut down, and waits StopTimeout
 // for its API to stop answering. Returns false if nothing answers.
 func (p *Process) stopByAPI() (bool, error) {
 	if !p.answers() {
 		return false, nil
 	}
 	var reply map[string]any
-	if err := (api.Client{Port: p.Port}).Call("POST", "/shutdown", []byte("{}"), &reply); err != nil {
-		return false, fmt.Errorf("asking the ledge on port %d to shut down: %w", p.Port, err)
+	if err := (api.Client{Socket: p.Socket}).Call("POST", "/shutdown", []byte("{}"), &reply); err != nil {
+		return false, fmt.Errorf("asking the ledge at %s to shut down: %w", p.Socket, err)
 	}
 	for deadline := time.Now().Add(StopTimeout); time.Now().Before(deadline); time.Sleep(100 * time.Millisecond) {
 		if !p.answers() {
 			return true, nil
 		}
 	}
-	return true, fmt.Errorf("the ledge on port %d still answers %s after being asked to shut down", p.Port, StopTimeout)
+	return true, fmt.Errorf("the ledge at %s still answers %s after being asked to shut down", p.Socket, StopTimeout)
 }
 
 // await waits StopTimeout for pid to exit, then kills it.
@@ -226,7 +228,7 @@ func (p *Process) answers() bool {
 	var reply struct {
 		Events []any `json:"events"`
 	}
-	return api.Client{Port: p.Port}.Call("GET", "/events", nil, &reply) == nil
+	return api.Client{Socket: p.Socket}.Call("GET", "/events", nil, &reply) == nil
 }
 
 // alive reports whether pid is still a process (a zombie counts as gone).

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"slices"
-	"strconv"
 
 	"github.com/TheWozard/ledge/internal/background"
 	"github.com/TheWozard/ledge/internal/config"
@@ -15,13 +14,11 @@ import (
 // runFlags are the flags start and restart pass on to `ledge run`.
 type runFlags struct {
 	config   string
-	port     int
 	headless bool
 }
 
 func (f *runFlags) register(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&f.config, "config", "", "window settings `PATH` (JSON; default: built-in defaults)")
-	cmd.Flags().IntVar(&f.port, "port", 0, fmt.Sprintf("API port (default: $LEDGE_PORT or %d)", state.DefaultPort))
 	cmd.Flags().BoolVar(&f.headless, "headless", false, "run only the API, with no windows")
 }
 
@@ -35,9 +32,6 @@ func (f *runFlags) args() ([]string, error) {
 			return nil, err
 		}
 		args = append(args, "--config", path)
-	}
-	if f.port != 0 {
-		args = append(args, "--port", strconv.Itoa(f.port))
 	}
 	if f.headless {
 		args = append(args, "--headless")
@@ -65,7 +59,7 @@ already running; ` + "`ledge stop`" + ` stops it.`,
 
 // startWith starts `ledge run args...` in the background.
 func startWith(args []string) error {
-	process, err := backgroundProcess(portIn(args))
+	process, err := backgroundProcess()
 	if err != nil {
 		return err
 	}
@@ -80,7 +74,7 @@ func startWith(args []string) error {
 		fmt.Printf("ledge is already running (pid %d)\n", pid)
 		return nil
 	}
-	fmt.Printf("ledge started (pid %d, port %d, log %s)\n", pid, process.Port, process.LogFile)
+	fmt.Printf("ledge started (pid %d, socket %s, log %s)\n", pid, process.Socket, process.LogFile)
 	return nil
 }
 
@@ -94,28 +88,13 @@ func checkConfig(args []string) error {
 	return nil
 }
 
-// portIn is the --port in `ledge run` arguments, or 0 for none.
-func portIn(args []string) int {
-	if i := slices.Index(args, "--port"); i >= 0 && i+1 < len(args) {
-		port, _ := strconv.Atoi(args[i+1])
-		return port
-	}
-	return 0
-}
-
-// backgroundProcess is the background ledge on port (0 for $LEDGE_PORT or the default).
-func backgroundProcess(port int) (*background.Process, error) {
-	if port == 0 {
-		var err error
-		if port, err = state.Port(); err != nil {
-			return nil, err
-		}
-	}
+// backgroundProcess is the background ledge of the state dir.
+func backgroundProcess() (*background.Process, error) {
 	dir, err := state.Dir()
 	if err != nil {
 		return nil, err
 	}
-	return background.New(dir, port)
+	return background.New(dir)
 }
 
 func init() {

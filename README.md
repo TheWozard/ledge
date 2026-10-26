@@ -1,7 +1,7 @@
 # ledge
 
 A desktop bar for macOS, along one edge of the screen. Scripts, hooks and CI push
-events to a JSON API on `127.0.0.1`, which checks everything it's sent against JSON
+events to a JSON API on a Unix socket, which checks everything it's sent against JSON
 Schemas. Each event is a card, of one of several kinds (timers, progress, stats,
 checks, messages); clicking one opens its report or its url, or runs its command.
 
@@ -32,7 +32,7 @@ release instead.
 
 ```sh
 
-ledge run                          # the bar and the API; --port, --config
+ledge run                          # the bar and the API; --config
 ledge run --headless               # the API only, without the bar
 ledge event '{"title": "Deploy finished", "priority": "high", "expires": "4h"}'
 some-feed | ledge event            # or JSON on stdin
@@ -41,8 +41,10 @@ ledge event --dismiss <id>
 ledge event --schema event         # print a schema: dismiss, event, section
 ```
 
-The API listens on port 47391; set `$LEDGE_PORT` to change it. Events are kept in
-`${XDG_STATE_HOME:-~/.local/state}/ledge/events.json`.
+The API listens on the socket `ledge.sock` in the state dir,
+`${XDG_STATE_HOME:-~/.local/state}/ledge`, where events are kept too (`events.json`).
+Each state dir is its own ledge: set `XDG_STATE_HOME` to run another, and to talk to
+it. Only your user can connect to the socket.
 
 ### Config
 
@@ -155,7 +157,7 @@ write one.
 ### In the background
 
 ```sh
-ledge start                        # same flags as `ledge run`: --config, --port, --headless
+ledge start                        # same flags as `ledge run`: --config, --headless
 ledge stop
 ledge restart                      # rereads the config; reuses start's flags unless given new ones
 ```
@@ -163,15 +165,15 @@ ledge restart                      # rereads the config; reuses start's flags un
 `start` waits until the API answers, and shows the log if ledge exits first. Its pid
 file and log (`ledge.log`) go in the state dir. `stop` signals the ledge `start` began,
 never a process that has reused its pid; if there isn't one, it asks whatever ledge
-answers on the port to shut down through `POST /shutdown`, such as one run in a
+answers on the socket to shut down through `POST /shutdown`, such as one run in a
 terminal or by another build. `start` refuses if something else already answers on
-the port. `restart` checks the config before stopping anything, so a broken config
+the socket. `restart` checks the config before stopping anything, so a broken config
 leaves the running ledge running.
 
 While working on ledge, the [justfile](justfile) builds it from this repo first:
 `just start`, `just stop` and `just restart` build into the state dir and then run
 `ledge start`, `stop` or `restart`, passing on any flags. `just kill` stops every
-ledge built from this repo by its process, whatever port it's on, including one too old
+ledge built from this repo by its process, whatever state dir it uses, including one too old
 to have `POST /shutdown`.
 `just bar`, `just report`, `just feed` and `just clear` run the examples. Run `just` to list them.
 
@@ -181,12 +183,13 @@ only stops or restarts the ledge it started itself.
 ## Examples
 
 [scripts/](scripts/) puts example events on the bar. Each script uses `ledge` from
-your `PATH` (or builds one) and sends to `$LEDGE_PORT`, so point them at a scratch
-instance to try them:
+your `PATH` (or builds one) and sends to the ledge of `$XDG_STATE_HOME`, so point them
+at a scratch instance to try them:
 
 ```sh
-go run ./ledge run --port 47392 &
-LEDGE_PORT=47392 scripts/bar.sh
+export XDG_STATE_HOME=/tmp/ledge-scratch
+go run ./ledge run &
+scripts/bar.sh
 ```
 
 | Script | Shows |
@@ -213,9 +216,16 @@ the bar, whoever sent the events.
 | `GET /events` | | `{"events": [...]}`, highest priority first, then newest first |
 | `GET /schemas/{name}` | | the schema |
 
-POSTs must be `Content-Type: application/json`, and no request may carry an `Origin`
-header, so a web page can't post events. A refused request gets a 400 with
-`{"error"}` saying which schema rule it broke.
+Bodies are JSON, up to 8 MiB. A refused request gets a 400 with `{"error"}` saying
+which schema rule it broke. Without `ledge event`, use any HTTP client that can talk
+to a Unix socket; the host name is ignored:
+
+```sh
+curl --unix-socket ~/.local/state/ledge/ledge.sock http://ledge/event -d '{"title": "Hello"}'
+```
+
+A web page can't reach a Unix socket, and the socket is only open to your user, so
+nothing else can post events.
 
 ## Layout
 
@@ -233,7 +243,7 @@ themes) are ledge-frontend. ledge is everything else:
 | `internal/background/` | `ledge start`, `stop` and `restart`: the background process, its pid file, log and saved flags |
 | `internal/update/` | `ledge update`: finding the latest release, checking its checksum, replacing the binary |
 | `internal/bar/` | connects the store to ledge-frontend's bar: events as cards of their kinds, reports as blocks, and what the pages ask for by id (dismiss, open a report or url, run a command) |
-| `internal/state/` | the state directory and port |
+| `internal/state/` | the state directory and the API socket |
 | `internal/version/` | version metadata, set with `-ldflags` at release time |
 
 ## Releasing
@@ -262,11 +272,15 @@ git tag -d v0.1.0
 
 ## Testing
 
-Never test against the bar you're using. Use a scratch port and state directory:
+Never test against the bar you're using. Use a scratch state directory, which gives
+the test instance its own socket:
 
 ```sh
-LEDGE_PORT=47392 XDG_STATE_HOME=/tmp/ledge-test ledge run --headless
+XDG_STATE_HOME=/tmp/ledge-test ledge run --headless
 ```
+
+A socket's path must fit in 103 bytes, so keep the directory short: `t.TempDir()` and
+some `$TMPDIR`s are too long.
 
 Stop test instances by pid, never by name.
 

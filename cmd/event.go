@@ -44,11 +44,11 @@ What can be sent is defined by JSON Schemas; print one with --schema.`,
 		if eventSchema != "" {
 			return printSchema(eventSchema)
 		}
-		port, err := state.Port()
+		dir, err := state.Dir()
 		if err != nil {
 			return err
 		}
-		client := api.Client{Port: port}
+		client := api.Client{Socket: state.Socket(dir)}
 		switch {
 		case eventList:
 			var reply struct {

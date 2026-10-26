@@ -18,7 +18,7 @@ any flag, it uses only the flags given. Starts it if it wasn't running. If the c
 is invalid, the running ledge is left running.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		process, err := backgroundProcess(0)
+		process, err := backgroundProcess()
 		if err != nil {
 			return err
 		}

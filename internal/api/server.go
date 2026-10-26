@@ -1,4 +1,5 @@
-// Package api is ledge's JSON API on 127.0.0.1, and a client for it.
+// Package api is ledge's JSON API on a Unix socket in the state dir, and a client
+// for it.
 //
 //	POST /event          one event, or a section ({"source", "items"}) that
 //	                     replaces a source's events; replies with the id(s)
@@ -7,19 +8,20 @@
 //	GET  /events         the current events, as the bar shows them
 //	GET  /schemas/{name} a schema, as built in
 //
-// Requests must carry no Origin header, and POSTs must be application/json. A web
-// page can't send that to localhost without a CORS preflight, which this server never
-// answers, so a site you visit can't post events.
+// Only your user can connect to the socket, and a web page can't reach a socket at
+// all, so nothing else can post events.
 package api
 
 import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
-	"mime"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -28,7 +30,7 @@ import (
 )
 
 // MaxBody is the largest request body accepted.
-const MaxBody = 1 << 20
+const MaxBody = 8 << 20
 
 // Server serves the API for one store. Changed, if set, is called after any request
 // that changes the store, and Shutdown after replying to POST /shutdown.
@@ -38,21 +40,40 @@ type Server struct {
 	Shutdown func()
 }
 
-// Listen binds the API port on 127.0.0.1 only.
-func Listen(port int) (net.Listener, error) {
-	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	listener, err := net.Listen("tcp", addr)
+// Listen makes the API socket at path, which only your user can connect to. A socket
+// left behind by a ledge that has exited is replaced; one that answers is refused.
+func Listen(path string) (net.Listener, error) {
+	// macOS holds a socket's path in 104 bytes, its NUL included.
+	if len(path) > 103 {
+		return nil, fmt.Errorf("the API socket's path, %s, is over 103 bytes; set XDG_STATE_HOME to a shorter directory", path)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, err
+	}
+	if info, err := os.Lstat(path); err == nil {
+		if info.Mode().Type() != fs.ModeSocket {
+			return nil, fmt.Errorf("%s is in the way of the API socket", path)
+		}
+		if conn, err := net.Dial("unix", path); err == nil {
+			conn.Close()
+			return nil, fmt.Errorf("a ledge is already running at %s", path)
+		}
+		if err := os.Remove(path); err != nil {
+			return nil, err
+		}
+	}
+	listener, err := net.Listen("unix", path)
 	if err != nil {
-		return nil, fmt.Errorf("can't listen on %s (%w); is ledge already running?", addr, err)
+		return nil, fmt.Errorf("can't listen at %s: %w", path, err)
+	}
+	if err := os.Chmod(path, 0o600); err != nil {
+		listener.Close()
+		return nil, err
 	}
 	return listener, nil
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("Origin") != "" {
-		reply(w, http.StatusBadRequest, map[string]any{"error": "requests from a browser page aren't accepted"})
-		return
-	}
 	switch {
 	case r.Method == http.MethodGet && r.URL.Path == "/events":
 		reply(w, http.StatusOK, map[string]any{"events": s.Store.Visible()})
@@ -137,9 +158,6 @@ func (s *Server) handle(r *http.Request) (map[string]any, error) {
 }
 
 func readJSON(r *http.Request) (any, error) {
-	if media, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type")); media != "application/json" {
-		return nil, store.Refuse("Content-Type must be application/json")
-	}
 	data, err := io.ReadAll(http.MaxBytesReader(nil, r.Body, MaxBody))
 	var tooBig *http.MaxBytesError
 	if errors.As(err, &tooBig) {

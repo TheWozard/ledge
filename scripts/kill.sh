@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Stop every ledge running, by its process: `ledge stop` stops only the one on its
-# port, and through POST /shutdown, which a ledge on another port, or one too old to
-# have it, won't get. A ledge is any `<binary> run` whose binary was built from this
+# Stop every ledge running, by its process: `ledge stop` stops only the one of its
+# state dir, and through POST /shutdown, which a ledge of another state dir, or one too
+# old to have it, won't get. A ledge is any `<binary> run` whose binary was built from this
 # module.
 #
 #   kill.sh   SIGTERM each, then SIGKILL any still running after 5s

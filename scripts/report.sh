@@ -8,8 +8,8 @@
 #   report.sh         send the cards
 #   report.sh clear   remove them
 #
-# Sends with $LEDGE (default: ledge on PATH, else built from this repo) to
-# $LEDGE_PORT (default 47391).
+# Sends with $LEDGE (default: ledge on PATH, else built from this repo) to the ledge
+# of $XDG_STATE_HOME.
 
 set -euo pipefail
 
