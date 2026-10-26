@@ -168,8 +168,9 @@ config before stopping anything, so a broken config leaves the running ledge run
 
 While working on ledge, the [justfile](justfile) builds it from this repo first:
 `just start`, `just stop` and `just restart` build into the state dir and then run
-`ledge start`, `stop` or `restart`, passing on any flags. `just bar`, `just report`,
-`just feed` and `just clear` run the examples. Run `just` to list them.
+`ledge start`, `stop` or `restart`, passing on any flags. `just kill` stops every
+ledge built from this repo, however it was started, such as one left by `go run`.
+`just bar`, `just report`, `just feed` and `just clear` run the examples. Run `just` to list them.
 
 The build in the state dir and an installed `ledge` are different binaries, so each
 only stops or restarts the ledge it started itself.

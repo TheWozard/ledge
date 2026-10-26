@@ -20,6 +20,10 @@ stop: build
 restart *args: build
     "{{bin}}" restart {{args}}
 
+# Stop every ledge running, however it was started, such as one left by `go run`.
+kill:
+    scripts/kill.sh
+
 # Build ledge into the state dir.
 build:
     @mkdir -p "$(dirname "{{bin}}")"
