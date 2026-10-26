@@ -1,8 +1,6 @@
 package bar
 
 import (
-	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/TheWozard/ledge-frontend/components"
@@ -41,54 +39,47 @@ func (b *Bar) view(events []store.Event, now time.Time) []components.Card {
 // card is the event as a card of its kind, as of now. One with a schedule is drawn
 // again at its next step, for its colour.
 func (b *Bar) card(event store.Event, now time.Time) components.Card {
-	id := text(event, "id")
+	id := event.ID
 	basic := components.Basic{
 		ID:          id,
-		Title:       text(event, "title"),
-		Description: text(event, "description"),
+		Title:       event.Title,
+		Description: event.Description,
 		Dismiss:     func(components.ClickEvent) { b.dismiss(id) },
 	}
 	// A command sent while commands were allowed stays on the card, but doesn't run.
-	if event["report"] != nil || text(event, "url") != "" || text(event, "command") != "" && b.commands {
+	if len(event.Report) > 0 || event.URL != "" || event.Command != "" && b.commands {
 		basic.Click = func(components.ClickEvent) { b.open(id) }
 	}
-	basic.Color = priorities[text(event, "priority")]
-	if color := text(event, "color"); color != "" {
-		basic.Color = hex(color)
+	basic.Color = priorities[event.Priority]
+	if event.Color != "" {
+		basic.Color = hex(event.Color)
 	}
 	var next time.Time
-	for _, step := range list(event["schedule"]) {
-		step, _ := step.(map[string]any)
-		// The store keeps the steps in time order.
-		if at := when(step["at"]); at.After(now) {
-			next = at
+	for _, step := range event.Schedule {
+		if step.At.After(now) {
+			next = step.At
 			break
 		}
-		basic.Color = hex(text(step, "color"))
+		basic.Color = hex(step.Color)
 	}
 
 	var card components.Card = basic
-	switch event["kind"] {
+	switch event.Kind {
 	case "timer":
-		card = components.Timer{Basic: basic, Start: when(event["start"]), End: when(event["end"])}
+		card = components.Timer{Basic: basic, Start: event.Start, End: event.End}
 	case "progress":
-		card = components.Progress{Basic: basic, Value: number(event["value"]), Label: text(event, "label")}
+		card = components.Progress{Basic: basic, Value: event.Value.Float(), Label: event.Label}
 	case "stat":
-		stat := components.Stat{Basic: basic, Value: fmt.Sprint(event["value"]), Change: text(event, "change"),
-			ChangeColor: text(event, "change_color")}
-		for _, value := range list(event["history"]) {
-			stat.History = append(stat.History, number(value))
-		}
-		card = stat
+		card = components.Stat{Basic: basic, Value: event.Value.Text, Change: event.Change,
+			ChangeColor: event.ChangeColor, History: event.History}
 	case "checks":
 		checks := components.Checks{Basic: basic}
-		for _, check := range list(event["checks"]) {
-			check, _ := check.(map[string]any)
-			checks.Checks = append(checks.Checks, components.Check{Name: text(check, "name"), State: text(check, "state")})
+		for _, check := range event.Checks {
+			checks.Checks = append(checks.Checks, components.Check{Name: check.Name, State: check.State})
 		}
 		card = checks
 	case "message":
-		card = components.Message{Basic: basic, From: text(event, "from"), Avatar: text(event, "avatar"), Sent: when(event["sent"])}
+		card = components.Message{Basic: basic, From: event.From, Avatar: event.Avatar, Sent: event.Sent}
 	}
 	if next.IsZero() {
 		return card
@@ -109,79 +100,38 @@ func (r recolored) Frame() components.Frame {
 	return f
 }
 
-// blocks is a report's blocks, as event.schema.json has them, as components.
-func blocks(report []any) []templ.Component {
+// blocks is a report's blocks as components.
+func blocks(report []store.Block) []templ.Component {
 	var out []templ.Component
 	for _, block := range report {
-		b, _ := block.(map[string]any)
-		switch b["type"] {
+		switch block.Type {
 		case "heading":
-			out = append(out, components.Heading(text(b, "text")))
+			out = append(out, components.Heading(block.Text))
 		case "text":
-			out = append(out, components.Paragraph(text(b, "text")))
+			out = append(out, components.Paragraph(block.Text))
 		case "fields":
-			var fields []components.Field
-			for _, item := range list(b["items"]) {
-				item, _ := item.(map[string]any)
-				fields = append(fields, components.Field{Label: text(item, "label"), Value: fmt.Sprint(item["value"])})
+			fields := make([]components.Field, len(block.Fields))
+			for i, field := range block.Fields {
+				fields[i] = components.Field{Label: field.Label, Value: field.Value.Text}
 			}
 			out = append(out, components.Fields(fields))
 		case "table":
-			var rows [][]string
-			for _, row := range list(b["rows"]) {
-				rows = append(rows, texts(row))
+			rows := make([][]string, len(block.Rows))
+			for i, row := range block.Rows {
+				for _, cell := range row {
+					rows[i] = append(rows[i], cell.Text)
+				}
 			}
-			out = append(out, components.Table(texts(b["columns"]), rows))
+			out = append(out, components.Table(block.Columns, rows))
 		case "list":
-			ordered, _ := b["ordered"].(bool)
-			out = append(out, components.List(texts(b["items"]), ordered))
+			out = append(out, components.List(block.Items, block.Ordered))
 		case "code":
-			out = append(out, components.Code(text(b, "text")))
+			out = append(out, components.Code(block.Text))
 		case "note":
-			out = append(out, components.Note(text(b, "text"), text(b, "color")))
+			out = append(out, components.Note(block.Text, block.Color))
 		case "link":
-			out = append(out, components.Link(text(b, "text"), text(b, "url")))
+			out = append(out, components.Link(block.Text, block.URL))
 		}
 	}
 	return out
-}
-
-// text is a string property of an object, or "".
-func text(object map[string]any, key string) string {
-	s, _ := object[key].(string)
-	return s
-}
-
-func list(value any) []any {
-	l, _ := value.([]any)
-	return l
-}
-
-// number is a JSON number, which the schema's decoder and the store keep as a
-// json.Number.
-func number(value any) float64 {
-	switch n := value.(type) {
-	case json.Number:
-		f, _ := n.Float64()
-		return f
-	case float64:
-		return n
-	}
-	return 0
-}
-
-// texts is a list of strings or numbers, as strings.
-func texts(value any) []string {
-	var out []string
-	for _, item := range list(value) {
-		out = append(out, fmt.Sprint(item))
-	}
-	return out
-}
-
-// when is a time the store normalized to RFC 3339.
-func when(value any) time.Time {
-	s, _ := value.(string)
-	t, _ := time.Parse(time.RFC3339, s)
-	return t
 }

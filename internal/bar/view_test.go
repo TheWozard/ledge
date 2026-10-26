@@ -111,7 +111,7 @@ func TestView(t *testing.T) {
 func TestBlocks(t *testing.T) {
 	event := normalize(t, `{"title": "x", "report": `+reportJSON+`}`)
 	var html strings.Builder
-	for _, block := range blocks(event["report"].([]any)) {
+	for _, block := range blocks(event.Report) {
 		block.Render(context.Background(), &html)
 	}
 	for _, want := range []string{
@@ -126,7 +126,7 @@ func TestBlocks(t *testing.T) {
 		}
 	}
 	// Every block is one the frontend renders.
-	if got, want := strings.Count(reportJSON, `"type"`), len(blocks(event["report"].([]any))); got != want {
+	if got, want := strings.Count(reportJSON, `"type"`), len(blocks(event.Report)); got != want {
 		t.Errorf("%d blocks became %d components", got, want)
 	}
 }

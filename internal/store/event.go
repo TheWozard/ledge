@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"crypto/rand"
 	"embed"
 	"encoding/hex"
@@ -36,15 +37,148 @@ func mustLoad() *schema.Set {
 // Priorities in sort order, highest first.
 var Priorities = []string{"high", "medium", "low"}
 
-// TimeLayout is how times are stored: ISO 8601 to the second, with an offset.
-const TimeLayout = "2006-01-02T15:04:05-07:00"
+// Event is one event, as stored and as served: what was sent, as event.schema.json
+// describes it, with an id, a source, when it was received, and its times resolved.
+type Event struct {
+	ID          string    `json:"id"`
+	Kind        string    `json:"kind"`
+	Title       string    `json:"title"`
+	Description string    `json:"description,omitempty"`
+	Priority    string    `json:"priority,omitempty"`
+	Color       string    `json:"color,omitempty"`
+	Schedule    []Step    `json:"schedule,omitempty"` // in time order
+	URL         string    `json:"url,omitempty"`
+	Report      []Block   `json:"report,omitempty"`
+	Command     string    `json:"command,omitempty"`
+	Source      string    `json:"source"`
+	Received    time.Time `json:"received"`
+	Expires     time.Time `json:"expires,omitzero"`
 
-var duration = regexp.MustCompile(`^(\d+)([smhd])$`)
+	// A timer's.
+	Start time.Time `json:"start,omitzero"`
+	End   time.Time `json:"end,omitzero"`
+	// A progress's (a number from 0 to 1) or a stat's.
+	Value Scalar `json:"value,omitzero"`
+	// A progress's.
+	Label string `json:"label,omitempty"`
+	// A stat's.
+	Change      string    `json:"change,omitempty"`
+	ChangeColor string    `json:"change_color,omitempty"`
+	History     []float64 `json:"history,omitempty"`
+	// A checks card's.
+	Checks []CheckResult `json:"checks,omitempty"`
+	// A message's.
+	From   string    `json:"from,omitempty"`
+	Sent   time.Time `json:"sent,omitzero"`
+	Avatar string    `json:"avatar,omitempty"`
+}
 
-var unitSeconds = map[string]int64{"s": 1, "m": 60, "h": 3600, "d": 86400}
+// Step is a colour change in an event's schedule.
+type Step struct {
+	At    time.Time `json:"at"`
+	Color string    `json:"color"`
+}
 
-// Event is one event, as stored and as served.
-type Event = map[string]any
+// CheckResult is one of a checks card's checks.
+type CheckResult struct {
+	Name  string `json:"name"`
+	State string `json:"state"`
+}
+
+// Block is one part of a report. Type says which, and so which other fields it has.
+type Block struct {
+	Type    string     `json:"type"`
+	Text    string     `json:"text,omitempty"`    // heading, text, code, note, link
+	Color   string     `json:"color,omitempty"`   // note
+	URL     string     `json:"url,omitempty"`     // link
+	Fields  []Field    `json:"-"`                 // fields, sent as "items"
+	Items   []string   `json:"-"`                 // list, sent as "items"
+	Ordered bool       `json:"ordered,omitempty"` // list
+	Columns []string   `json:"columns,omitempty"` // table
+	Rows    [][]Scalar `json:"rows,omitzero"`     // table
+}
+
+// Field is one row of a fields block.
+type Field struct {
+	Label string `json:"label"`
+	Value Scalar `json:"value"`
+}
+
+// block is Block without its JSON methods, for them to use.
+type block Block
+
+// UnmarshalJSON reads "items" as a fields block's Fields, or a list's Items.
+func (b *Block) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		block
+		Items json.RawMessage `json:"items"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	*b = Block(raw.block)
+	switch {
+	case raw.Items == nil:
+		return nil
+	case b.Type == "fields":
+		return json.Unmarshal(raw.Items, &b.Fields)
+	default:
+		return json.Unmarshal(raw.Items, &b.Items)
+	}
+}
+
+// MarshalJSON writes a fields block's Fields, or a list's Items, as "items".
+func (b Block) MarshalJSON() ([]byte, error) {
+	raw := struct {
+		block
+		Items any `json:"items,omitempty"`
+	}{block: block(b)}
+	switch {
+	case b.Fields != nil:
+		raw.Items = b.Fields
+	case b.Items != nil:
+		raw.Items = b.Items
+	}
+	return marshal(raw)
+}
+
+// Scalar is a JSON string or number, kept as it was sent: a stat's value, a field's
+// value or a table cell.
+type Scalar struct {
+	Text   string // the string, or the number as it was written
+	Number bool
+}
+
+// Float is the number, or 0 for a string.
+func (s Scalar) Float() float64 {
+	if !s.Number {
+		return 0
+	}
+	f, _ := strconv.ParseFloat(s.Text, 64)
+	return f
+}
+
+func (s Scalar) IsZero() bool { return s == Scalar{} }
+
+func (s Scalar) MarshalJSON() ([]byte, error) {
+	if s.Number {
+		return []byte(s.Text), nil
+	}
+	return marshal(s.Text)
+}
+
+func (s *Scalar) UnmarshalJSON(data []byte) error {
+	if bytes.HasPrefix(data, []byte(`"`)) {
+		*s = Scalar{}
+		return json.Unmarshal(data, &s.Text)
+	}
+	var n json.Number
+	if err := json.Unmarshal(data, &n); err != nil {
+		return err
+	}
+	*s = Scalar{Text: n.String(), Number: true}
+	return nil
+}
 
 // Error is something sent that should be refused, with the reason.
 type Error struct{ msg string }
@@ -71,62 +205,67 @@ func Check(name string, value any) error {
 	return err
 }
 
-// Normalize validates one event against the event schema and returns it with an `id`,
-// a `source`, a `received` time and its times resolved. A non-empty source overrides
-// the event's own.
+// Normalize validates one event against the event schema and returns it as an Event,
+// with an id, a source, a received time and its times resolved. A non-empty source
+// overrides the event's own.
 func Normalize(raw any, source string, received time.Time) (Event, error) {
 	obj, ok := raw.(map[string]any)
 	if !ok {
 		text, _ := json.Marshal(raw)
-		return nil, Refuse("expected a JSON object, got %.200s", text)
+		return Event{}, Refuse("expected a JSON object, got %.200s", text)
 	}
 	if err := Check("event", obj); err != nil {
-		return nil, err
+		return Event{}, err
 	}
 
-	event := maps.Clone(obj)
-	if source == "" {
-		source, _ = event["source"].(string)
-	}
-	if source == "" {
-		source = "manual"
-	}
-	event["source"] = source
+	// The schema has checked the shape. Only the times, which can be durations, need
+	// reading before the rest decodes into an Event.
+	resolved := maps.Clone(obj)
 	for _, key := range []string{"expires", "start", "end", "sent"} {
-		if text, ok := event[key].(string); ok {
+		if text, ok := resolved[key].(string); ok {
 			moment, err := resolveTime(text, key, received)
 			if err != nil {
-				return nil, err
+				return Event{}, err
 			}
-			event[key] = moment.Format(TimeLayout)
+			resolved[key] = moment
 		}
 	}
-	if steps, ok := event["schedule"].([]any); ok {
-		type step struct {
-			at    time.Time
-			color any
-		}
-		resolved := make([]step, 0, len(steps))
-		for _, raw := range steps {
-			s := raw.(map[string]any) // the schema has checked the shape
-			at, err := resolveTime(s["at"].(string), "schedule time", received)
+	if steps, ok := resolved["schedule"].([]any); ok {
+		schedule := make([]any, len(steps))
+		for i, raw := range steps {
+			step := maps.Clone(raw.(map[string]any))
+			at, err := resolveTime(step["at"].(string), "schedule time", received)
 			if err != nil {
-				return nil, err
+				return Event{}, err
 			}
-			resolved = append(resolved, step{at, s["color"]})
+			step["at"] = at
+			schedule[i] = step
 		}
-		// Kept in time order, so the page can walk it front to back.
-		slices.SortStableFunc(resolved, func(a, b step) int { return a.at.Compare(b.at) })
-		schedule := make([]any, len(resolved))
-		for i, s := range resolved {
-			schedule[i] = map[string]any{"at": s.at.Format(TimeLayout), "color": s.color}
-		}
-		event["schedule"] = schedule
+		resolved["schedule"] = schedule
 	}
-	if id, _ := event["id"].(string); id == "" {
-		event["id"] = newID()
+	data, err := json.Marshal(resolved)
+	if err != nil {
+		return Event{}, err
 	}
-	event["received"] = received.UTC().Format(TimeLayout)
+	var event Event
+	if err := json.Unmarshal(data, &event); err != nil {
+		return Event{}, err
+	}
+
+	// Kept in time order, so the bar can walk it front to back.
+	slices.SortStableFunc(event.Schedule, func(a, b Step) int { return a.At.Compare(b.At) })
+	if source != "" {
+		event.Source = source
+	} else if event.Source == "" {
+		event.Source = "manual"
+	}
+	if event.Kind == "" {
+		event.Kind = "basic"
+	}
+	if event.ID == "" {
+		event.ID = newID()
+	}
+	event.Received = received.UTC().Truncate(time.Second)
 	return event, nil
 }
 
@@ -137,8 +276,12 @@ func newID() string {
 	return hex.EncodeToString(b)
 }
 
+var duration = regexp.MustCompile(`^(\d+)([smhd])$`)
+
+var unitSeconds = map[string]int64{"s": 1, "m": 60, "h": 3600, "d": 86400}
+
 // resolveTime reads an ISO 8601 time, or a duration ("30m", "4h", "2d") after
-// received.
+// received, to the second.
 func resolveTime(text, what string, received time.Time) (time.Time, error) {
 	if match := duration.FindStringSubmatch(text); match != nil {
 		count, err := strconv.ParseInt(match[1], 10, 64)
@@ -146,9 +289,10 @@ func resolveTime(text, what string, received time.Time) (time.Time, error) {
 		if err != nil || count > math.MaxInt64/int64(time.Second)/unit {
 			return time.Time{}, Refuse("%s %q is too far away", what, text)
 		}
-		return received.UTC().Add(time.Duration(count*unit) * time.Second), nil
+		return received.UTC().Truncate(time.Second).Add(time.Duration(count*unit) * time.Second), nil
 	}
-	return ParseTime(text, what)
+	moment, err := parseTime(text, what)
+	return moment.Truncate(time.Second), err
 }
 
 // isoLayouts are the ISO 8601 forms accepted for a time. One without an offset is
@@ -165,8 +309,8 @@ var isoLayouts = []struct {
 	{"2006-01-02", false},
 }
 
-// ParseTime reads an ISO 8601 time.
-func ParseTime(text, what string) (time.Time, error) {
+// parseTime reads an ISO 8601 time.
+func parseTime(text, what string) (time.Time, error) {
 	normal := text
 	if len(normal) > 10 && normal[10] == ' ' {
 		normal = normal[:10] + "T" + normal[11:]

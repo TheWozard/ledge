@@ -63,7 +63,7 @@
     "kind": {"enum": ["basic", "timer", "progress", "stat", "checks", "message"],
              "description": "The kind of card, and so which other properties it takes (default: basic, a title and a description)."},
     "id": {"type": "string", "minLength": 1,
-           "description": "Send an existing id to replace that event. Without one, a new id is generated and returned. Give a fixed one (e.g. \"aws-auth\") so re-sending updates the card instead of adding another."},
+           "description": "Send an existing id to replace that event, from the same source: an id belongs to the source that sent it. Without one, a new id is generated and returned. Give a fixed one (e.g. \"aws-auth\") so re-sending updates the card instead of adding another."},
     "title": {"type": "string", "minLength": 1, "description": "The headline."},
     "description": {"type": "string", "minLength": 1, "description": "A line or two under the title."},
     "url": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9+.-]*:",

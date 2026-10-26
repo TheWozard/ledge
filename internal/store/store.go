@@ -1,8 +1,9 @@
-// Package store holds the current events by id, in a JSON file in the state dir.
+// Package store holds the current events, in a JSON file in the state dir.
 //
 // The store does no event management. Every event sent is accepted: one without an
 // `id` gets a fresh random id, and one with an `id` replaces that event. Dismissing
-// deletes. There's no dedupe, no derived id and no memory of dismissals.
+// deletes. There's no dedupe, no derived id and no memory of dismissals. An id belongs
+// to the source that sent it, so one source can't replace another's events.
 package store
 
 import (
@@ -11,13 +12,23 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"slices"
-	"strings"
 	"sync"
 	"time"
 )
+
+// fileVersion is the events file's format. A file of another version is set aside
+// rather than read: events are fleeting, so old formats aren't carried forward.
+const fileVersion = 1
+
+// file is the events file: the events in store order.
+type file struct {
+	Version int     `json:"version"`
+	Events  []Event `json:"events"`
+}
 
 // Store is the current events, kept in the order they were first added, which is
 // how events received in the same second are ordered.
@@ -25,17 +36,13 @@ type Store struct {
 	path string
 
 	mu     sync.Mutex
-	events events
+	events []Event
 }
 
-type events struct {
-	ids  []string
-	byID map[string]Event
-}
-
-// Open reads the store at path. A missing file is an empty store.
+// Open reads the store at path. A missing file is an empty store, and so is one that
+// can't be read as this version's: it's kept beside it, as <path>.bad.
 func Open(path string) (*Store, error) {
-	s := &Store{path: path, events: events{byID: map[string]Event{}}}
+	s := &Store{path: path}
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return s, nil
@@ -43,9 +50,15 @@ func Open(path string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := s.events.load(data); err != nil {
-		return nil, fmt.Errorf("%s: %w", path, err)
+	var f file
+	if err := json.Unmarshal(data, &f); err != nil || f.Version != fileVersion {
+		if err == nil {
+			err = fmt.Errorf("it's version %d, not %d", f.Version, fileVersion)
+		}
+		log.Printf("ledge: starting with no events, as %s can't be read (%v); it's kept as %s.bad", path, err, path)
+		return s, os.Rename(path, path+".bad")
 	}
+	s.events = f.Events
 	return s, nil
 }
 
@@ -57,12 +70,13 @@ func (s *Store) Add(raw any, now time.Time) (string, error) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	next := s.events.clone()
-	next.set(event)
-	if err := s.save(next); err != nil {
+	if err := s.claim(event); err != nil {
 		return "", err
 	}
-	return event["id"].(string), nil
+	if err := s.save(set(slices.Clone(s.events), event)); err != nil {
+		return "", err
+	}
+	return event.ID, nil
 }
 
 // ReplaceSource makes items the whole of source's current events. Returns their ids.
@@ -74,39 +88,57 @@ func (s *Store) ReplaceSource(source string, items []any, now time.Time) ([]stri
 		if err != nil {
 			return nil, Refuse("items/%d: %v", i, err)
 		}
+		if j := slices.Index(ids[:i], event.ID); j >= 0 {
+			return nil, Refuse("items/%d: id %q is items/%d's too", i, event.ID, j)
+		}
 		added[i] = event
-		ids[i] = event["id"].(string)
+		ids[i] = event.ID
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	next := s.events.clone()
-	next.removeIf(func(e Event) bool { return e["source"] == source })
-	for _, event := range added {
-		next.set(event)
+	for i, event := range added {
+		if err := s.claim(event); err != nil {
+			return nil, Refuse("items/%d: %v", i, err)
+		}
 	}
-	if err := s.save(next); err != nil {
+	next := slices.DeleteFunc(slices.Clone(s.events), func(e Event) bool { return e.Source == source })
+	if err := s.save(append(next, added...)); err != nil {
 		return nil, err
 	}
 	return ids, nil
+}
+
+// claim refuses event if its id is another source's event. Callers hold mu.
+func (s *Store) claim(event Event) error {
+	if old, ok := s.find(event.ID); ok && old.Source != event.Source {
+		return Refuse("id %q is source %q's event; give it another id", event.ID, old.Source)
+	}
+	return nil
 }
 
 // Get is the event with this id.
 func (s *Store) Get(id string) (Event, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	event, ok := s.events.byID[id]
-	return event, ok
+	return s.find(id)
+}
+
+// find is the event with this id. Callers hold mu.
+func (s *Store) find(id string) (Event, bool) {
+	if i := slices.IndexFunc(s.events, func(e Event) bool { return e.ID == id }); i >= 0 {
+		return s.events[i], true
+	}
+	return Event{}, false
 }
 
 // Remove deletes an event. Returns false if there was no event with that id.
 func (s *Store) Remove(id string) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.events.byID[id]; !ok {
+	next := slices.DeleteFunc(slices.Clone(s.events), func(e Event) bool { return e.ID == id })
+	if len(next) == len(s.events) {
 		return false, nil
 	}
-	next := s.events.clone()
-	next.removeIf(func(e Event) bool { return e["id"] == id })
 	return true, s.save(next)
 }
 
@@ -114,16 +146,10 @@ func (s *Store) Remove(id string) (bool, error) {
 func (s *Store) Prune(now time.Time) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	next := s.events.clone()
-	next.removeIf(func(e Event) bool {
-		text, ok := e["expires"].(string)
-		if !ok {
-			return false
-		}
-		expires, err := ParseTime(text, "expires")
-		return err == nil && !expires.After(now)
+	next := slices.DeleteFunc(slices.Clone(s.events), func(e Event) bool {
+		return !e.Expires.IsZero() && !e.Expires.After(now)
 	})
-	if len(next.ids) == len(s.events.ids) {
+	if len(next) == len(s.events) {
 		return false, nil
 	}
 	return true, s.save(next)
@@ -132,15 +158,11 @@ func (s *Store) Prune(now time.Time) (bool, error) {
 // Visible is the current events, highest priority first, then newest first.
 func (s *Store) Visible() []Event {
 	s.mu.Lock()
-	list := make([]Event, len(s.events.ids))
-	for i, id := range s.events.ids {
-		list[i] = s.events.byID[id]
-	}
+	list := slices.Clone(s.events)
 	s.mu.Unlock()
-	received := func(e Event) string { text, _ := e["received"].(string); return text }
-	slices.SortStableFunc(list, func(a, b Event) int { return strings.Compare(received(b), received(a)) })
+	slices.SortStableFunc(list, func(a, b Event) int { return b.Received.Compare(a.Received) })
 	rank := func(e Event) int {
-		if i := slices.Index(Priorities, fmt.Sprint(e["priority"])); i >= 0 {
+		if i := slices.Index(Priorities, e.Priority); i >= 0 {
 			return i
 		}
 		return len(Priorities)
@@ -151,8 +173,11 @@ func (s *Store) Visible() []Event {
 
 // save writes next to disk and, once it's there, makes it the current events.
 // Callers hold mu.
-func (s *Store) save(next events) error {
-	data, err := next.marshal()
+func (s *Store) save(next []Event) error {
+	if next == nil {
+		next = []Event{}
+	}
+	data, err := MarshalIndent(file{Version: fileVersion, Events: next})
 	if err != nil {
 		return err
 	}
@@ -160,7 +185,7 @@ func (s *Store) save(next events) error {
 		return err
 	}
 	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+	if err := os.WriteFile(tmp, append(data, '\n'), 0o600); err != nil {
 		return err
 	}
 	if err := os.Rename(tmp, s.path); err != nil {
@@ -170,99 +195,31 @@ func (s *Store) save(next events) error {
 	return nil
 }
 
-func (e events) clone() events {
-	byID := make(map[string]Event, len(e.byID))
-	for id, event := range e.byID {
-		byID[id] = event
+// set adds event to events, or replaces the one with its id in place.
+func set(events []Event, event Event) []Event {
+	if i := slices.IndexFunc(events, func(e Event) bool { return e.ID == event.ID }); i >= 0 {
+		events[i] = event
+		return events
 	}
-	return events{ids: slices.Clone(e.ids), byID: byID}
-}
-
-// set adds an event, or replaces the one with its id in place.
-func (e *events) set(event Event) {
-	id := event["id"].(string)
-	if _, ok := e.byID[id]; !ok {
-		e.ids = append(e.ids, id)
-	}
-	e.byID[id] = event
-}
-
-func (e *events) removeIf(drop func(Event) bool) {
-	e.ids = slices.DeleteFunc(e.ids, func(id string) bool {
-		if drop(e.byID[id]) {
-			delete(e.byID, id)
-			return true
-		}
-		return false
-	})
-}
-
-// The file is {"events": {"<id>": {...}, ...}}, in store order.
-func (e events) marshal() ([]byte, error) {
-	var buf bytes.Buffer
-	buf.WriteString("{\n  \"events\": {")
-	for i, id := range e.ids {
-		if i > 0 {
-			buf.WriteString(",")
-		}
-		key, _ := json.Marshal(id)
-		value, err := marshalIndent(e.byID[id], "    ")
-		if err != nil {
-			return nil, err
-		}
-		fmt.Fprintf(&buf, "\n    %s: %s", key, value)
-	}
-	if len(e.ids) > 0 {
-		buf.WriteString("\n  ")
-	}
-	buf.WriteString("}\n}\n")
-	return buf.Bytes(), nil
-}
-
-func (e *events) load(data []byte) error {
-	var file struct {
-		Events json.RawMessage `json:"events"`
-	}
-	if err := json.Unmarshal(data, &file); err != nil {
-		return err
-	}
-	if len(file.Events) == 0 {
-		return nil
-	}
-	dec := json.NewDecoder(bytes.NewReader(file.Events))
-	dec.UseNumber()
-	if token, err := dec.Token(); err != nil || token != json.Delim('{') {
-		return errors.New(`"events" isn't an object`)
-	}
-	for dec.More() {
-		token, err := dec.Token()
-		if err != nil {
-			return err
-		}
-		var event Event
-		if err := dec.Decode(&event); err != nil {
-			return err
-		}
-		if event == nil {
-			return fmt.Errorf("event %q isn't an object", token)
-		}
-		event["id"] = token.(string)
-		e.set(event)
-	}
-	return nil
+	return append(events, event)
 }
 
 // MarshalIndent encodes JSON the way ledge prints it: indented by two spaces,
 // without escaping <, > and &.
 func MarshalIndent(value any) ([]byte, error) {
-	return marshalIndent(value, "")
+	return encode(value, "  ")
 }
 
-func marshalIndent(value any, prefix string) ([]byte, error) {
+// marshal is json.Marshal without escaping <, > and &.
+func marshal(value any) ([]byte, error) {
+	return encode(value, "")
+}
+
+func encode(value any, indent string) ([]byte, error) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
-	enc.SetIndent(prefix, "  ")
+	enc.SetIndent("", indent)
 	if err := enc.Encode(value); err != nil {
 		return nil, err
 	}

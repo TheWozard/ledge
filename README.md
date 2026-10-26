@@ -43,6 +43,8 @@ ledge event --schema event         # print a schema: dismiss, event, section
 
 The API listens on the socket `ledge.sock` in the state dir,
 `${XDG_STATE_HOME:-~/.local/state}/ledge`, where events are kept too (`events.json`).
+An events file ledge can't read, such as one from an older version, is set aside as
+`events.json.bad`, and ledge starts with none.
 Each state dir is its own ledge: set `XDG_STATE_HOME` to run another, and to talk to
 it. Only your user can connect to the socket, and the state dir is open only to your
 user too.
@@ -225,7 +227,11 @@ the bar, whoever sent the events.
 | `GET /schemas/{name}` | | the schema |
 
 Bodies are JSON, up to 8 MiB. A refused request gets a 400 with `{"error"}` saying
-which schema rule it broke. Without `ledge event`, use any HTTP client that can talk
+which schema rule it broke.
+
+Sending an event with an id replaces that event, but only from the same source: an id
+belongs to the source that first sent it (`manual` if none), so a section can't replace
+another source's events. Without `ledge event`, use any HTTP client that can talk
 to a Unix socket; the host name is ignored:
 
 ```sh
@@ -245,7 +251,7 @@ themes) are ledge-frontend. ledge is everything else:
 | `ledge/` | `main`, which hands off to `cmd` |
 | `cmd/` | the CLI, one file per subcommand (cobra) |
 | `internal/schema/` | compiles a directory of JSON Schemas and picks the error to report |
-| `internal/store/` | the event, section and dismiss schemas, normalizing events, and the event file |
+| `internal/store/` | the event, section and dismiss schemas, the `Event` type sent events are checked and decoded into, and the events file |
 | `internal/api/` | the HTTP server and the client `ledge event` uses |
 | `internal/config/` | the `--config` file and its schema |
 | `internal/background/` | `ledge start`, `stop` and `restart`: the background process, its pid file, log and saved flags |

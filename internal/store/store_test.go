@@ -1,6 +1,7 @@
 package store
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -26,27 +27,19 @@ func TestNormalize(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id, _ := event["id"].(string); len(id) != 12 {
-		t.Errorf("id = %q, want 12 random hex characters", id)
+	if len(event.ID) != 12 {
+		t.Errorf("id = %q, want 12 random hex characters", event.ID)
 	}
-	checks := map[string]any{
-		"source":   "manual",
-		"received": "2026-10-14T12:00:00+00:00",
-		"expires":  "2026-10-16T12:00:00+00:00",
-		"end":      "2026-10-14T14:00:00+00:00",
-	}
-	for key, want := range checks {
-		if event[key] != want {
-			t.Errorf("%s = %v, want %v", key, event[key], want)
-		}
+	if event.Source != "manual" || event.Kind != "timer" || !event.Received.Equal(received) ||
+		!event.Expires.Equal(received.Add(48*time.Hour)) || !event.End.Equal(received.Add(2*time.Hour)) {
+		t.Errorf("event = %+v", event)
 	}
 	// Sorted by time, and an ISO time keeps its offset.
-	schedule := event["schedule"].([]any)
-	if at := schedule[0].(map[string]any)["at"]; at != "2026-10-14T14:30:00+02:00" {
-		t.Errorf("first step at %v", at)
+	if at := event.Schedule[0].At.Format(time.RFC3339); at != "2026-10-14T14:30:00+02:00" || event.Schedule[0].Color != "yellow" {
+		t.Errorf("first step = %s %s", at, event.Schedule[0].Color)
 	}
-	if at := schedule[1].(map[string]any)["at"]; at != "2026-10-14T13:00:00+00:00" {
-		t.Errorf("second step at %v", at)
+	if at := event.Schedule[1].At.Format(time.RFC3339); at != "2026-10-14T13:00:00Z" {
+		t.Errorf("second step at %s", at)
 	}
 }
 
@@ -82,19 +75,55 @@ func TestNormalizeRefuses(t *testing.T) {
 	}
 }
 
+// Every kind, and a report with every block, decodes into an Event and encodes back
+// to what was sent, give or take what Normalize adds.
+func TestEventJSON(t *testing.T) {
+	for _, body := range []string{
+		`{"kind": "basic", "title": "<b>x</b>", "url": "https://a"}`,
+		`{"kind": "basic", "title": "x", "report": [{"type": "heading", "text": "h"}, {"type": "text", "text": "t"},
+			{"type": "fields", "items": [{"label": "a", "value": 2}, {"label": "b", "value": "2"}]},
+			{"type": "table", "columns": ["a", "b"], "rows": [["x", 1.50], []]}, {"type": "table", "columns": ["a"], "rows": []},
+			{"type": "list", "items": ["one"], "ordered": true}, {"type": "code", "text": "c"},
+			{"type": "note", "text": "n", "color": "red"}, {"type": "link", "text": "l", "url": "https://a"}]}`,
+		`{"kind": "progress", "title": "x", "value": 0.25, "label": "1/4"}`,
+		`{"kind": "stat", "title": "x", "value": "2.3%", "change": "↑1", "change_color": "red", "history": [1, 2.5]}`,
+		`{"kind": "stat", "title": "x", "value": 7}`,
+		`{"kind": "checks", "title": "x", "checks": [{"name": "a", "state": "passed"}]}`,
+		`{"kind": "message", "title": "x", "from": "a", "avatar": "data:image/png;base64,AA=="}`,
+	} {
+		event, err := Normalize(decode(t, body), "", received)
+		if err != nil {
+			t.Fatalf("%s: %v", body, err)
+		}
+		data, err := marshal(event)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := decode(t, string(data)).(map[string]any)
+		for _, added := range []string{"id", "source", "received"} {
+			delete(got, added)
+		}
+		gotJSON, _ := marshal(got)
+		wantJSON, _ := marshal(decode(t, body))
+		if string(gotJSON) != string(wantJSON) {
+			t.Errorf("round trip:\n got %s\nwant %s", gotJSON, wantJSON)
+		}
+	}
+}
+
 func TestParseTime(t *testing.T) {
 	for text, want := range map[string]string{
-		"2030-01-02T03:04:05Z":        "2030-01-02T03:04:05+00:00",
+		"2030-01-02T03:04:05Z":        "2030-01-02T03:04:05Z",
 		"2030-01-02T03:04:05.5+05:30": "2030-01-02T03:04:05+05:30",
 		"2030-01-02 03:04:05-0700":    "2030-01-02T03:04:05-07:00",
 		"2030-01-02T03:04+01:00":      "2030-01-02T03:04:00+01:00",
 	} {
-		moment, err := ParseTime(text, "t")
-		if err != nil || moment.Format(TimeLayout) != want {
-			t.Errorf("ParseTime(%q) = %v, %v; want %s", text, moment.Format(TimeLayout), err, want)
+		moment, err := resolveTime(text, "t", received)
+		if err != nil || moment.Format(time.RFC3339) != want {
+			t.Errorf("resolveTime(%q) = %v, %v; want %s", text, moment.Format(time.RFC3339), err, want)
 		}
 	}
-	local, err := ParseTime("2030-01-02", "t")
+	local, err := parseTime("2030-01-02", "t")
 	if err != nil || local.Location() != time.Local || local.Hour() != 0 {
 		t.Errorf("a date is midnight local time, got %v, %v", local, err)
 	}
@@ -126,7 +155,7 @@ func TestStore(t *testing.T) {
 	order := func(s *Store) string {
 		var ids []string
 		for _, e := range s.Visible() {
-			ids = append(ids, e["id"].(string))
+			ids = append(ids, e.ID)
 		}
 		return strings.Join(ids, ",")
 	}
@@ -160,7 +189,56 @@ func TestStore(t *testing.T) {
 	if got, want := order(reopened), "c2,low,c1"; got != want {
 		t.Errorf("after reopening, Visible = %s, want %s", got, want)
 	}
-	if event, _ := reopened.Get("low"); event["title"] != "replaced" {
+	if event, _ := reopened.Get("low"); event.Title != "replaced" {
 		t.Errorf("after reopening, low = %v", event)
+	}
+}
+
+// An id is the source's that sent it: another source can't replace it, alone or in a
+// section, and a section can't use an id twice.
+func TestIDsBelongToTheirSource(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "events.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Add(decode(t, `{"id": "x", "title": "a's", "source": "a"}`), received); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Add(decode(t, `{"id": "x", "title": "a's, again", "source": "a"}`), received); err != nil {
+		t.Errorf("the same source replacing its event: %v", err)
+	}
+	if _, err := s.Add(decode(t, `{"id": "x", "title": "manual"}`), received); err == nil || !strings.Contains(err.Error(), `source "a"'s event`) {
+		t.Errorf("another source's Add = %v", err)
+	}
+	if _, err := s.ReplaceSource("b", []any{decode(t, `{"id": "x", "title": "b's"}`)}, received); err == nil || !strings.HasPrefix(err.Error(), "items/0: ") {
+		t.Errorf("another source's section = %v", err)
+	}
+	if _, err := s.ReplaceSource("b", []any{decode(t, `{"id": "y", "title": "1"}`), decode(t, `{"id": "y", "title": "2"}`)}, received); err == nil || !strings.Contains(err.Error(), "items/1: id \"y\" is items/0's too") {
+		t.Errorf("a section using an id twice = %v", err)
+	}
+	if event, _ := s.Get("x"); event.Title != "a's, again" || event.Source != "a" {
+		t.Errorf("x = %+v", event)
+	}
+}
+
+// A file that isn't this version's, such as one from before the version, is set aside.
+func TestOpenSetsAsideAnOldFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "events.json")
+	old := `{"events": {"a": {"title": "A", "report": "notes.html"}}}`
+	if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if visible := s.Visible(); len(visible) != 0 {
+		t.Errorf("Visible = %v, want none", visible)
+	}
+	if kept, err := os.ReadFile(path + ".bad"); err != nil || string(kept) != old {
+		t.Errorf("%s.bad = %q, %v", path, kept, err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("the old file is still at %s", path)
 	}
 }

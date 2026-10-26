@@ -20,12 +20,12 @@ func (b *Bar) open(id string) {
 		return
 	}
 	switch {
-	case event["report"] != nil:
+	case len(event.Report) > 0:
 		b.showReport(event)
-	case text(event, "url") != "":
-		b.openURL(text(event, "url"))
-	case text(event, "command") != "" && b.commands:
-		if err := b.runCommand(event, text(event, "command")); err != nil {
+	case event.URL != "":
+		b.openURL(event.URL)
+	case event.Command != "" && b.commands:
+		if err := b.runCommand(event); err != nil {
 			log.Printf("ledge: running the command of %s: %v", id, err)
 		}
 	}
@@ -42,7 +42,7 @@ func (b *Bar) openURL(target string) {
 // runCommand starts the event's command: with `bash -lc`, so it gets your login
 // PATH, in $HOME, with its output appended to commands.log. It runs in its own
 // session, so stopping ledge doesn't stop it. Nothing tracks whether it worked.
-func (b *Bar) runCommand(event store.Event, command string) error {
+func (b *Bar) runCommand(event store.Event) error {
 	if err := os.MkdirAll(b.stateDir, 0o700); err != nil {
 		return err
 	}
@@ -51,8 +51,8 @@ func (b *Bar) runCommand(event store.Event, command string) error {
 		return err
 	}
 	defer output.Close() // the command has its own copy once started
-	fmt.Fprintf(output, "\n--- %s %s (%s): %s\n", time.Now().Format("2006-01-02T15:04:05"), event["title"], event["id"], command)
-	cmd := exec.Command("/bin/bash", "-lc", command)
+	fmt.Fprintf(output, "\n--- %s %s (%s): %s\n", time.Now().Format("2006-01-02T15:04:05"), event.Title, event.ID, event.Command)
+	cmd := exec.Command("/bin/bash", "-lc", event.Command)
 	cmd.Dir, _ = os.UserHomeDir()
 	cmd.Stdout, cmd.Stderr = output, output
 	return b.start(cmd)
