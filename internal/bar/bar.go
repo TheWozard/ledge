@@ -1,12 +1,13 @@
 // Package bar connects the store to the bar from ledge-frontend: it turns events into
-// the cards, pills and reports the frontend shows, and carries out what the bar's
-// pages ask for, by id: dismissing an event, opening its report or url, running a
-// status's command.
+// the cards and reports the frontend shows, and carries out what clicking them asks
+// for, by id: dismissing an event, opening its report or url, running a status's
+// command.
 package bar
 
 import (
 	"log"
 	"os/exec"
+	"time"
 
 	"github.com/TheWozard/ledge-frontend/theme"
 	"github.com/TheWozard/ledge-frontend/ui"
@@ -34,8 +35,7 @@ func Open(events *store.Store, cfg config.Config, stateDir string) (*Bar, error)
 	if err != nil {
 		return nil, err
 	}
-	u, err := ui.Open(ui.Options{Screen: cfg.Screen, Edge: cfg.Edge, Height: cfg.Height, Level: cfg.Level, Theme: th},
-		ui.Handlers{Dismiss: b.dismiss, Open: b.open, Run: b.run, OpenURL: b.openURL})
+	u, err := ui.Open(ui.Options{Screen: cfg.Screen, Edge: cfg.Edge, Height: cfg.Height, Level: cfg.Level, Theme: th})
 	if err != nil {
 		return nil, err
 	}
@@ -46,8 +46,9 @@ func Open(events *store.Store, cfg config.Config, stateDir string) (*Bar, error)
 
 // Render shows the store's current events. Safe from any goroutine.
 func (b *Bar) Render() {
-	pills, cards := view(b.store.Visible())
-	b.ui.Render(pills, cards)
+	if err := b.ui.Render(b.view(b.store.Visible(), time.Now())); err != nil {
+		log.Printf("ledge: rendering the bar: %v", err)
+	}
 }
 
 // dismiss removes the event with this id, as its card's × asks.

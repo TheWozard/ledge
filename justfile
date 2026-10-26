@@ -25,7 +25,7 @@ build:
     @mkdir -p "$(dirname "{{bin}}")"
     @go build -o "{{bin}}" ./ledge
 
-# Example cards and pills, plus extra ones to scroll: `just bar 15 12`.
+# Example cards and statuses, plus extra ones to scroll: `just bar 15 12`.
 bar *args:
     scripts/bar.sh {{args}}
 

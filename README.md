@@ -1,9 +1,9 @@
 # ledge
 
 A desktop bar for macOS, along one edge of the screen. Scripts, hooks and CI push
-events and status pills to a JSON API on `127.0.0.1`, which checks everything it's sent
-against JSON Schemas. Events show as cards and statuses as pills; clicking one opens
-its report, its url or runs its command.
+events and statuses to a JSON API on `127.0.0.1`, which checks everything it's sent
+against JSON Schemas. Both show as cards, statuses first; clicking one opens its
+report, its url or runs its command.
 
 ## Install
 
@@ -51,7 +51,7 @@ The API listens on port 47391; set `$LEDGE_PORT` to change it. Events are kept i
 value stops ledge from starting:
 
 ```json
-{"screen": 0, "edge": "bottom", "height": 110, "level": "floating", "theme": "win95"}
+{"screen": 0, "edge": "bottom", "height": 110, "level": "floating", "theme": "default"}
 ```
 
 | Key | What it sets |
@@ -69,11 +69,14 @@ path or command itself.
 
 - **A card with a `url`** runs `open <url>`, so it opens in whatever app handles it.
 - **A card with a `report`** shows it in the report window (below).
-- **A pill with a `command`** runs it with `bash -lc` in your home directory, in its
+- **A status with a `command`** runs it with `bash -lc` in your home directory, in its
   own session so it outlives ledge. Its output is appended to `commands.log` in the
-  state dir, after a line naming the pill. Nothing tracks whether it worked; to
-  update the pill, have the command send it again.
-- **A pill with an http(s) `url`** opens it when you click its label.
+  state dir, after a line naming the status. Nothing tracks whether it worked; to
+  update the status, have the command send it again.
+- **A status with an http(s) `url`** opens it.
+
+A status is in the colour of the latest step of its `schedule` that's passed, and one
+with a schedule counts down to its last step. An event's `priority` colours its card.
 
 ### Reports
 
@@ -100,15 +103,14 @@ event's title in the bar's theme. You send what to show; ledge decides how it lo
 | `table` | `columns`, then `rows` of cells; short rows are padded, long ones cut |
 | `list` | bullets, or numbers with `"ordered": true` |
 | `code` | fixed-width text, such as a log; long lines scroll sideways |
-| `note` | a callout in a colour, named as for pills or `#rrggbb` |
+| `note` | a callout in a colour, named as for statuses or `#rrggbb` |
 | `link` | an http(s) link, which opens in your browser |
 
 The schema (`ledge event --schema event`) checks a report when it's sent. Text is
 always shown as text, never as HTML, and the page can't do anything but draw it. To
-change a report, send the event again with the same id. One report window is reused
-for every card; Cmd-C, Cmd-A and Cmd-W work in it. The theme draws its title bar, which
-drags and double-clicks like a real one; `win95` and `platinum` draw the whole window,
-with square corners and their own border and buttons. The page can ask only that of its window, and nothing of ledge.
+change a report, send the event again with the same id. Each card's report has its
+own window; Cmd-C, Cmd-A and Cmd-W work in it. The theme draws its title bar, which
+drags and double-clicks like a real one. The page can ask only that of its window, and nothing of ledge.
 
 ### Themes
 
@@ -116,25 +118,15 @@ Pick how the bar looks with `theme` in the `--config` file; it's read when ledge
 so `ledge restart` to switch:
 
 ```json
-{"theme": "hifi"}
+{"theme": "default"}
 ```
 
 | Theme | Looks like |
 |---|---|
 | `default` | rounded cards, light or dark with the system |
-| `platinum` | Mac OS 8/9 windows with pinstriped title bars |
-| `win95` | a bevelled grey taskbar with Windows 95 windows |
-| `handheld` | a four-shade green LCD; pill colours become patterns |
-| `synthwave` | neon outlines and glowing type |
-| `hifi` | a 1970s receiver: LED lamps and glowing display glass |
-| `aqua` | Mac OS X 10.0–10.4: pinstripes, gel buttons and the genie effect |
-| `blueprint` | white lines on blueprint blue over a drafting grid |
-| `splitflap` | a departures board of clattering lettered flaps |
-| `stickies` | sticky notes pinned askew on a corkboard |
 
-The themes, and the pages they style, are in ledge-frontend, whose README says how to
-write one. The fonts that aren't on every Mac are built in (SIL Open Font License), so
-nothing is fetched.
+The theme, and the pages it styles, are in ledge-frontend, whose README says how to
+write one.
 
 ### In the background
 
@@ -171,13 +163,13 @@ LEDGE_PORT=47392 scripts/bar.sh
 
 | Script | Shows |
 |---|---|
-| `bar.sh [CARDS [PILLS]]` | cards (each priority, tags, a description, a clamped long title, a report, a url, HTML-looking text shown as plain text) and status pills (plain, a colour schedule, a command, a url, a hex colour). Extra CARDS and PILLS make the row scroll sideways and the pills vertically: `bar.sh 15 12`. Extra cards take turns with a report, a url and neither. |
+| `bar.sh [CARDS [STATUSES]]` | cards (each priority, a description, a clamped long title, a report, a url, HTML-looking text shown as plain text) and statuses (plain, a colour schedule, a command, a url, a hex colour). Extra CARDS and STATUSES make the row scroll sideways: `bar.sh 15 12`. Extra cards take turns with a report, a url and neither. |
 | `report.sh` | a report with one of each block, notes in every colour and an https link; plus a long report to scroll, whose HTML-looking text shows as text |
 | `feed.sh [SECONDS]` | a feed's section, replaced by a smaller one after a pause (default 5s), whose card then expires in 1 minute. The swap sends a new report, so the card's report differs before and after. |
 
 `bar.sh` and `feed.sh` write the pages their card urls open under
-`$TMPDIR/ledge-examples/`. The urls are `file://` urls, so clicking a card works offline. A pill's url has
-to be http(s) to be clickable, so `bar.sh`'s pill links to `https://example.com`.
+`$TMPDIR/ledge-examples/`. The urls are `file://` urls, so clicking a card works offline. A status's url has
+to be http(s) to be clickable, so `bar.sh`'s status links to `https://example.com`.
 
 Each takes `clear` to remove what it sent and the pages it wrote, and nothing else:
 `scripts/bar.sh clear`.
@@ -212,7 +204,7 @@ themes) are ledge-frontend. ledge is everything else:
 | `internal/config/` | the `--config` file and its schema |
 | `internal/background/` | `ledge start`, `stop` and `restart`: the background process, its pid file, log and saved flags |
 | `internal/update/` | `ledge update`: finding the latest release, checking its checksum, replacing the binary |
-| `internal/bar/` | connects the store to ledge-frontend's bar: events as cards, pills and report blocks, and what the pages ask for by id (dismiss, open a report or url, run a command) |
+| `internal/bar/` | connects the store to ledge-frontend's bar: events and statuses as cards, reports as blocks, and what the pages ask for by id (dismiss, open a report or url, run a command) |
 | `internal/state/` | the state directory and port |
 | `internal/version/` | version metadata, set with `-ldflags` at release time |
 

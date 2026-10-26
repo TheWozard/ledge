@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/TheWozard/ledge-frontend/components"
+
 	"github.com/TheWozard/ledge/internal/schema"
 	"github.com/TheWozard/ledge/internal/store"
 )
@@ -41,40 +43,55 @@ func normalize(t *testing.T, body string) store.Event {
 func TestView(t *testing.T) {
 	events := []store.Event{
 		normalize(t, `{"id": "deploy", "title": "Deploy", "description": "done", "source": "ci", "priority": "high",
-			"tags": ["prod"], "url": "https://example.com/deploy"}`),
+			"url": "https://example.com/deploy"}`),
 		normalize(t, `{"id": "notes", "title": "Notes", "report": [{"type": "text", "text": "x"}]}`),
 		normalize(t, `{"id": "plain", "title": "Plain"}`),
 		normalize(t, `{"kind": "status", "id": "aws", "title": "AWS", "color": "green", "command": "aws sso login",
-			"detail": "Session", "schedule": [{"at": "2026-10-15T13:00:00Z", "color": "red"}]}`),
+			"detail": "Session", "schedule": [{"at": "2026-10-15T11:00:00Z", "color": "yellow"},
+			{"at": "2026-10-15T13:00:00Z", "color": "red"}, {"at": "2026-10-15T14:00:00Z", "color": "#123456"}]}`),
 		normalize(t, `{"kind": "status", "id": "web", "title": "Web", "url": "https://example.com"}`),
 		normalize(t, `{"kind": "status", "id": "file", "title": "File", "url": "file:///etc/hosts"}`),
 	}
-	pills, cards := view(events)
-
-	if len(cards) != 3 || len(pills) != 3 {
-		t.Fatalf("%d cards and %d pills, want 3 and 3", len(cards), len(pills))
+	cards := (&Bar{}).view(events, now)
+	if len(cards) != 6 {
+		t.Fatalf("%d cards, want 6", len(cards))
 	}
-	deploy := cards[0]
-	if deploy.ID != "deploy" || deploy.Title != "Deploy" || deploy.Description != "done" || deploy.Source != "ci" ||
-		deploy.Priority != "high" || strings.Join(deploy.Tags, ",") != "prod" || !deploy.Opens ||
-		deploy.Hint != "https://example.com/deploy" || !deploy.Received.Equal(now) {
+	var ids []string
+	for _, c := range cards {
+		ids = append(ids, c.Frame().ID)
+	}
+	// Statuses come first.
+	if got := strings.Join(ids, " "); got != "aws web file deploy notes plain" {
+		t.Errorf("order = %s", got)
+	}
+
+	deploy := cards[3].(components.Basic)
+	if deploy.Title != "Deploy" || deploy.Description != "done" || deploy.Color != colors["red"] ||
+		deploy.Click == nil || deploy.Dismiss == nil {
 		t.Errorf("deploy card = %+v", deploy)
 	}
-	if !cards[1].Opens || cards[1].Hint != "" {
-		t.Errorf("a card with a report should open, with no hint: %+v", cards[1])
+	if cards[4].Frame().Click == nil {
+		t.Error("a card with a report should open")
 	}
-	if cards[2].Opens || cards[2].Source != "manual" {
-		t.Errorf("a plain card = %+v", cards[2])
+	if plain := cards[5].Frame(); plain.Click != nil || plain.Color != "" {
+		t.Errorf("a plain card = %+v", plain)
 	}
 
-	aws := pills[0]
-	if aws.Command != "aws sso login" || aws.Detail != "Session" || aws.Color != "green" || len(aws.Schedule) != 1 ||
-		aws.Schedule[0].Color != "red" || !aws.Schedule[0].At.Equal(now.Add(time.Hour)) {
-		t.Errorf("aws pill = %+v", aws)
+	// aws is yellow, from its first step, until its second, and counts down to its last.
+	aws := cards[0].Frame()
+	if aws.Kind != "timer" || aws.Color != colors["yellow"] || aws.Click == nil || aws.Dismiss != nil ||
+		!aws.Ends.Equal(now.Add(time.Hour)) || aws.Complete == nil {
+		t.Errorf("aws card = %+v", aws)
 	}
-	// Only an http(s) url makes a pill a link.
-	if !pills[1].Link || pills[2].Link {
-		t.Errorf("links: web %v, file %v", pills[1].Link, pills[2].Link)
+	if timer := cards[0].(recolored).Card.(components.Timer); !timer.End.Equal(now.Add(2*time.Hour)) || timer.Description != "Session" {
+		t.Errorf("aws timer = %+v", timer)
+	}
+	if last := (&Bar{}).view(events[3:4], now.Add(3*time.Hour))[0].Frame(); last.Color != "#123456" || last.Complete != nil {
+		t.Errorf("aws after its last step = %+v", last)
+	}
+	// Only an http(s) url makes a status clickable; one without a colour is gray.
+	if web, file := cards[1].Frame(), cards[2].Frame(); web.Click == nil || file.Click != nil || web.Color != colors["gray"] {
+		t.Errorf("web %+v, file %+v", web, file)
 	}
 }
 

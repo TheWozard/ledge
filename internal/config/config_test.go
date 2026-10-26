@@ -21,7 +21,7 @@ func TestLoad(t *testing.T) {
 		`{"edgee": "top"}`:                    "additional properties 'edgee' not allowed",
 		`{"edge": "left"}`:                    "edge: value must be one of",
 		`{"edge": "top", "theme": "default"}`: "",
-		`{"theme": "neon"}`:                   "theme: value must be one of",
+		`{"theme": "neon"}`:                   "theme: value must be",
 		`{"edge": "top", "level": "normal"}`:  "",
 		`{"level": "above"}`:                  "level: value must be one of",
 		`{"height": 0}`:                       "height: minimum",

@@ -13,12 +13,11 @@ import (
 	"github.com/TheWozard/ledge/internal/store"
 )
 
-// web is the urls a status pill's label opens: the page only makes http(s) ones
-// clickable, and Go checks again.
+// web is the urls a status's card opens: only http(s) ones make it clickable, and
+// open checks again.
 var web = regexp.MustCompile(`(?i)^https?://`)
 
-// open is what clicking a card or a pill's label does: show the event's report, or
-// open its url.
+// open is what clicking a card does: show the event's report, or open its url.
 func (b *Bar) open(id string) {
 	event, ok := b.store.Get(id)
 	if !ok {

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Example cards and status pills on the bar. A card opens a report (shown in the
+# Example cards and statuses on the bar. A card opens a report (shown in the
 # report window) or a file:// url of a local page this script writes (opened in your
 # browser), so they work offline.
 #
-#   bar.sh [CARDS [PILLS]]   the examples, plus CARDS extra cards and PILLS extra pills
-#                            (so the row scrolls sideways and the pills vertically)
+#   bar.sh [CARDS [STATUSES]]  the examples, plus CARDS extra cards and STATUSES extra
+#                              statuses (so the row scrolls sideways)
 #   bar.sh clear             remove everything this script sent, and its pages
 #
 # Sends with $LEDGE (default: ledge on PATH, else built from this repo) to
@@ -64,36 +64,35 @@ fi
 cards="${1:-0}"
 pills="${2:-0}"
 
-# Cards: each priority, tags, a description, a long title that clamps, a report, a
+# Cards: each priority, a description, a long title that clamps, a report, a
 # url, and text that looks like HTML but must show as plain text.
 send '{"id": "bar-high", "source": "example-bar", "priority": "high", "title": "Deploy to production failed",
-       "description": "The migration step timed out after 10 minutes. Click for the report.", "tags": ["deploy", "prod"],
+       "description": "The migration step timed out after 10 minutes. Click for the report.",
        "report": [{"type": "text", "text": "The migration step timed out after 10 minutes."},
                   {"type": "code", "text": "migrate: context deadline exceeded"}]}'
 send '{"id": "bar-medium", "source": "example-bar", "priority": "medium", "title": "Review requested: fix flaky login test",
-       "description": "@someone asked for your review", "tags": ["review"]}'
-send '{"id": "bar-low", "source": "example-bar", "priority": "low", "title": "Weekly dependency update is ready",
-       "tags": ["deps"]}'
-send '{"id": "bar-plain", "source": "example-bar", "title": "A card with no priority, tags or description"}'
+       "description": "@someone asked for your review"}'
+send '{"id": "bar-low", "source": "example-bar", "priority": "low", "title": "Weekly dependency update is ready"}'
+send '{"id": "bar-plain", "source": "example-bar", "title": "A card with no priority or description"}'
 send '{"id": "bar-long", "source": "example-bar", "title": "A very long title that keeps going well past the width of a card so it has to clamp to two lines rather than pushing the meta line out of the bottom of the card",
        "description": "And a long description under it, which gives way first when the card runs out of height, so the title and the meta line stay visible no matter how much text is sent."}'
 link="$(url "$(page "$PAGES/url.html" "Opened from a card's url" "<p>This page opened in your browser with <code>open</code>.</p>")")"
 send '{"id": "bar-url", "source": "example-bar", "title": "Opens a local page in your browser", "url": "'"$link"'",
        "description": "A file:// url, opened with open."}'
 send '{"id": "bar-html", "source": "example-bar", "title": "<b>Not bold</b> <img src=x onerror=alert(1)>",
-       "description": "Event text is untrusted, so this should show the tags as text."}'
+       "description": "Event text is untrusted, so this should show the markup as text."}'
 
-# Pills: plain, a colour schedule, a command, a url and a hex colour.
+# Statuses: plain, a colour schedule, a command, a url and a hex colour.
 send '{"kind": "status", "id": "bar-ok", "source": "example-bar", "title": "Build", "color": "green",
        "detail": "main is green"}'
 send '{"kind": "status", "id": "bar-session", "source": "example-bar", "title": "Session", "color": "green",
        "schedule": [{"at": "1m", "color": "yellow"}, {"at": "2m", "color": "red"}],
-       "detail": "Turns yellow in 1 minute and red in 2. Hover to see the changes to come."}'
+       "detail": "Turns yellow in 1 minute and red in 2."}'
 send '{"kind": "status", "id": "bar-command", "source": "example-bar", "title": "Log in", "color": "blue",
        "command": "echo logged in", "detail": "Clicking runs the command; its output goes to commands.log."}'
-# Only http(s) urls make a pill's label clickable, so this one can't be a local page.
+# Only http(s) urls make a status clickable, so this one can't be a local page.
 send '{"kind": "status", "id": "bar-link", "source": "example-bar", "title": "Status page", "color": "gray",
-       "url": "https://example.com", "detail": "Clicking the label opens https://example.com."}'
+       "url": "https://example.com", "detail": "Clicking opens https://example.com."}'
 send '{"kind": "status", "id": "bar-hex", "source": "example-bar", "title": "Custom colour", "color": "#9b59b6"}'
 
 # Extra cards take turns: a report, a url, then neither.
@@ -109,6 +108,6 @@ for i in $(seq 1 "$cards"); do
 done
 colors=(green yellow red blue gray)
 for i in $(seq 1 "$pills"); do
-  send "{\"kind\": \"status\", \"id\": \"bar-pill-$i\", \"source\": \"$SOURCE\", \"title\": \"Pill $i of $pills\", \"color\": \"${colors[$(( i % 5 ))]}\"}"
+  send "{\"kind\": \"status\", \"id\": \"bar-pill-$i\", \"source\": \"$SOURCE\", \"title\": \"Status $i of $pills\", \"color\": \"${colors[$(( i % 5 ))]}\"}"
 done
-echo "Sent 7 cards and 5 pills, plus $cards extra cards and $pills extra pills; pages in $PAGES" >&2
+echo "Sent 7 cards and 5 statuses, plus $cards extra cards and $pills extra statuses; pages in $PAGES" >&2

@@ -158,11 +158,6 @@ func cardJS(title string) string {
 	return fmt.Sprintf(`[...document.querySelectorAll("li")].find(li => li.querySelector(".title").textContent === %q)`, title)
 }
 
-// pillLabelJS is a JS expression for the label of the pill with this title.
-func pillLabelJS(title string) string {
-	return fmt.Sprintf(`[...document.querySelectorAll(".pill .label")].find(l => l.textContent === %q)`, title)
-}
-
 func TestDismiss(t *testing.T) {
 	gui(t)
 	add(t, `{"id": "gone", "title": "Dismiss me"}`)

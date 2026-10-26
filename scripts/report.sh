@@ -31,7 +31,7 @@ if [[ "${1:-}" == "clear" ]]; then
 fi
 
 send '{"id": "report-ci", "source": "example-report", "priority": "high", "title": "CI: 2 failures on main",
-       "description": "build and lint failed; 14 jobs passed", "tags": ["ci"],
+       "description": "build and lint failed; 14 jobs passed",
        "report": [
          {"type": "note", "text": "Two jobs failed after the last merge.", "color": "red"},
          {"type": "fields", "items": [
