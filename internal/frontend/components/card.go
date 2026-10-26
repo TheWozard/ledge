@@ -17,8 +17,9 @@ import (
 // its actions, and its arrival and leaving. What's inside
 // the frame is the card's Body, which is up to its kind. Basic is the built-in kind.
 //
-// The bar calls Frame and Body while it holds its lock, so neither may call back into
-// the bar (Render, ShowReport): that would deadlock.
+// The bar calls Frame once, when it's given the card, and Body each time it draws it,
+// both while it holds its lock, so neither may call back into the bar (Render,
+// ShowReport): that would deadlock.
 type Card interface {
 	Frame() Frame
 	// Body is what's in the card, above its actions. Like everything on the bar, it

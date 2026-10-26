@@ -341,9 +341,9 @@ func TestReportMessages(t *testing.T) {
 	}
 	post(b, w, `{"action": "ready"}`)
 	ran := f.ran(w)
-	if len(ran) != 3 || !strings.HasPrefix(ran[0], `update("Fake \u003creport\u003e", `) || !strings.Contains(ran[0], `data-click=\"block/more/old\"`) ||
-		!strings.Contains(ran[1], `data-click=\"block/more/new\"`) || strings.Contains(ran[1], "old") || ran[2] != "setBusy([])" {
-		t.Errorf("once ready, the report ran %q, want it shown, then with its block replaced, then the busy marks", ran)
+	if len(ran) != 2 || !strings.HasPrefix(ran[0], `update("Fake \u003creport\u003e", `) || !strings.Contains(ran[0], `data-click=\"block/more/old\"`) ||
+		!strings.Contains(ran[1], `data-click=\"block/more/new\"`) || strings.Contains(ran[1], "old") || !strings.HasSuffix(ran[1], "; setBusy([])") {
+		t.Errorf("once ready, the report ran %q, want it shown, then with its block replaced, each with the busy marks", ran)
 	}
 
 	for _, id := range []string{"go", "block/more/new", "block/more/old", "card/fbar/click"} {

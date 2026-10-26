@@ -56,13 +56,7 @@ func open(options Options, n native) (*Bar, error) {
 	shim.OnScreensChanged(func() { b.Place() })
 	shim.OnNavigate(b.navigate)
 	shim.OnWindowClosed(b.closed)
-	shim.OnMessage(func(window int, message []byte) {
-		if window == MenuWindow {
-			go b.handleMenuPage(message)
-		} else {
-			go b.received(window, message)
-		}
-	})
+	shim.OnMessage(func(window int, message []byte) { go b.received(window, message) })
 	shim.OnPopupDismissed(func(window int) {
 		if window == MenuWindow {
 			b.popup.finish(noChoice)
@@ -77,9 +71,11 @@ func open(options Options, n native) (*Bar, error) {
 // newBar is a bar with options and no cards, and no reports yet, shown through n: the
 // first report will take the window id after the menu's.
 func newBar(options Options, n native) *Bar {
-	bar := newPage(n, BarWindow, "the bar")
-	return &Bar{options: options, native: n, bar: bar,
-		pages: map[int]*page{BarWindow: bar}, reports: map[string]*page{}, last: MenuWindow}
+	b := &Bar{options: options, native: n, reports: map[string]*page{}, last: MenuWindow}
+	b.bar = newPage(n, BarWindow, "the bar", pageMessages, b.barMessage)
+	menu := newPage(n, MenuWindow, "the menu", menuMessages, b.menuMessage)
+	b.pages = map[int]*page{BarWindow: b.bar, MenuWindow: menu}
+	return b
 }
 
 // barPage is the bar's page for options, giving them the default theme if they have
@@ -106,7 +102,10 @@ func barPage(options *Options) (string, error) {
 func (b *Bar) Render(cards []components.Card) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.cards = slices.Clone(cards)
+	b.cards = make([]components.Card, len(cards))
+	for i, card := range cards {
+		b.cards[i] = given(card)
+	}
 	b.endings.schedule(b.cards, b.complete)
 	b.draw()
 }
@@ -117,6 +116,7 @@ func (b *Bar) Render(cards []components.Card) {
 func (b *Bar) RenderCard(card components.Card) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	card = given(card)
 	id := card.Frame().ID
 	i := slices.IndexFunc(b.cards, func(c components.Card) bool { return c.Frame().ID == id })
 	if i < 0 {
@@ -126,6 +126,22 @@ func (b *Bar) RenderCard(card components.Card) bool {
 	b.endings.schedule(b.cards, b.complete)
 	b.draw()
 	return true
+}
+
+// shownCard is a card as the bar has it: the card, with the Frame it had when the bar
+// was given it, so that everything the bar does with it, drawing it, its menu, and
+// ending it, goes by the same frame.
+type shownCard struct {
+	components.Card
+	frame components.Frame
+}
+
+func (c shownCard) Frame() components.Frame { return c.frame }
+
+// given is card as the bar keeps it, with its Frame as it is now. Call it with the
+// bar's lock held.
+func given(card components.Card) components.Card {
+	return shownCard{card, card.Frame()}
 }
 
 // draw renders what the bar has into its page, once the page is ready, and from then

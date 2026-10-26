@@ -82,14 +82,9 @@ func (b *Bar) popupMenu(css string, items []components.MenuItem) choice {
 // measureMenu is the size of the menu page's #menu, as [width, height].
 const measureMenu = `(r => [Math.ceil(r.width), Math.ceil(r.height)])(document.getElementById("menu").getBoundingClientRect())`
 
-// handleMenuPage carries out one message from the theme's menu page: once it's
-// loaded, it's measured and shown at the mouse, and a choice, or closing it, hides it.
-func (b *Bar) handleMenuPage(data []byte) {
-	m, err := readMessage(data, menuMessages)
-	if err != nil {
-		log.Printf("ui: the menu sent %s: %v", data, err)
-		return
-	}
+// menuMessage carries out a message from the theme's menu page: once it's loaded,
+// it's measured and shown at the mouse, and a choice, or closing it, hides it.
+func (b *Bar) menuMessage(_ *page, m message) {
 	switch m.Action {
 	case "ready":
 		if !b.popup.isOpen() {

@@ -117,7 +117,8 @@ func (b *Bar) report(id string) *page {
 		return p
 	}
 	b.last++
-	p := newPage(b.native, b.last, fmt.Sprintf("report window %d", b.last))
+	p := newPage(b.native, b.last, fmt.Sprintf("report window %d", b.last), pageMessages, b.reportMessage)
+	p.report = id
 	b.reports[id], b.pages[p.window] = p, p
 	return p
 }
@@ -128,15 +129,11 @@ func (b *Bar) closed(window int) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	p := b.pages[window]
-	if p == nil || p == b.bar {
-		return
+	if p == nil || b.reports[p.report] != p {
+		return // not a report's
 	}
 	delete(b.pages, window)
-	for id, q := range b.reports {
-		if q == p {
-			delete(b.reports, id)
-		}
-	}
+	delete(b.reports, p.report)
 }
 
 // navigate says whether a window may go to target. Every window only ever shows the

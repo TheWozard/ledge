@@ -335,3 +335,32 @@ func TestDrawsOnceReady(t *testing.T) {
 	post(b, BarWindow, `{"action": "ready"}`)
 	drawn(t, "ready again", 3)
 }
+
+// The bar takes a card's Frame once, when it's given it, however many times it draws
+// it, and goes by that frame: drawing it, and ending it.
+func TestFrameOnce(t *testing.T) {
+	b, f := fakeBar(t, theme.Theme{})
+	card := &framed{Basic: components.Basic{ID: "once", Title: "Once"}}
+	b.Render([]components.Card{card})
+	b.RenderCard(components.Basic{ID: "other"}) // not on the bar: nothing changes
+	post(b, BarWindow, `{"action": "ready"}`)
+	if n := card.frames.Load(); n != 1 {
+		t.Errorf("the bar took the card's Frame %d times, want once", n)
+	}
+	if js := f.last(BarWindow); !strings.Contains(js, `data-color=\"#000001\"`) {
+		t.Errorf("the bar didn't draw the frame it took: %s", js)
+	}
+}
+
+// framed is a Basic card that counts the times its Frame is taken, and has a colour
+// of its own each time.
+type framed struct {
+	components.Basic
+	frames atomic.Int32
+}
+
+func (c *framed) Frame() components.Frame {
+	f := c.Basic.Frame()
+	f.Color = fmt.Sprintf("#%06d", c.frames.Add(1))
+	return f
+}

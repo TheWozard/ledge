@@ -141,13 +141,7 @@ func fakeBar(t *testing.T, th theme.Theme) (*Bar, *fakeNative) {
 
 // post is window's page posting message, which is carried out before it returns: a
 // Click it calls has run.
-func post(b *Bar, window int, message string) {
-	if window == MenuWindow {
-		b.handleMenuPage([]byte(message))
-		return
-	}
-	b.received(window, []byte(message))
-}
+func post(b *Bar, window int, message string) { b.received(window, []byte(message)) }
 
 // defaultTheme is the built-in default theme, which draws a card's menu itself.
 func defaultTheme(t *testing.T) theme.Theme {

@@ -5,6 +5,12 @@
 //
 // AppKit needs the main goroutine, so an app calls Init, then Open, then Run on the
 // main goroutine, and does its own work on others. Stop makes Run return.
+//
+// The bar renders what it's given with its lock held: a card's Frame, once, when it's
+// given it, its Body each time it's drawn, and a report's blocks each time it's shown.
+// None of them may call back into the bar (Render, ShowReport and the rest): that
+// would deadlock. What the bar calls back, the Clicks and a card's Complete, it calls
+// without its lock, so they may.
 package ui
 
 import (
