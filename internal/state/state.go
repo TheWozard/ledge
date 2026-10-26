@@ -25,3 +25,12 @@ func Dir() (string, error) {
 func Socket(dir string) string {
 	return filepath.Join(dir, "ledge.sock")
 }
+
+// Make creates dir, the state directory, open only to your user. One made before
+// ledge did this is closed up too: events can hold reports and commands.
+func Make(dir string) error {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	return os.Chmod(dir, 0o700)
+}

@@ -24,7 +24,7 @@ func (b *Bar) open(id string) {
 		b.showReport(event)
 	case text(event, "url") != "":
 		b.openURL(text(event, "url"))
-	case text(event, "command") != "":
+	case text(event, "command") != "" && b.commands:
 		if err := b.runCommand(event, text(event, "command")); err != nil {
 			log.Printf("ledge: running the command of %s: %v", id, err)
 		}
@@ -43,10 +43,10 @@ func (b *Bar) openURL(target string) {
 // PATH, in $HOME, with its output appended to commands.log. It runs in its own
 // session, so stopping ledge doesn't stop it. Nothing tracks whether it worked.
 func (b *Bar) runCommand(event store.Event, command string) error {
-	if err := os.MkdirAll(b.stateDir, 0o755); err != nil {
+	if err := os.MkdirAll(b.stateDir, 0o700); err != nil {
 		return err
 	}
-	output, err := os.OpenFile(filepath.Join(b.stateDir, "commands.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	output, err := os.OpenFile(filepath.Join(b.stateDir, "commands.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return err
 	}

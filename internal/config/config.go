@@ -1,4 +1,4 @@
-// Package config reads the window settings passed with --config. There's no default
+// Package config reads the settings passed with --config. There's no default
 // location: without a file, ledge uses the defaults. The file is checked against
 // config.schema.json, so an unknown key or a bad value stops ledge from starting
 // rather than being quietly ignored.
@@ -25,13 +25,14 @@ var schemas = func() *schema.Set {
 	return set
 }()
 
-// Config is the window settings.
+// Config is the window settings, and whether events may carry commands.
 type Config struct {
-	Screen int    `json:"screen"`
-	Edge   string `json:"edge"`
-	Height int    `json:"height"`
-	Theme  string `json:"theme"`
-	Level  string `json:"level"`
+	Screen   int    `json:"screen"`
+	Edge     string `json:"edge"`
+	Height   int    `json:"height"`
+	Theme    string `json:"theme"`
+	Level    string `json:"level"`
+	Commands bool   `json:"commands"`
 }
 
 // Defaults is the config without a file, and what a file's missing keys fall back to.

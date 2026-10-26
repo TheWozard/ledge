@@ -54,7 +54,7 @@ func TestView(t *testing.T) {
 			{"name": "test", "state": "failed"}]}`),
 		normalize(t, `{"kind": "message", "id": "message", "title": "#general", "from": "Ada Lovelace", "sent": "2026-10-15T11:55:00Z"}`),
 	}
-	cards := (&Bar{}).view(events, now)
+	cards := (&Bar{commands: true}).view(events, now)
 	if len(cards) != len(events) {
 		t.Fatalf("%d cards, want %d", len(cards), len(events))
 	}
@@ -87,7 +87,10 @@ func TestView(t *testing.T) {
 	if timer := cards[3].(recolored).Card.(components.Timer); !timer.End.Equal(now.Add(2*time.Hour)) || !timer.Start.IsZero() {
 		t.Errorf("aws timer = %+v", timer)
 	}
-	if last := (&Bar{}).view(events[3:4], now.Add(90*time.Minute))[0]; last.Frame().Color != colors["red"] || last.Frame().Complete != nil {
+	if noCommands := (&Bar{}).view(events[3:4], now)[0]; noCommands.Frame().Click != nil {
+		t.Error("a command shouldn't be clickable when commands aren't allowed")
+	}
+	if last := (&Bar{commands: true}).view(events[3:4], now.Add(90*time.Minute))[0]; last.Frame().Color != colors["red"] || last.Frame().Complete != nil {
 		t.Errorf("aws after its last step = %+v", last.Frame())
 	}
 

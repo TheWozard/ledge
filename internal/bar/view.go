@@ -48,7 +48,8 @@ func (b *Bar) card(event store.Event, now time.Time) components.Card {
 		Description: text(event, "description"),
 		Dismiss:     func(components.ClickEvent) { b.dismiss(id) },
 	}
-	if event["report"] != nil || text(event, "url") != "" || text(event, "command") != "" {
+	// A command sent while commands were allowed stays on the card, but doesn't run.
+	if event["report"] != nil || text(event, "url") != "" || text(event, "command") != "" && b.commands {
 		basic.Click = func(components.ClickEvent) { b.open(id) }
 	}
 	basic.Color = priorities[text(event, "priority")]

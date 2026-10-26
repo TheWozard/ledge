@@ -73,7 +73,9 @@ func TestMain(m *testing.M) {
 
 	// The main loop has the main goroutine, so the tests run beside it.
 	ui.Init()
-	if testBar, err = Open(testStore, config.Defaults, dir); err != nil {
+	cfg := config.Defaults
+	cfg.Commands = true
+	if testBar, err = Open(testStore, cfg, dir); err != nil {
 		log.Fatal(err)
 	}
 	testBar.start = testStart

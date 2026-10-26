@@ -44,11 +44,12 @@ ledge event --schema event         # print a schema: dismiss, event, section
 The API listens on the socket `ledge.sock` in the state dir,
 `${XDG_STATE_HOME:-~/.local/state}/ledge`, where events are kept too (`events.json`).
 Each state dir is its own ledge: set `XDG_STATE_HOME` to run another, and to talk to
-it. Only your user can connect to the socket.
+it. Only your user can connect to the socket, and the state dir is open only to your
+user too.
 
 ### Config
 
-`--config` names a JSON file of window settings, read when ledge starts (so
+`--config` names a JSON file of settings, read when ledge starts (so
 `ledge restart` after changing it). Every key is optional, and an unknown key or a bad
 value stops ledge from starting:
 
@@ -63,6 +64,7 @@ value stops ledge from starting:
 | `height` | the bar's height in points; default 110 |
 | `level` | which windows the bar stays above: `top` for everything, the Dock included; `floating` for other apps' windows but not the Dock; `normal` (default) for none |
 | `theme` | how the bar and reports look (below) |
+| `commands` | `true` to let events carry a `command` to run when clicked (below); default `false` |
 
 ### Clicking
 
@@ -77,6 +79,12 @@ path or command itself.
   update the card, have the command send it again.
 
 An event has at most one of the three. The × on a card dismisses it.
+
+Commands are off unless the config has `"commands": true`; until then, an event with a
+`command` is refused. Anything running as you can send events, so turning commands on
+lets anything running as you put a command on your bar, and a card's title can say
+anything: only turn it on if you trust what sends to ledge. A command sent while they
+were on doesn't run after they're turned off.
 
 ### Kinds of card
 
@@ -97,7 +105,7 @@ it), a `color` (a named colour, `green`, `yellow`, `red`, `blue` or `gray`, or
 
 Times (`start`, `end`, `sent`, `expires`, a schedule's `at`) are ISO 8601 or a
 duration from when it's sent, such as `"30m"`. A login that expires, turning yellow
-then red as it runs out, and logging in again when clicked:
+then red as it runs out, and logging in again when clicked (with commands on):
 
 ```json
 {"kind": "timer", "id": "aws-auth", "title": "AWS", "end": "1h", "color": "green", "command": "aws sso login",
@@ -194,7 +202,7 @@ scripts/bar.sh
 
 | Script | Shows |
 |---|---|
-| `bar.sh [CARDS]` | cards of every kind: each priority, a description, a clamped long title, a report, a url, a command, a colour schedule, and HTML-looking text shown as plain text. Extra CARDS make the row scroll sideways: `bar.sh 15`. Extra cards take turns with a report, a url and neither. |
+| `bar.sh [CARDS]` | cards of every kind: each priority, a description, a clamped long title, a report, a url, a command (with commands on), a colour schedule, and HTML-looking text shown as plain text. Extra CARDS make the row scroll sideways: `bar.sh 15`. Extra cards take turns with a report, a url and neither. |
 | `report.sh` | a report with one of each block, notes in every colour and an https link; plus a long report to scroll, whose HTML-looking text shows as text |
 | `feed.sh [SECONDS]` | a feed's section, with a progress card, replaced by a smaller one after a pause (default 5s), whose card then expires in 1 minute. The swap sends a new report, so the card's report differs before and after. |
 

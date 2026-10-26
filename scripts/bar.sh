@@ -97,8 +97,10 @@ send '{"kind": "checks", "id": "bar-checks", "source": "example-bar", "title": "
                   {"name": "docs", "state": "skipped"}]}'
 send '{"kind": "message", "id": "bar-message", "source": "example-bar", "title": "#deploys", "from": "Ada Lovelace",
        "sent": "'"$(date -u -v-5M +%Y-%m-%dT%H:%M:%SZ)"'", "description": "Rolling back the 14:02 deploy now."}'
+# Refused unless the ledge's config has "commands": true.
 send '{"id": "bar-command", "source": "example-bar", "title": "Log in", "color": "blue",
-       "command": "echo logged in", "description": "Clicking runs the command; its output goes to commands.log."}'
+       "command": "echo logged in", "description": "Clicking runs the command; its output goes to commands.log."}' \
+  2>/dev/null || echo "Skipped the command card: set \"commands\": true in the ledge's --config to try it" >&2
 
 # Extra cards take turns: a report, a url, then neither.
 priorities=(high medium low "")
@@ -111,4 +113,4 @@ for i in $(seq 1 "$cards"); do
   esac
   send "{\"id\": \"bar-card-$i\", \"source\": \"$SOURCE\", \"title\": \"Card $i of $cards\"${priority:+, \"priority\": \"$priority\"}$opens}"
 done
-echo "Sent 14 cards, plus $cards extra cards; pages in $PAGES" >&2
+echo "Sent the example cards, plus $cards extra cards; pages in $PAGES" >&2

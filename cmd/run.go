@@ -44,6 +44,9 @@ var runCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		if err := state.Make(dir); err != nil {
+			return err
+		}
 		events, err := store.Open(filepath.Join(dir, "events.json"))
 		if err != nil {
 			return err
@@ -60,7 +63,7 @@ var runCmd = &cobra.Command{
 		// POST /shutdown stops it as a signal would.
 		ctx, shutdown := context.WithCancel(ctx)
 		defer shutdown()
-		server := &api.Server{Store: events, Shutdown: shutdown}
+		server := &api.Server{Store: events, Shutdown: shutdown, Commands: cfg.Commands}
 		if runHeadless {
 			return serve(ctx, listener, server)
 		}

@@ -93,10 +93,10 @@ func (p *Process) Start(args []string) (pid int, started bool, err error) {
 	if p.answers() {
 		return 0, false, fmt.Errorf("something not started by `ledge start` already answers at %s; stop it first", p.Socket)
 	}
-	if err := os.MkdirAll(filepath.Dir(p.PIDFile), 0o755); err != nil {
+	if err := state.Make(filepath.Dir(p.PIDFile)); err != nil {
 		return 0, false, err
 	}
-	log, err := os.Create(p.LogFile)
+	log, err := os.OpenFile(p.LogFile, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return 0, false, err
 	}
@@ -111,7 +111,7 @@ func (p *Process) Start(args []string) (pid int, started bool, err error) {
 		return 0, false, err
 	}
 	pid = cmd.Process.Pid
-	if err := os.WriteFile(p.PIDFile, []byte(strconv.Itoa(pid)+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(p.PIDFile, []byte(strconv.Itoa(pid)+"\n"), 0o600); err != nil {
 		cmd.Process.Kill()
 		return 0, false, err
 	}
@@ -221,7 +221,7 @@ func (p *Process) saveArgs(args []string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(p.ArgsFile, append(data, '\n'), 0o644)
+	return os.WriteFile(p.ArgsFile, append(data, '\n'), 0o600)
 }
 
 func (p *Process) answers() bool {

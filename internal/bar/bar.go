@@ -19,6 +19,7 @@ import (
 type Bar struct {
 	store    *store.Store
 	stateDir string // where commands.log goes
+	commands bool   // whether events' commands run
 	ui       *ui.Bar
 
 	// start runs a command in the background: `open` for a url, or an event's
@@ -27,9 +28,10 @@ type Bar struct {
 }
 
 // Open creates the bar, places it and loads its page. Call it after ui.Init and
-// before ui.Run. Events' commands' output goes to commands.log in stateDir.
+// before ui.Run. Events' commands run only if cfg allows them, with their output in
+// commands.log in stateDir.
 func Open(events *store.Store, cfg config.Config, stateDir string) (*Bar, error) {
-	b := &Bar{store: events, stateDir: stateDir, start: startDetached}
+	b := &Bar{store: events, stateDir: stateDir, commands: cfg.Commands, start: startDetached}
 	th, err := theme.Builtin(cfg.Theme)
 	if err != nil {
 		return nil, err

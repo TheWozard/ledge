@@ -28,6 +28,7 @@ func TestLoad(t *testing.T) {
 		`{"screen": 1.5}`:                     "screen: got number, want integer",
 		`[]`:                                  "got array, want object",
 		`{"edge": "top"} {"edge": "top"}`:     "isn't valid JSON",
+		`{"commands": "yes"}`:                 "commands: got string, want boolean",
 	} {
 		path := filepath.Join(dir, "config.json")
 		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {

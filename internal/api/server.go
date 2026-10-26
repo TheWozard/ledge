@@ -33,11 +33,13 @@ import (
 const MaxBody = 8 << 20
 
 // Server serves the API for one store. Changed, if set, is called after any request
-// that changes the store, and Shutdown after replying to POST /shutdown.
+// that changes the store, and Shutdown after replying to POST /shutdown. Unless
+// Commands is set, an event with a command is refused.
 type Server struct {
 	Store    *store.Store
 	Changed  func()
 	Shutdown func()
+	Commands bool
 }
 
 // Listen makes the API socket at path, which only your user can connect to. A socket
@@ -47,7 +49,7 @@ func Listen(path string) (net.Listener, error) {
 	if len(path) > 103 {
 		return nil, fmt.Errorf("the API socket's path, %s, is over 103 bytes; set XDG_STATE_HOME to a shorter directory", path)
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return nil, err
 	}
 	if info, err := os.Lstat(path); err == nil {
@@ -149,12 +151,28 @@ func (s *Server) handle(r *http.Request) (map[string]any, error) {
 			if err := store.Check("section", obj); err != nil {
 				return nil, err
 			}
+			for i, item := range obj["items"].([]any) {
+				if err := s.checkCommand(item); err != nil {
+					return nil, store.Refuse("items/%d: %v", i, err)
+				}
+			}
 			ids, err := s.Store.ReplaceSource(obj["source"].(string), obj["items"].([]any), now)
 			return map[string]any{"ids": ids}, err
 		}
 	}
+	if err := s.checkCommand(body); err != nil {
+		return nil, err
+	}
 	id, err := s.Store.Add(body, now)
 	return map[string]any{"id": id}, err
+}
+
+// checkCommand refuses an event with a command, unless commands are allowed.
+func (s *Server) checkCommand(event any) error {
+	if obj, ok := event.(map[string]any); ok && obj["command"] != nil && !s.Commands {
+		return store.Refuse(`this ledge doesn't run commands; set "commands": true in its --config to allow them`)
+	}
+	return nil
 }
 
 func readJSON(r *http.Request) (any, error) {

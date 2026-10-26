@@ -71,7 +71,7 @@
     "report": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/block"},
                "description": "The details, shown in a report window when the card is clicked: a list of blocks, drawn top to bottom in the bar's theme. To change a report, send the event again with the same id."},
     "command": {"type": "string", "minLength": 1,
-                "description": "A bash command to run when the card is clicked, e.g. a login that re-sends this event. Runs with `bash -lc` in your home directory; its output is appended to commands.log in the state directory."},
+                "description": "A bash command to run when the card is clicked, e.g. a login that re-sends this event. Runs with `bash -lc` in your home directory; its output is appended to commands.log in the state directory. Refused unless ledge's config has \"commands\": true."},
     "priority": {"enum": ["high", "medium", "low"], "description": "Sorts the card, and colours it if it has no `color`."},
     "color": {"$ref": "#/$defs/color", "description": "The card's colour, until the first step of its `schedule`."},
     "schedule": {

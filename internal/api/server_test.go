@@ -18,7 +18,7 @@ func TestServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	changes, shutdowns := 0, 0
-	server := &Server{Store: events, Changed: func() { changes++ }, Shutdown: func() { shutdowns++ }}
+	server := &Server{Store: events, Changed: func() { changes++ }, Shutdown: func() { shutdowns++ }, Commands: true}
 
 	do := func(method, path, body string, headers map[string]string) (int, string) {
 		t.Helper()
@@ -66,6 +66,31 @@ func TestServer(t *testing.T) {
 	}
 	if shutdowns != 1 {
 		t.Errorf("Shutdown called %d times, want 1", shutdowns)
+	}
+}
+
+func TestCommandsAreOptIn(t *testing.T) {
+	events, err := store.Open(filepath.Join(t.TempDir(), "events.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, commands := range []bool{false, true} {
+		server := &Server{Store: events, Commands: commands}
+		for _, body := range []string{
+			`{"title": "Log in", "command": "aws sso login"}`,
+			`{"source": "s", "items": [{"title": "a"}, {"title": "Log in", "command": "aws sso login"}]}`,
+		} {
+			recorder := httptest.NewRecorder()
+			server.ServeHTTP(recorder, httptest.NewRequest("POST", "/event", strings.NewReader(body)))
+			refused := recorder.Code == 400 && strings.Contains(recorder.Body.String(), `set \"commands\": true`)
+			if refused == commands {
+				t.Errorf("commands %v, %s: %d %s", commands, body, recorder.Code, recorder.Body)
+			}
+		}
+		// Refused, a section doesn't add the items without commands either.
+		if visible := events.Visible(); !commands && len(visible) != 0 {
+			t.Errorf("refused requests added %v", visible)
+		}
 	}
 }
 
