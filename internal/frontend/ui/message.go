@@ -81,14 +81,10 @@ func (b *Bar) chooseFrom(items []components.MenuItem) choice {
 	for i, item := range items {
 		shown[i] = shim.MenuItem{Title: item.Title, Color: item.Color, Enabled: item.Enabled}
 	}
-	chosen := showMenu(shown)
+	chosen := b.native.ShowMenu(shown)
 	m := chosen.Modifiers
 	return choice{chosen.Index, components.ClickEvent{Alt: m.Alt, Cmd: m.Cmd, Shift: m.Shift, Ctrl: m.Ctrl}}
 }
-
-// showMenu pops up a native menu and returns what was chosen from it: the shim's, or
-// a test's in its place.
-var showMenu = shim.ShowMenu
 
 // menu is the Click on the ⋯ of the card with frame f, and a right-click on it: it
 // shows the card's menu, as its theme draws it or natively for a theme without one,

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -43,9 +44,9 @@ func TestReportWindow(t *testing.T) {
 			t.Errorf("%s = %s, want %s", js, got, want)
 		}
 	}
-	// The link goes to openURL, and the report stays put.
+	// The link opens in the browser, and the report stays put.
 	evalIn(t, w, `document.querySelector("a").click(), true`)
-	eventually(t, "openURL", func() bool { return calls.has("url https://example.com/from-report") })
+	eventually(t, "the link to open", func() bool { return calls.has("url https://example.com/from-report") })
 	if got := evalIn(t, w, `location.href`); got != `"about:blank"` {
 		t.Errorf("the link moved the report to %s", got)
 	}
@@ -302,7 +303,7 @@ func TestReportWindowPerID(t *testing.T) {
 // until its window closes; then the id gets a new one, and the closed window's page
 // is gone. The bar's page is never closed.
 func TestReportPages(t *testing.T) {
-	b := newBar(Options{})
+	b := newBar(Options{}, &fakeNative{})
 	a, other := b.report("a"), b.report("b")
 	if a.window <= MenuWindow || other.window == a.window || b.report("a") != a {
 		t.Fatalf("a is in window %d, b in %d, and a again in %d", a.window, other.window, b.report("a").window)
@@ -317,8 +318,12 @@ func TestReportPages(t *testing.T) {
 	}
 }
 
+// A window only ever shows its page. A link clicked in a report opens in the browser
+// if it's http(s), and nothing else does.
 func TestNavigate(t *testing.T) {
-	bar := &Bar{}
+	f := &fakeNative{}
+	bar := newBar(Options{}, f)
+	report := bar.report("r").window
 	for _, c := range []struct {
 		window  int
 		url     string
@@ -327,14 +332,68 @@ func TestNavigate(t *testing.T) {
 	}{
 		{BarWindow, "about:blank", false, true},
 		{BarWindow, "https://example.com", true, false},
-		{BarWindow + 1, "about:blank", false, true},
-		{BarWindow + 1, "file:///etc/hosts", true, false},
-		{BarWindow + 1, "https://example.com", false, false},
-		{BarWindow + 1, "https://example.com", true, false}, // to openURL instead
-		{BarWindow + 1, "javascript:alert(1)", true, false},
+		{MenuWindow, "https://example.com", true, false},
+		{report, "about:blank", false, true},
+		{report, "file:///etc/hosts", true, false},
+		{report, "https://example.com", false, false},
+		{report, "https://example.com/opened", true, false}, // to the browser instead
+		{report, "javascript:alert(1)", true, false},
 	} {
 		if got := bar.navigate(c.window, c.url, c.clicked); got != c.want {
 			t.Errorf("navigate(%d, %s, %v) = %v, want %v", c.window, c.url, c.clicked, got, c.want)
 		}
+	}
+	eventually(t, "the link to open", func() bool { return len(f.opened()) > 0 })
+	if time.Sleep(50 * time.Millisecond); !slices.Equal(f.opened(), []string{"https://example.com/opened"}) {
+		t.Errorf("opened %q, want only the clicked report link", f.opened())
+	}
+}
+
+// A report's page is loaded and its window shown when it's shown, and what's done to
+// it before the page is ready waits for it. Its clicks reach only its own Clicks, not
+// the bar's nor another window's, until it's closed, and a block replaced with
+// ShowReportBlock brings its own in place of the old.
+func TestReportMessages(t *testing.T) {
+	b, f := fakeBar(t, theme.Theme{})
+	b.Render(components.Cards([]components.Basic{{ID: "fbar", Title: "Bar", Click: record("fake open fbar")}}))
+	if err := b.ShowReport("fr", "Fake report", []templ.Component{
+		components.Buttons([]components.Button{{ID: "go", Title: "Go", Click: record("fake report go")}}),
+		components.Block("more", components.Buttons([]components.Button{{ID: "old", Title: "Old", Click: record("fake report old")}})),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	b.mu.Lock()
+	w := b.reports["fr"].window
+	b.mu.Unlock()
+	if !strings.Contains(f.page(w), "Fake report") || !f.showing(w) {
+		t.Fatalf("the report's window is showing %v, with %s", f.showing(w), f.page(w))
+	}
+	if open, err := b.ShowReportBlock("fr", "more", components.Buttons([]components.Button{
+		{ID: "new", Title: "New", Click: record("fake report new")},
+	})); !open || err != nil {
+		t.Fatalf("ShowReportBlock = %v, %v", open, err)
+	}
+	if ran := f.ran(w); len(ran) != 0 {
+		t.Fatalf("before its page was ready, the report ran %q", ran)
+	}
+	post(b, w, `{"action": "ready"}`)
+	if ran := f.ran(w); len(ran) != 2 || !strings.HasPrefix(ran[0], `replaceBlock("more", `) || ran[1] != "setBusy([])" {
+		t.Errorf("once ready, the report ran %q, want the block replaced, then the busy marks", ran)
+	}
+
+	for _, id := range []string{"go", "block/more/new", "block/more/old", "card/fbar/click"} {
+		post(b, w, `{"action": "click", "id": "`+id+`"}`)
+	}
+	post(b, BarWindow, `{"action": "click", "id": "go"}`)
+	if !calls.has("fake report go") || !calls.has("fake report new") || calls.has("fake report old") || calls.has("fake open fbar") {
+		t.Error("the report's clicks didn't reach only its own Clicks, as they are now")
+	}
+	if open, _ := b.ShowReportBlock("fake-not-open", "more", components.Paragraph("Lost")); open {
+		t.Error("ShowReportBlock found a report that isn't open")
+	}
+	b.closed(w)
+	post(b, w, `{"action": "click", "id": "go"}`)
+	if n := calls.count("fake report go"); n != 1 {
+		t.Errorf("Go ran %d times, want only the once before its report closed", n)
 	}
 }

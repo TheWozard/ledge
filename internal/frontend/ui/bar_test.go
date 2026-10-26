@@ -63,7 +63,7 @@ func TestArrivals(t *testing.T) {
 // A Click that's running isn't run again until it's done: a click on it meanwhile is
 // dropped. While it runs, it's busy, and nothing else is.
 func TestRunOnce(t *testing.T) {
-	b := newBar(Options{})
+	b := newBar(Options{}, &fakeNative{})
 	p := b.bar // not ready, so it marks nothing on a page
 	busy := func() string { b.mu.Lock(); defer b.mu.Unlock(); return p.busyJS() }
 	if got := busy(); got != "setBusy([])" {
@@ -337,4 +337,38 @@ func TestTimerCountsUp(t *testing.T) {
 	if got := eval(t, `document.getElementById("card-incident").hasAttribute("data-done")`); got != "false" {
 		t.Error("a timer without an end is done")
 	}
+}
+
+// The bar draws into its page only once the page is ready, and again whenever it's
+// given cards, each time with the busy marks. A page loaded afresh, which says it's
+// ready again, has every card arriving.
+func TestDrawsOnceReady(t *testing.T) {
+	f := &fakeNative{}
+	b := newBar(Options{}, f)
+	cards := components.Cards([]components.Basic{{ID: "early", Title: "Early"}})
+	b.Render(cards)
+	if ran := f.ran(BarWindow); len(ran) != 0 {
+		t.Fatalf("before its page was ready, the bar ran %q", ran)
+	}
+	// drawn is whether the last thing run in the bar's page drew the card, new or not,
+	// and marked nothing busy.
+	drawn := func(t *testing.T, when string, isNew bool) {
+		t.Helper()
+		js := f.last(BarWindow)
+		if !strings.HasPrefix(js, "update(") || !strings.HasSuffix(js, "; setBusy([])") || !strings.Contains(js, `id=\"card-early\"`) {
+			t.Fatalf("%s, the bar ran %s", when, js)
+		}
+		if strings.Contains(js, "data-new") != isNew {
+			t.Errorf("%s, the card is new: %v, want %v", when, !isNew, isNew)
+		}
+	}
+	post(b, BarWindow, `{"action": "ready"}`)
+	drawn(t, "once ready", true)
+	b.Render(cards)
+	drawn(t, "rendered again", false)
+	if n := len(f.ran(BarWindow)); n != 2 {
+		t.Errorf("the bar ran %d things, want a draw for each of 2 renders", n)
+	}
+	post(b, BarWindow, `{"action": "ready"}`)
+	drawn(t, "ready again", true)
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/TheWozard/ledge-frontend/components"
 	"github.com/TheWozard/ledge-frontend/shim"
+	"github.com/TheWozard/ledge-frontend/theme"
 )
 
 // A message is one of the page's actions, with an id if it takes one, an event of
@@ -196,9 +197,7 @@ func TestBusy(t *testing.T) {
 func TestBusyMenu(t *testing.T) {
 	gui(t)
 	withTheme(t, "native")
-	real := showMenu
-	showMenu = func([]shim.MenuItem) shim.Chosen { return shim.Chosen{} }
-	t.Cleanup(func() { showMenu = real })
+	standInMenu(t, func([]shim.MenuItem) shim.Chosen { return shim.Chosen{} })
 	release := make(chan bool)
 	t.Cleanup(func() { close(release) })
 	show(t, []components.Basic{{ID: "acts", Title: "Acts", Click: record("open acts"), Actions: []components.Action{
@@ -226,16 +225,14 @@ func TestNativeMenus(t *testing.T) {
 	var menus [][]shim.MenuItem
 	choose, then := 0, func() {}
 	opened := func() int { mu.Lock(); defer mu.Unlock(); return len(menus) }
-	real := showMenu
-	showMenu = func(items []shim.MenuItem) shim.Chosen {
+	standInMenu(t, func(items []shim.MenuItem) shim.Chosen {
 		mu.Lock()
 		menus = append(menus, items)
 		chosen, before := choose, then
 		mu.Unlock()
 		before()
 		return shim.Chosen{Index: chosen, Modifiers: shim.Modifiers{Cmd: true}}
-	}
-	t.Cleanup(func() { showMenu = real })
+	})
 	cards := []components.Basic{
 		{ID: "m", Title: "Menu", Click: record("open m"), Actions: []components.Action{
 			{ID: "run", Title: "Run", Color: "green", Click: record("run run")}, {ID: "info", Title: "Info"},
@@ -461,4 +458,168 @@ func TestPopup(t *testing.T) {
 	if p.finish(item(1)) {
 		t.Error("a closed menu was chosen from")
 	}
+}
+
+// What the bar's page posts reaches the Click it names, with how it was clicked, and
+// nothing else: not a message that isn't one of the page's, nor one from a window
+// that isn't open, nor a Click a render has since taken off.
+func TestClickMessages(t *testing.T) {
+	b, _ := fakeBar(t, theme.Theme{})
+	b.Render(components.Cards([]components.Basic{
+		{ID: "fc", Title: "Clicks", Click: record("fake open fc"), Dismiss: record("fake dismiss fc")},
+	}))
+	post(b, BarWindow, `{"action": "click", "id": "card/fc/click", "event": {"alt": true, "middle": true}}`)
+	if got, want := calls.event("fake open fc"), (components.ClickEvent{Alt: true, Middle: true}); !calls.has("fake open fc") || got != want {
+		t.Errorf("the card's Click was clicked %+v, want %+v", got, want)
+	}
+	post(b, BarWindow, `{"action": "click", "id": "card/fc/dismiss"}`)
+	if !calls.has("fake dismiss fc") || calls.count("fake open fc") != 1 {
+		t.Error("a click on × didn't call only the card's Dismiss")
+	}
+	for _, message := range []string{
+		`{"action": "click"}`, `{"action": "click", "id": "card/fc/click", "path": "/etc"}`,
+		`{"action": "exec", "id": "card/fc/click"}`, `"click"`, `{"action": "click", "id": "card-fc"}`,
+	} {
+		post(b, BarWindow, message)
+	}
+	post(b, MenuWindow+40, `{"action": "click", "id": "card/fc/click"}`)
+	b.Render(nil)
+	post(b, BarWindow, `{"action": "click", "id": "card/fc/click"}`)
+	if n := calls.count("fake open fc"); n != 1 {
+		t.Errorf("the card's Click ran %d times, want only the once it was clicked", n)
+	}
+}
+
+// While a Click runs, the page is told it's busy, with every draw too, and a click on
+// it meanwhile is dropped; once it's done, the page is told it isn't.
+func TestBusyMarks(t *testing.T) {
+	b, f := fakeBar(t, theme.Theme{})
+	started, release, done := make(chan bool, 2), make(chan bool), make(chan bool)
+	t.Cleanup(func() { close(release) })
+	cards := components.Cards([]components.Basic{{ID: "fb", Title: "Busy", Click: func(components.ClickEvent) {
+		started <- true
+		<-release
+	}}})
+	b.Render(cards)
+	go func() { post(b, BarWindow, `{"action": "click", "id": "card/fb/click"}`); done <- true }()
+	<-started
+	if got := f.last(BarWindow); got != `setBusy(["card/fb/click"])` {
+		t.Errorf("while the Click runs, the bar ran %s", got)
+	}
+	b.Render(cards)
+	if got := f.last(BarWindow); !strings.HasPrefix(got, "update(") || !strings.HasSuffix(got, `; setBusy(["card/fb/click"])`) {
+		t.Errorf("drawn while the Click runs, the bar ran %s", got)
+	}
+	again := make(chan bool)
+	go func() { post(b, BarWindow, `{"action": "click", "id": "card/fb/click"}`); again <- true }()
+	select {
+	case <-again:
+	case <-time.After(time.Second):
+		t.Fatal("a click on a running Click ran it again")
+	}
+	release <- true
+	<-done
+	if got := f.last(BarWindow); got != "setBusy([])" {
+		t.Errorf("once the Click is done, the bar ran %s", got)
+	}
+	if len(started) != 0 {
+		t.Error("a click on a running Click ran it again")
+	}
+}
+
+// In a theme that draws a card's menu, its ⋯ loads the menu's page, which is shown
+// once it's ready, the ⋯ busy until the menu's closed and what was chosen has run.
+// Choosing an item calls its action's Click, with the keys held but never the middle
+// button, and hides the menu; one that can't be chosen leaves it open; Escape hides
+// it; and one whose card a render has since taken off is dropped. A middle click on
+// the ⋯ shows nothing.
+func TestThemeMenu(t *testing.T) {
+	b, f := fakeBar(t, defaultTheme(t))
+	b.Render(components.Cards([]components.Basic{{ID: "fm", Title: "Menu", Click: record("fake open fm"), Actions: []components.Action{
+		{ID: "info", Title: "Info"}, {ID: "go", Title: "Go", Color: "green", Click: record("fake go fm")},
+	}}}))
+	// opens clicks the ⋯ and waits for the menu to show. What it returns is done once
+	// the menu's closed and what was chosen has run.
+	opens := func(t *testing.T) chan bool {
+		t.Helper()
+		loads, done := f.loadCount(MenuWindow), make(chan bool)
+		go func() { post(b, BarWindow, `{"action": "click", "id": "card/fm/menu"}`); done <- true }()
+		eventually(t, "the menu's page to load", func() bool { return f.loadCount(MenuWindow) > loads })
+		if page := f.page(MenuWindow); !strings.Contains(page, ">Info<") || !strings.Contains(page, ">Go<") {
+			t.Errorf("the menu's page is %s", page)
+		}
+		post(b, MenuWindow, `{"action": "ready"}`)
+		if !f.showing(MenuWindow) {
+			t.Fatal("the menu's page, ready, isn't shown")
+		}
+		if got := f.last(BarWindow); got != `setBusy(["card/fm/menu"])` {
+			t.Errorf("with the menu open, the bar ran %s", got)
+		}
+		return done
+	}
+	closes := func(t *testing.T, done chan bool) {
+		t.Helper()
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("the menu's Click didn't finish")
+		}
+		if f.showing(MenuWindow) {
+			t.Error("the menu is still shown")
+		}
+		if got := f.last(BarWindow); got != "setBusy([])" {
+			t.Errorf("with the menu closed, the bar ran %s", got)
+		}
+	}
+
+	done := opens(t)
+	post(b, MenuWindow, `{"action": "choose", "id": "0"}`)
+	if !f.showing(MenuWindow) {
+		t.Fatal("choosing an item that can't be chosen closed the menu")
+	}
+	post(b, MenuWindow, `{"action": "choose", "id": "1", "event": {"alt": true, "middle": true}}`)
+	closes(t, done)
+	if got, want := calls.event("fake go fm"), (components.ClickEvent{Alt: true}); !calls.has("fake go fm") || got != want {
+		t.Errorf("Go, chosen with ⌥ held, was clicked %+v, want %+v", got, want)
+	}
+
+	done = opens(t)
+	post(b, MenuWindow, `{"action": "close"}`)
+	closes(t, done)
+
+	done = opens(t)
+	b.Render(nil)
+	post(b, MenuWindow, `{"action": "choose", "id": "1"}`)
+	closes(t, done)
+	if n := calls.count("fake go fm"); n != 1 || calls.has("fake open fm") {
+		t.Errorf("Go ran %d times, want only the once it was chosen while its card was there", n)
+	}
+
+	b.Render(components.Cards([]components.Basic{{ID: "fm", Actions: []components.Action{{ID: "go", Title: "Go"}}}}))
+	loads := f.loadCount(MenuWindow)
+	post(b, BarWindow, `{"action": "click", "id": "card/fm/menu", "event": {"middle": true}}`)
+	if f.loadCount(MenuWindow) != loads {
+		t.Error("a middle click on the ⋯ showed the menu")
+	}
+}
+
+// In a theme without a menu of its own, a card's ⋯ pops up the native menu of its
+// actions, each with its colour, and greyed out without a Click; choosing one calls
+// its Click with the keys held. A middle click on the ⋯ shows nothing.
+func TestNativeMenu(t *testing.T) {
+	b, f := fakeBar(t, theme.Theme{})
+	f.choose = func([]shim.MenuItem) shim.Chosen { return shim.Chosen{Index: 0, Modifiers: shim.Modifiers{Cmd: true}} }
+	b.Render(components.Cards([]components.Basic{{ID: "nm", Title: "Menu", Actions: []components.Action{
+		{ID: "run", Title: "Run", Color: "green", Click: record("fake run nm")}, {ID: "info", Title: "Info"},
+	}}}))
+	post(b, BarWindow, `{"action": "click", "id": "card/nm/menu"}`)
+	if got, want := calls.event("fake run nm"), (components.ClickEvent{Cmd: true}); !calls.has("fake run nm") || got != want {
+		t.Errorf("Run, chosen with ⌘ held, was clicked %+v, want %+v", got, want)
+	}
+	want := [][]shim.MenuItem{{{Title: "Run", Color: "green", Enabled: true}, {Title: "Info", Color: "gray"}}}
+	post(b, BarWindow, `{"action": "click", "id": "card/nm/menu", "event": {"middle": true}}`)
+	if f.mu.Lock(); !slices.EqualFunc(f.menus, want, slices.Equal) {
+		t.Errorf("the menus were %+v, want %+v", f.menus, want)
+	}
+	f.mu.Unlock()
 }

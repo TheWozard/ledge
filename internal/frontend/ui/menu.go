@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/TheWozard/ledge-frontend/components"
-	"github.com/TheWozard/ledge-frontend/shim"
 )
 
 // menuMessages is what a theme's menu page can post, each action with whether it
@@ -75,8 +74,8 @@ func (b *Bar) popupMenu(css string, items []components.MenuItem) choice {
 		enabled[i] = item.Enabled
 	}
 	done := b.popup.open(enabled)
-	shim.CreatePopup(MenuWindow)
-	shim.LoadHTML(MenuWindow, page.String())
+	b.native.CreatePopup(MenuWindow)
+	b.native.LoadHTML(MenuWindow, page.String())
 	return <-done
 }
 
@@ -96,7 +95,7 @@ func (b *Bar) handleMenuPage(data []byte) {
 		if !b.popup.isOpen() {
 			return
 		}
-		value, err := shim.EvalResult(MenuWindow, measureMenu)
+		value, err := b.native.EvalResult(MenuWindow, measureMenu)
 		var size [2]float64
 		if err == nil {
 			err = json.Unmarshal(value, &size)
@@ -106,7 +105,7 @@ func (b *Bar) handleMenuPage(data []byte) {
 			b.popup.finish(noChoice)
 			return
 		}
-		shim.ShowPopup(MenuWindow, size[0], size[1])
+		b.native.ShowPopup(MenuWindow, size[0], size[1])
 	case "choose":
 		i, err := strconv.Atoi(m.ID)
 		event := m.clickEvent()
@@ -115,10 +114,10 @@ func (b *Bar) handleMenuPage(data []byte) {
 			log.Printf("ui: the menu chose %q, which can't be chosen", m.ID)
 			return
 		}
-		shim.HidePopup(MenuWindow)
+		b.native.HidePopup(MenuWindow)
 	case "close":
 		if b.popup.finish(noChoice) {
-			shim.HidePopup(MenuWindow)
+			b.native.HidePopup(MenuWindow)
 		}
 	}
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/a-h/templ"
 
 	"github.com/TheWozard/ledge-frontend/components"
-	"github.com/TheWozard/ledge-frontend/shim"
 )
 
 // ShowReport shows title and blocks in id's report window, in the bar's theme, and
@@ -35,15 +34,15 @@ func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	b.mu.Unlock()
 	// These wait for the main thread, which can be waiting for the lock to say a
 	// window closed, so they're called without it.
-	shim.CreateWindow(p.window, title, 900, 700)
-	shim.SetTitle(p.window, title)
-	shim.SetAppearance(p.window, t.Frame.Appearance)
-	shim.SetFrameless(p.window, t.Frame.Frameless)
+	b.native.CreateWindow(p.window, title, 900, 700)
+	b.native.SetTitle(p.window, title)
+	b.native.SetAppearance(p.window, t.Frame.Appearance)
+	b.native.SetFrameless(p.window, t.Frame.Frameless)
 	// The page and its Clicks change together, so they always match.
 	b.mu.Lock()
 	p.load(html.String(), clicks)
 	b.mu.Unlock()
-	shim.ShowWindow(p.window)
+	b.native.ShowWindow(p.window)
 	return nil
 }
 
@@ -87,7 +86,7 @@ func (b *Bar) report(id string) *page {
 		return p
 	}
 	b.last++
-	p := newPage(b.last, fmt.Sprintf("report window %d", b.last))
+	p := newPage(b.native, b.last, fmt.Sprintf("report window %d", b.last))
 	b.reports[id], b.pages[p.window] = p, p
 	return p
 }
@@ -121,12 +120,8 @@ func (b *Bar) navigate(window int, target string, clicked bool) bool {
 	}
 	if u, err := url.Parse(target); err == nil {
 		if scheme := strings.ToLower(u.Scheme); scheme == "http" || scheme == "https" {
-			go openURL(target)
+			go b.native.OpenURL(target)
 		}
 	}
 	return false
 }
-
-// openURL opens a link clicked in a report. The tests have it record the link
-// instead of opening the browser.
-var openURL = shim.OpenURL

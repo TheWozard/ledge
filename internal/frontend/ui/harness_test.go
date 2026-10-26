@@ -25,13 +25,13 @@ import (
 var (
 	testBar *Bar
 	logs    syncBuffer
-	calls   recorder // what the Clicks and openURL were called with
+	calls   recorder // what the Clicks were called with, and the links opened
 )
 
 var defaults = Options{Edge: "bottom", Height: 110, Level: "normal"} // the zero Theme: the default
 
-// recorder keeps the calls of the test Clicks and openURL: each Click's name, and
-// "url u", and how each Click was last clicked.
+// recorder keeps the calls of the test Clicks and the links the bar opens: each
+// Click's name, and "url u", and how each Click was last clicked.
 type recorder struct {
 	mu     sync.Mutex
 	calls  []string
@@ -90,16 +90,15 @@ func record(name string) components.Click {
 }
 
 func TestMain(m *testing.M) {
-	openURL = func(url string) { calls.add("url " + url) }
+	log.SetOutput(&logs)
 	if os.Getenv("LEDGE_GUI_TEST") == "" {
 		fmt.Println("skipping the tests that open windows; set LEDGE_GUI_TEST=1 to run them")
 		os.Exit(m.Run())
 	}
-	log.SetOutput(&logs)
 	// The main loop has the main goroutine, so the tests run beside it.
 	Init()
 	var err error
-	testBar, err = Open(defaults)
+	testBar, err = open(defaults, guiNative{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -129,6 +128,41 @@ func themes(t *testing.T) []string {
 		chosen = append(chosen, name)
 	}
 	return chosen
+}
+
+// guiNative is the windows, through the shim, but for the links the bar opens, which
+// it records rather than opening the browser, and the native menu, which a test's
+// stand-in takes the place of while it has one.
+type guiNative struct{ shimNative }
+
+// standIn is the native menu's stand-in, if a test has one.
+var standIn struct {
+	mu   sync.Mutex
+	menu func(items []shim.MenuItem) shim.Chosen
+}
+
+func (guiNative) OpenURL(url string) { calls.add("url " + url) }
+
+func (n guiNative) ShowMenu(items []shim.MenuItem) shim.Chosen {
+	standIn.mu.Lock()
+	menu := standIn.menu
+	standIn.mu.Unlock()
+	if menu == nil {
+		return n.shimNative.ShowMenu(items)
+	}
+	return menu(items)
+}
+
+// standInMenu has menu stand in for the native menu for the length of the test.
+func standInMenu(t *testing.T, menu func(items []shim.MenuItem) shim.Chosen) {
+	standIn.mu.Lock()
+	defer standIn.mu.Unlock()
+	standIn.menu = menu
+	t.Cleanup(func() {
+		standIn.mu.Lock()
+		defer standIn.mu.Unlock()
+		standIn.menu = nil
+	})
 }
 
 func gui(t *testing.T) {

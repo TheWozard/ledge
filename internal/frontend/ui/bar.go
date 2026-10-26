@@ -19,6 +19,7 @@ import (
 // Bar is the bar window and the report windows.
 type Bar struct {
 	options Options
+	native  native // the windows, once the bar's open
 
 	mu      sync.Mutex
 	cards   []components.Card
@@ -37,7 +38,10 @@ var opened atomic.Bool
 
 // Open creates the bar, places it and loads its page. Call it once, after Init and
 // before Run, on the main goroutine.
-func Open(options Options) (*Bar, error) {
+func Open(options Options) (*Bar, error) { return open(options, shimNative{}) }
+
+// open is Open, with n for what's asked of the windows once the bar is open.
+func open(options Options, n native) (*Bar, error) {
 	if !opened.CompareAndSwap(false, true) {
 		return nil, errors.New("ui: the bar is already open")
 	}
@@ -46,7 +50,7 @@ func Open(options Options) (*Bar, error) {
 		opened.Store(false)
 		return nil, err
 	}
-	b := newBar(options)
+	b := newBar(options, n)
 	shim.CreateBar(BarWindow)
 	shim.SetLevel(BarWindow, options.Level)
 	b.Place()
@@ -71,11 +75,11 @@ func Open(options Options) (*Bar, error) {
 	return b, nil
 }
 
-// newBar is a bar with options and no cards, and no reports yet: the first will take
-// the window id after the menu's.
-func newBar(options Options) *Bar {
-	bar := newPage(BarWindow, "the bar")
-	return &Bar{options: options, shown: map[string]bool{}, bar: bar,
+// newBar is a bar with options and no cards, and no reports yet, shown through n: the
+// first report will take the window id after the menu's.
+func newBar(options Options, n native) *Bar {
+	bar := newPage(n, BarWindow, "the bar")
+	return &Bar{options: options, native: n, shown: map[string]bool{}, bar: bar,
 		pages: map[int]*page{BarWindow: bar}, reports: map[string]*page{}, last: MenuWindow}
 }
 

@@ -7,13 +7,13 @@ import (
 	"slices"
 
 	"github.com/TheWozard/ledge-frontend/components"
-	"github.com/TheWozard/ledge-frontend/shim"
 )
 
 // page is what a window shows, the bar or a report: a page rendered in Go, which posts
 // the ids of what's clicked in it. It has the Clicks it was rendered with, which of
 // them are running, and whether it's loaded. Its fields are guarded by the bar's lock.
 type page struct {
+	native  native
 	window  int
 	name    string   // what the log calls it: "the bar", or "report window 3"
 	ready   bool     // it's posted "ready" since it was last loaded
@@ -27,22 +27,22 @@ type page struct {
 // of a Click in it.
 var pageMessages = map[string]bool{"ready": false, "click": true}
 
-// newPage is window's page, not loaded yet.
-func newPage(window int, name string) *page {
-	return &page{window: window, name: name, clicks: &components.Clicks{}, running: map[string]bool{}}
+// newPage is window's page, not loaded yet, shown through n.
+func newPage(n native, window int, name string) *page {
+	return &page{native: n, window: window, name: name, clicks: &components.Clicks{}, running: map[string]bool{}}
 }
 
 // load replaces what p shows by html, with clicks, the Clicks in it. Until the new
 // page is ready, what's evaluated in it waits.
 func (p *page) load(html string, clicks *components.Clicks) {
 	p.ready, p.queued, p.clicks = false, nil, clicks
-	shim.LoadHTML(p.window, html)
+	p.native.LoadHTML(p.window, html)
 }
 
 // eval runs js in p once it's ready: now if it is.
 func (p *page) eval(js string) {
 	if p.ready {
-		shim.Eval(p.window, js)
+		p.native.Eval(p.window, js)
 		return
 	}
 	p.queued = append(p.queued, js)
@@ -52,7 +52,7 @@ func (p *page) eval(js string) {
 func (p *page) loaded() {
 	p.ready = true
 	for _, js := range p.queued {
-		shim.Eval(p.window, js)
+		p.native.Eval(p.window, js)
 	}
 	p.queued = nil
 }

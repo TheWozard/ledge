@@ -12,7 +12,7 @@ import (
 // however many renders show it, and not at all if it's gone by then. It needs no
 // window: a bar whose page isn't ready keeps what it's given.
 func TestComplete(t *testing.T) {
-	bar := newBar(Options{})
+	bar := newBar(Options{}, &fakeNative{})
 	var mu sync.Mutex
 	counts := map[string]int{}
 	timer := func(id string, end time.Time) components.Timer {
