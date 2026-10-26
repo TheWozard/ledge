@@ -87,7 +87,6 @@ func (b *Bar) received(window int, data []byte) {
 		b.mu.Lock()
 		p.loaded()
 		if p == b.bar {
-			b.shown = map[string]bool{} // a fresh page shows every card arriving
 			b.draw()
 		} else {
 			p.eval(p.busyJS()) // a fresh page has no busy marks

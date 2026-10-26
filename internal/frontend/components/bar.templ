@@ -31,14 +31,13 @@ templ BarPage(themeCSS string, edge string) {
 	</html>
 }
 
-// BarContent is what the bar shows: cards in a row, in the order given. fresh gives
-// each card new since the bar last showed, by ElementID, its place among the new
-// ones, for the theme's entrance animation. The row is there even when empty, so the
-// last card can animate out.
-templ BarContent(cards []Card, fresh map[string]int) {
+// BarContent is what the bar shows: cards in a row, in the order given. The row is
+// there even when empty, so the last card can animate out. Which cards are new, for
+// the theme's entrance animation, is the page's to tell.
+templ BarContent(cards []Card) {
 	<ul id="cards">
 		for _, c := range cards {
-			@card(c.Frame(), c.Body(), fresh)
+			@card(c.Frame(), c.Body())
 		}
 	</ul>
 	if len(cards) == 0 {
@@ -52,12 +51,12 @@ templ BarContent(cards []Card, fresh map[string]int) {
 // data-click. The frame's
 // Clicks are in the card's scope, and the body's in a scope of their own, so the ids
 // of its parts can be anything.
-templ card(f Frame, body templ.Component, fresh map[string]int) {
-	@inScope(scope{"card", f.ID}, frame(f, body, fresh))
+templ card(f Frame, body templ.Component) {
+	@inScope(scope{"card", f.ID}, frame(f, body))
 }
 
 // frame is card's frame, rendered in its scope.
-templ frame(f Frame, body templ.Component, fresh map[string]int) {
+templ frame(f Frame, body templ.Component) {
 	<li
 		id={ f.ElementID() }
 		class={ f.classes() }
@@ -70,10 +69,7 @@ templ frame(f Frame, body templ.Component, fresh map[string]int) {
 		if color, ok := f.color(); ok {
 			data-color={ color }
 		}
-		if _, ok := fresh[f.ElementID()]; ok {
-			data-new
-		}
-		if style := f.style(fresh); style != "" {
+		if style := f.style(); style != "" {
 			style={ templ.SafeCSS(style) }
 		}
 	>

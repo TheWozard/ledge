@@ -56,7 +56,7 @@ func Cards[T Card](cards []T) []Card {
 	return all
 }
 
-// ElementID is the card's id on the page, and its key in BarContent's fresh.
+// ElementID is the card's id on the page.
 func (f Frame) ElementID() string { return "card-" + f.ID }
 
 // className is what a Kind must be to be a class on its card.
@@ -78,9 +78,8 @@ func (f Frame) classes() string {
 // color is the card's colour, if it has one that's #rrggbb.
 func (f Frame) color() (string, bool) { return f.Color, hex.MatchString(f.Color) }
 
-// style is the card's inline style: its colour, width and progress, if it has them,
-// and its place among the new ones if it's in fresh.
-func (f Frame) style(fresh map[string]int) string {
+// style is the card's inline style: its colour, width and progress, if it has them.
+func (f Frame) style() string {
 	var style []string
 	if color, ok := f.color(); ok {
 		style = append(style, "--card-color: "+color)
@@ -90,9 +89,6 @@ func (f Frame) style(fresh map[string]int) string {
 	}
 	if f.Progress > 0 {
 		style = append(style, "--progress: "+strconv.FormatFloat(min(f.Progress, 1), 'f', -1, 64))
-	}
-	if i, ok := fresh[f.ElementID()]; ok {
-		style = append(style, entering(i))
 	}
 	return strings.Join(style, "; ")
 }
@@ -137,6 +133,3 @@ func (f Frame) Action(id string) Click {
 	}
 	return nil
 }
-
-// entering is the style that gives a new card its place among the new ones.
-func entering(i int) string { return fmt.Sprintf("--i: %d", i) }

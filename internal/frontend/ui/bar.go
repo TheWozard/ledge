@@ -23,8 +23,7 @@ type Bar struct {
 
 	mu      sync.Mutex
 	cards   []components.Card
-	shown   map[string]bool // the element ids of the cards on the bar, to tell which are new
-	endings endings         // the cards that end, and when each has completed
+	endings endings // the cards that end, and when each has completed
 	bar     *page
 	pages   map[int]*page    // the bar's and each open report's, by window
 	reports map[string]*page // each open report's, by the id it was shown with
@@ -79,7 +78,7 @@ func open(options Options, n native) (*Bar, error) {
 // first report will take the window id after the menu's.
 func newBar(options Options, n native) *Bar {
 	bar := newPage(n, BarWindow, "the bar")
-	return &Bar{options: options, native: n, shown: map[string]bool{}, bar: bar,
+	return &Bar{options: options, native: n, bar: bar,
 		pages: map[int]*page{BarWindow: bar}, reports: map[string]*page{}, last: MenuWindow}
 }
 
@@ -135,12 +134,10 @@ func (b *Bar) draw() {
 	if !b.bar.ready {
 		return
 	}
-	var fresh map[string]int
-	fresh, b.shown = arrivals(b.cards, b.shown)
 	var html strings.Builder
 	clicks := &components.Clicks{}
 	ctx := components.WithMenus(components.WithClicks(context.Background(), clicks), b.menu)
-	if err := components.BarContent(b.cards, fresh).Render(ctx, &html); err != nil {
+	if err := components.BarContent(b.cards).Render(ctx, &html); err != nil {
 		log.Printf("ui: rendering the bar: %v", err)
 		return
 	}
@@ -149,22 +146,6 @@ func (b *Bar) draw() {
 	js, _ := json.Marshal(html.String())
 	// The busy marks go with it, in one go, so what's busy never shows otherwise.
 	b.bar.eval("update(" + string(js) + "); " + b.bar.busyJS())
-}
-
-// arrivals is what's new among cards since the bar showed shown, the element ids of
-// the cards on it then. fresh gives each card new since then its place among the new
-// ones, for the theme's entrance animation. now is the element ids on the bar with
-// cards.
-func arrivals(cards []components.Card, shown map[string]bool) (fresh map[string]int, now map[string]bool) {
-	fresh, now = map[string]int{}, map[string]bool{}
-	for _, card := range cards {
-		id := card.Frame().ElementID()
-		if !shown[id] {
-			fresh[id] = len(fresh)
-		}
-		now[id] = true
-	}
-	return fresh, now
 }
 
 // Place puts the bar along its edge of its screen, and returns where it went. The bar

@@ -15,7 +15,7 @@ func TestChecks(t *testing.T) {
 			{Name: "build", State: "passed"}, {Name: "<test>", State: "failed"}, {Name: "lint", State: "running"},
 			{Name: "deploy", State: "pending"}, {Name: "docs", State: "skipped"}, {Name: "odd", State: "exploded"},
 		}}
-	html := render(t, BarContent([]Card{card}, nil))
+	html := render(t, BarContent([]Card{card}))
 	contains(t, html,
 		`<span class="title">CI</span> <div class="check-list">`,
 		`<span class="check" data-state="passed" title="build: passed"><span class="check-mark">✓</span>build</span>`,
@@ -33,7 +33,7 @@ func TestChecks(t *testing.T) {
 	lacks(t, html, "check clickable", `data-click="body/`)
 
 	// Without checks, there's no row for them.
-	empty := render(t, BarContent([]Card{Checks{Basic: Basic{ID: "none", Title: "None"}}}, nil))
+	empty := render(t, BarContent([]Card{Checks{Basic: Basic{ID: "none", Title: "None"}}}))
 	if strings.Contains(empty, "check-list") {
 		t.Errorf("a card without checks has a row for them:\n%s", empty)
 	}
@@ -47,7 +47,7 @@ func TestClickableChecks(t *testing.T) {
 	click := func(name string) Click { return func(ClickEvent) { got = append(got, name) } }
 	card := Checks{Basic: Basic{ID: "ci", Title: "CI", Click: click("card")},
 		Checks: []Check{{Name: "build", State: "passed"}, {Name: "test", State: "failed", Click: click("test")}}}
-	html, clicks := renderClicks(t, BarContent([]Card{card}, nil))
+	html, clicks := renderClicks(t, BarContent([]Card{card}))
 	contains(t, html,
 		`<span class="check" data-state="passed" title="build: passed">`,
 		`<span class="check clickable" data-click="body/ci/test" data-state="failed" title="test: failed">`)

@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 	"sync/atomic"
@@ -21,42 +20,6 @@ func TestWindow(t *testing.T) {
 	waitFor(t, `document.getElementById("app") !== null`, "true")
 	if got := eval(t, `document.body.className`); got != `"bottom"` {
 		t.Errorf("body class = %s", got)
-	}
-}
-
-// Each card new since the last draw is fresh, numbered among the new ones. What's gone
-// is forgotten, so it's new again if it comes back.
-func TestArrivals(t *testing.T) {
-	draws := []struct {
-		ids   []string
-		fresh map[string]int
-	}{
-		// On a fresh page, every card is new.
-		{[]string{"x", "y"}, map[string]int{"card-x": 0, "card-y": 1}},
-		{[]string{"x", "y", "z"}, map[string]int{"card-z": 0}},
-		// Nothing changed.
-		{[]string{"x", "y", "z"}, map[string]int{}},
-		// y goes, w arrives, and they're reordered.
-		{[]string{"z", "w", "x"}, map[string]int{"card-w": 0}},
-		// y comes back, new again.
-		{[]string{"y", "x"}, map[string]int{"card-y": 0}},
-	}
-	shown := map[string]bool{}
-	for i, draw := range draws {
-		var cards []components.Basic
-		var want []string
-		for _, id := range draw.ids {
-			cards = append(cards, components.Basic{ID: id})
-			want = append(want, "card-"+id)
-		}
-		var fresh map[string]int
-		fresh, shown = arrivals(components.Cards(cards), shown)
-		if !maps.Equal(fresh, draw.fresh) {
-			t.Errorf("draw %d: fresh = %v, want %v", i, fresh, draw.fresh)
-		}
-		if got := slices.Sorted(maps.Keys(shown)); !slices.Equal(got, slices.Sorted(slices.Values(want))) {
-			t.Errorf("draw %d: shown = %v, want %v", i, got, want)
-		}
 	}
 }
 
@@ -243,7 +206,7 @@ func TestEnterAndLeave(t *testing.T) {
 	waitFor(t, `document.getElementById("card-y") === null`, "true")
 }
 
-// A card that comes back while it's leaving stays.
+// A card that comes back while it's leaving stays, and arrives again.
 func TestComesBackWhileLeaving(t *testing.T) {
 	gui(t)
 	cards := []components.Basic{{ID: "back", Title: "Back"}, {ID: "other", Title: "Other"}}
@@ -254,6 +217,9 @@ func TestComesBackWhileLeaving(t *testing.T) {
 	waitFor(t, `window.back.hasAttribute("data-leaving")`, "true")
 	testBar.Render(components.Cards(cards))
 	waitFor(t, `window.back.hasAttribute("data-leaving")`, "false")
+	if got := eval(t, `[window.back.hasAttribute("data-new"), document.getElementById("card-other").hasAttribute("data-new")].join()`); got != `"true,false"` {
+		t.Errorf("come back, it and the card that stayed are new: %s, want it alone", got)
+	}
 	time.Sleep(3500 * time.Millisecond) // past the longest a leaving card is kept
 	if got := eval(t, `document.getElementById("card-back") === window.back && window.back.isConnected`); got != "true" {
 		t.Error("a card that came back was removed anyway")
@@ -340,8 +306,8 @@ func TestTimerCountsUp(t *testing.T) {
 }
 
 // The bar draws into its page only once the page is ready, and again whenever it's
-// given cards, each time with the busy marks. A page loaded afresh, which says it's
-// ready again, has every card arriving.
+// given cards, each time with the busy marks, and again once a page loaded afresh
+// says it's ready.
 func TestDrawsOnceReady(t *testing.T) {
 	f := &fakeNative{}
 	b := newBar(Options{}, f)
@@ -350,25 +316,22 @@ func TestDrawsOnceReady(t *testing.T) {
 	if ran := f.ran(BarWindow); len(ran) != 0 {
 		t.Fatalf("before its page was ready, the bar ran %q", ran)
 	}
-	// drawn is whether the last thing run in the bar's page drew the card, new or not,
-	// and marked nothing busy.
-	drawn := func(t *testing.T, when string, isNew bool) {
+	// drawn is whether the bar's page has had n things run in it, the last drawing
+	// the card and marking nothing busy.
+	drawn := func(t *testing.T, when string, n int) {
 		t.Helper()
 		js := f.last(BarWindow)
 		if !strings.HasPrefix(js, "update(") || !strings.HasSuffix(js, "; setBusy([])") || !strings.Contains(js, `id=\"card-early\"`) {
 			t.Fatalf("%s, the bar ran %s", when, js)
 		}
-		if strings.Contains(js, "data-new") != isNew {
-			t.Errorf("%s, the card is new: %v, want %v", when, !isNew, isNew)
+		if got := len(f.ran(BarWindow)); got != n {
+			t.Errorf("%s, the bar has run %d things, want %d", when, got, n)
 		}
 	}
 	post(b, BarWindow, `{"action": "ready"}`)
-	drawn(t, "once ready", true)
+	drawn(t, "once ready", 1)
 	b.Render(cards)
-	drawn(t, "rendered again", false)
-	if n := len(f.ran(BarWindow)); n != 2 {
-		t.Errorf("the bar ran %d things, want a draw for each of 2 renders", n)
-	}
+	drawn(t, "rendered again", 2)
 	post(b, BarWindow, `{"action": "ready"}`)
-	drawn(t, "ready again", true)
+	drawn(t, "ready again", 3)
 }

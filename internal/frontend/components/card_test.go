@@ -19,24 +19,24 @@ func TestCard(t *testing.T) {
 		{ID: "plain", Title: "Plain", Color: "red; background: url(x)"},
 		{ID: "new", Title: "New", Color: "#2f9e5b"},
 	}
-	html := render(t, BarContent(Cards(cards), map[string]int{"card-plain": 0, "card-new": 1}))
+	html := render(t, BarContent(Cards(cards)))
 	contains(t, html,
 		`<li id="card-deploy" class="basic clickable" data-click="card/deploy/click" data-color="#e0362c" style="--card-color: #e0362c; --card-width: 240px;">`,
 		`<span class="title">Plain</span>`,
 		// A colour that isn't #rrggbb is none.
-		`<li id="card-plain" class="basic" data-new style="--i: 0;">`,
-		`<li id="card-new" class="basic" data-color="#2f9e5b" data-new style="--card-color: #2f9e5b; --i: 1;">`,
+		`<li id="card-plain" class="basic">`,
+		`<li id="card-new" class="basic" data-color="#2f9e5b" style="--card-color: #2f9e5b;">`,
 		`&lt;b&gt;Deploy&lt;/b&gt;`, `<div class="description">done</div>`,
 		// × shows only on a card that can be dismissed.
 		`<div class="card-buttons"><button class="dismiss clickable" title="Dismiss" data-click="card/deploy/dismiss">×</button></div>`)
-	// Without actions, a card has no menu.
-	lacks(t, html, "<b>Deploy", "No events.", "data-menu", "actions")
+	// Without actions, a card has no menu. Which cards are new is the page's to tell.
+	lacks(t, html, "<b>Deploy", "No events.", "data-menu", "actions", "data-new", "--i")
 	lacks(t, html, "url(x)")
-	// Only the deploy card is clicked or dismissed, and only the new ones are new.
-	if strings.Count(html, "data-new") != 2 || strings.Count(html, "data-click") != 2 || strings.Count(html, `class="dismiss`) != 1 {
-		t.Errorf("wrong cards are clickable, dismissable or new:\n%s", html)
+	// Only the deploy card is clicked or dismissed.
+	if strings.Count(html, "data-click") != 2 || strings.Count(html, `class="dismiss`) != 1 {
+		t.Errorf("wrong cards are clickable or dismissable:\n%s", html)
 	}
-	contains(t, render(t, BarContent(nil, nil)), `<ul id="cards"></ul><div class="empty">No events.</div>`)
+	contains(t, render(t, BarContent(nil)), `<ul id="cards"></ul><div class="empty">No events.</div>`)
 }
 
 // Rendered with Clicks, the bar puts in them each Click on the cards by the id the page
@@ -50,7 +50,7 @@ func TestClicks(t *testing.T) {
 			Actions: []Action{{ID: "q", Click: click("q")}, {ID: "none"}}},
 		{ID: "b"},
 	}
-	html, clicks := renderClicks(t, BarContent(Cards(cards), nil))
+	html, clicks := renderClicks(t, BarContent(Cards(cards)))
 	ids := []string{"card/a/click", "card/a/dismiss"}
 	if !slices.Equal(clicks.IDs(), ids) {
 		t.Fatalf("Clicks have %q, want %q", clicks.IDs(), ids)
@@ -74,7 +74,7 @@ func TestParts(t *testing.T) {
 		parts{id: "a/b", parts: map[string]Click{"c": click("a/b c"), "click": click("a/b click")}},
 		parts{id: "a", parts: map[string]Click{"b/c": click("a b/c"), "none": nil}},
 	}
-	html, clicks := renderClicks(t, BarContent(cards, nil))
+	html, clicks := renderClicks(t, BarContent(cards))
 	ids := []string{"body/a%2Fb/c", "body/a%2Fb/click", "body/a/b%2Fc"}
 	if !slices.Equal(clicks.IDs(), ids) {
 		t.Fatalf("Clicks have %q, want %q", clicks.IDs(), ids)
@@ -132,7 +132,7 @@ func TestKinds(t *testing.T) {
 		progress{id: "build", kind: "progress", done: 40},
 		progress{id: "odd", kind: "Not a class", done: 10},
 	}
-	html := render(t, BarContent(cards, nil))
+	html := render(t, BarContent(cards))
 	contains(t, html,
 		`<li id="card-basic" class="basic">`,
 		`<li id="card-build" class="progress" data-menu="card/build/menu"><div class="card-buttons"><button class="menu clickable" title="Actions" data-click="card/build/menu">⋯</button> </div><div class="done">40%</div></li>`,
@@ -152,7 +152,7 @@ func TestMenu(t *testing.T) {
 		{ID: "ci", Title: "<CI>", Color: "#9b59b6", Click: nothing},
 		{ID: "bad", Title: "Bad", Color: "red; background: url(x)"},
 	}}
-	html := render(t, BarContent([]Card{card}, nil))
+	html := render(t, BarContent([]Card{card}))
 	contains(t, html,
 		`<li id="card-card" class="basic clickable" data-click="card/card/click" data-menu="card/card/menu">`,
 		`<div class="card-buttons"><button class="menu clickable" title="Actions" data-click="card/card/menu">⋯</button> `+
@@ -174,7 +174,7 @@ func TestMenu(t *testing.T) {
 	ctx := WithMenus(WithClicks(context.Background(), clicks), func(f Frame) Click {
 		return func(ClickEvent) { opened = append(opened, f.ID) }
 	})
-	if err := BarContent([]Card{card, Basic{ID: "plain"}}, nil).Render(ctx, io.Discard); err != nil {
+	if err := BarContent([]Card{card, Basic{ID: "plain"}}).Render(ctx, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	if ids := []string{"card/card/click", "card/card/dismiss", "card/card/menu"}; !slices.Equal(clicks.IDs(), ids) {
@@ -207,6 +207,6 @@ func TestAction(t *testing.T) {
 
 // Cards and the row have stable ids, for update to morph each into itself.
 func TestBarContentIDs(t *testing.T) {
-	html := render(t, BarContent([]Card{Basic{ID: "ci", Title: "CI"}}, nil))
+	html := render(t, BarContent([]Card{Basic{ID: "ci", Title: "CI"}}))
 	contains(t, html, `<ul id="cards">`, `id="card-ci"`)
 }

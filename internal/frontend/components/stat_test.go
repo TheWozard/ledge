@@ -15,7 +15,7 @@ func TestStat(t *testing.T) {
 		{Basic: Basic{ID: "users", Title: "Users"}, Value: "1,204", Change: "+12"},
 		{Basic: Basic{ID: "plain", Title: "Plain"}, Value: "7", History: []float64{4}},
 	}
-	html := render(t, BarContent(Cards(cards), nil))
+	html := render(t, BarContent(Cards(cards)))
 	contains(t, html,
 		`<li id="card-errors" class="stat">`,
 		`<span class="title">Errors</span><div class="reading"><div class="reading-value">2.3% `,

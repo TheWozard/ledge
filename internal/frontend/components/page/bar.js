@@ -4,8 +4,9 @@ clickable(app);
 // update shows html, rendered by Go from BarContent, with its text escaped. It
 // morphs #app into it, matching cards by their ids, so what's still there keeps its
 // element: the row keeps its scroll, and a hovered card its hover. A card that's gone
-// leaves rather than vanishing.
+// leaves rather than vanishing, and one that's new arrives.
 function update(html) {
+  const shown = new Set([...app.querySelectorAll("#cards > li:not([data-leaving])")].map(card => card.id));
   Idiomorph.morph(app, html, {
     morphStyle: "innerHTML",
     callbacks: {
@@ -16,7 +17,22 @@ function update(html) {
       },
     },
   });
+  arrive(shown);
   tick();
+}
+
+// arrive marks each card on the bar that wasn't in shown, the ids of those on it
+// before, data-new, with --i its place among the new ones, for the theme's entrance
+// animation. One that was leaving is new again. The next update takes them off, as
+// Go's html never has them. They're set before the page next paints, so the animation
+// plays from its start.
+function arrive(shown) {
+  let i = 0;
+  for (const card of app.querySelectorAll("#cards > li:not([data-leaving])")) {
+    if (shown.has(card.id)) continue;
+    card.setAttribute("data-new", "");
+    card.style.setProperty("--i", i++);
+  }
 }
 
 // leave marks node data-leaving, with the room it takes, and removes it once its

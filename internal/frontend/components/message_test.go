@@ -11,7 +11,7 @@ func TestMessage(t *testing.T) {
 	sent := time.Now()
 	card := Message{Basic: Basic{ID: "dm", Title: "<Re: deploy>", Description: "Looks good, <b>ship it</b>"},
 		From: "Ada Lovelace", Sent: sent}
-	html := render(t, BarContent([]Card{card}, nil))
+	html := render(t, BarContent([]Card{card}))
 	contains(t, html,
 		`<li id="card-dm" class="message">`,
 		`<div class="message-head"><span class="avatar" aria-hidden="true">AL</span> <span class="from">Ada Lovelace</span> `+
@@ -21,7 +21,7 @@ func TestMessage(t *testing.T) {
 	lacks(t, html, "<b>")
 
 	// Without a time or a title, neither shows.
-	bare := render(t, BarContent([]Card{Message{Basic: Basic{ID: "b"}, From: "bot"}}, nil))
+	bare := render(t, BarContent([]Card{Message{Basic: Basic{ID: "b"}, From: "bot"}}))
 	lacks(t, bare, "<time", `class="title"`, `class="description"`)
 }
 
@@ -29,7 +29,7 @@ func TestMessage(t *testing.T) {
 // would try to fetch, or could run, is the sender's initials instead.
 func TestAvatar(t *testing.T) {
 	const png = "data:image/png;base64,iVBORw0KGgo="
-	html := render(t, BarContent([]Card{Message{Basic: Basic{ID: "a"}, From: "Ada", Avatar: png}}, nil))
+	html := render(t, BarContent([]Card{Message{Basic: Basic{ID: "a"}, From: "Ada", Avatar: png}}))
 	contains(t, html, `<img class="avatar" src="`+png+`" alt="">`)
 	for _, avatar := range []string{
 		"https://example.com/ada.png",
@@ -38,7 +38,7 @@ func TestAvatar(t *testing.T) {
 		`data:image/png;base64,AAAA" onerror="alert(1)`,
 		"data:image/svg+xml,<svg onload=alert(1)>",
 	} {
-		html := render(t, BarContent([]Card{Message{Basic: Basic{ID: "a"}, From: "Ada", Avatar: avatar}}, nil))
+		html := render(t, BarContent([]Card{Message{Basic: Basic{ID: "a"}, From: "Ada", Avatar: avatar}}))
 		contains(t, html, `<span class="avatar" aria-hidden="true">A</span>`)
 		lacks(t, html, "<img", "example.com", "alert")
 	}

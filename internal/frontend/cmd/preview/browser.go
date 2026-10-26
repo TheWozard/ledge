@@ -205,7 +205,7 @@ func (s *browserServer) content() string {
 			s.mu.Unlock()
 		}
 	})
-	if err := components.BarContent(shown, map[string]int{}).Render(ctx, &buf); err != nil {
+	if err := components.BarContent(shown).Render(ctx, &buf); err != nil {
 		log.Print(err)
 	}
 	s.mu.Lock()
