@@ -16,22 +16,22 @@ import (
 // chosen; and "close", to close it without choosing.
 var menuMessages = map[string]bool{"ready": false, "choose": true, "close": false}
 
-// popup is the theme's menu that's open in MenuWindow, if any: one at a time.
+// popup is the theme's menu that's open in MenuWindow, if any: one at a time. What
+// can be chosen from it is the menu's Click's to say, which has its items.
 type popup struct {
-	mu      sync.Mutex
-	done    chan choice // where what's chosen goes, or nil with none open
-	enabled []bool      // which of the open menu's items can be chosen
+	mu   sync.Mutex
+	done chan choice // where what's chosen goes, or nil with none open
 }
 
-// open makes a menu of items, enabled as given, the one that's open, closing any that
-// was without a choice, and returns where what's chosen from it will go.
-func (p *popup) open(enabled []bool) chan choice {
+// open makes a menu the one that's open, closing any that was without a choice, and
+// returns where what's chosen from it will go.
+func (p *popup) open() chan choice {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if p.done != nil {
 		p.done <- noChoice
 	}
-	p.done, p.enabled = make(chan choice, 1), enabled
+	p.done = make(chan choice, 1)
 	return p.done
 }
 
@@ -42,18 +42,13 @@ func (p *popup) isOpen() bool {
 	return p.done != nil
 }
 
-// finish closes the open menu with chosen: an item that can be chosen, or -1 for
-// none. It says whether it did: not with no menu open, nor with an item that can't be
-// chosen.
+// finish closes the open menu with chosen, an item or noChoice, and says whether
+// there was one open.
 func (p *popup) finish(chosen choice) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	i := chosen.index
-	if p.done == nil || i >= len(p.enabled) || i >= 0 && !p.enabled[i] {
+	if p.done == nil {
 		return false
-	}
-	if i < 0 {
-		chosen = noChoice
 	}
 	p.done <- chosen
 	p.done = nil
@@ -69,11 +64,7 @@ func (b *Bar) popupMenu(css string, items []components.MenuItem) choice {
 		log.Printf("ui: rendering a menu: %v", err)
 		return noChoice
 	}
-	enabled := make([]bool, len(items))
-	for i, item := range items {
-		enabled[i] = item.Enabled
-	}
-	done := b.popup.open(enabled)
+	done := b.popup.open()
 	b.native.CreatePopup(MenuWindow)
 	b.native.LoadHTML(MenuWindow, page.String())
 	return <-done
@@ -106,7 +97,7 @@ func (b *Bar) menuMessage(_ *page, m message) {
 		event := m.clickEvent()
 		event.Middle = false // a menu's items are chosen with the main button, or a key
 		if err != nil || i < 0 || !b.popup.finish(choice{i, event}) {
-			log.Printf("ui: the menu chose %q, which can't be chosen", m.ID)
+			log.Printf("ui: the menu chose %q, which isn't an item of an open menu", m.ID)
 			return
 		}
 		b.native.HidePopup(MenuWindow)

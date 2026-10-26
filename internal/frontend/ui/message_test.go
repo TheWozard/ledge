@@ -372,29 +372,24 @@ func TestMenus(t *testing.T) {
 	}
 }
 
-// One menu is open at a time: opening another closes the first without a choice. A
-// choice of what can't be chosen is refused, and leaves it open; with none open,
+// One menu is open at a time: opening another closes the first without a choice.
+// What's chosen goes to the open menu, with the keys held as it was; with none open,
 // nothing's chosen.
 func TestPopup(t *testing.T) {
 	var p popup
-	item := func(i int) choice { return choice{index: i} }
 	if p.isOpen() || p.finish(noChoice) {
 		t.Fatal("a menu is open before any's opened")
 	}
-	first := p.open([]bool{true, false})
-	second := p.open([]bool{false, true})
+	first := p.open()
+	second := p.open()
 	if got := <-first; got != noChoice {
 		t.Errorf("the first menu, closed by the second, chose %+v", got)
 	}
-	if p.finish(item(0)) || p.finish(item(2)) || !p.isOpen() {
-		t.Error("an item that can't be chosen was chosen")
-	}
-	// What's chosen goes with the keys held as it was.
 	shifted := choice{1, components.ClickEvent{Shift: true}}
 	if !p.finish(shifted) || <-second != shifted || p.isOpen() {
 		t.Error("choosing an item didn't close the menu with it")
 	}
-	if p.finish(item(1)) {
+	if p.finish(choice{index: 1}) {
 		t.Error("a closed menu was chosen from")
 	}
 }
@@ -472,9 +467,10 @@ func TestBusyMarks(t *testing.T) {
 // In a theme that draws a card's menu, its ⋯ loads the menu's page, which is shown
 // once it's ready, the ⋯ busy until the menu's closed and what was chosen has run.
 // Choosing an item calls its action's Click, with the keys held but never the middle
-// button, and hides the menu; one that can't be chosen leaves it open; Escape hides
-// it; and one whose card a render has since taken off is dropped. A middle click on
-// the ⋯ shows nothing.
+// button, and hides the menu; Escape hides it; and one whose card a render has since
+// taken off is dropped. One that can't be chosen, which the page never posts, nor one
+// that isn't an item, hides it and runs nothing. A middle click on the ⋯ shows
+// nothing.
 func TestThemeMenu(t *testing.T) {
 	b, f := fakeBar(t, defaultTheme(t))
 	b.Render(components.Cards([]components.Basic{{ID: "fm", Title: "Menu", Click: record("fake open fm"), Actions: []components.Action{
@@ -514,11 +510,16 @@ func TestThemeMenu(t *testing.T) {
 		}
 	}
 
-	done := opens(t)
-	post(b, MenuWindow, `{"action": "choose", "id": "0"}`)
-	if !f.showing(MenuWindow) {
-		t.Fatal("choosing an item that can't be chosen closed the menu")
+	for _, item := range []string{"0", "9"} {
+		done := opens(t)
+		post(b, MenuWindow, `{"action": "choose", "id": "`+item+`"}`)
+		closes(t, done)
 	}
+	if calls.has("fake go fm") || calls.has("fake open fm") {
+		t.Fatal("choosing what can't be chosen ran something")
+	}
+
+	done := opens(t)
 	post(b, MenuWindow, `{"action": "choose", "id": "1", "event": {"alt": true, "middle": true}}`)
 	closes(t, done)
 	if got, want := calls.event("fake go fm"), (components.ClickEvent{Alt: true}); !calls.has("fake go fm") || got != want {

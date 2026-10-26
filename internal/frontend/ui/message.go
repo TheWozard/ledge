@@ -101,8 +101,8 @@ func (b *Bar) menu(f components.Frame) components.Click {
 			return
 		}
 		chosen := b.chooseFrom(items)
-		if chosen.index < 0 || chosen.index >= len(items) {
-			return
+		if chosen.index < 0 || chosen.index >= len(items) || !items[chosen.index].Enabled {
+			return // nothing chosen, or nothing that can be: the page never posts that
 		}
 		item := items[chosen.index].ID
 		b.mu.Lock()
