@@ -44,11 +44,11 @@ func TestBlocks(t *testing.T) {
 // the Block with its id, as a Block with it, and leaves the blocks it's given as they
 // are; without one, nothing changes.
 func TestBlock(t *testing.T) {
-	if html := render(t, Block(`"x"`, Paragraph("<b>"))); html != `<p>&lt;b&gt;</p>` {
+	if html := render(t, Block{ID: `"x"`, Content: Paragraph("<b>")}); html != `<p>&lt;b&gt;</p>` {
 		t.Errorf("the block is %s", html)
 	}
-	blocks := []templ.Component{Heading("Top"), Block("x", Paragraph("Old")), Block("y", Paragraph("Kept"))}
-	replaced, ok := ReplaceBlock(blocks, "x", Buttons([]Button{{ID: "go", Title: "Go", Click: nothing}}))
+	blocks := []templ.Component{Heading("Top"), Block{ID: "x", Content: Paragraph("Old")}, Block{ID: "y", Content: Paragraph("Kept")}}
+	replaced, ok := ReplaceBlock(blocks, Block{ID: "x", Content: Buttons([]Button{{ID: "go", Title: "Go", Click: nothing}})})
 	if !ok {
 		t.Fatal("ReplaceBlock didn't find x")
 	}
@@ -61,10 +61,10 @@ func TestBlock(t *testing.T) {
 	if render(t, ReportContent(blocks)) != "<h2>Top</h2><p>Old</p><p>Kept</p>" {
 		t.Error("ReplaceBlock changed the blocks it was given")
 	}
-	if same, ok := ReplaceBlock(blocks, "z", Paragraph("Lost")); ok || len(same) != len(blocks) {
+	if same, ok := ReplaceBlock(blocks, Block{ID: "z", Content: Paragraph("Lost")}); ok || len(same) != len(blocks) {
 		t.Error("ReplaceBlock replaced a Block that isn't there")
 	}
-	if _, ok := ReplaceBlock([]templ.Component{Paragraph("x")}, "", Paragraph("Lost")); ok {
+	if _, ok := ReplaceBlock([]templ.Component{Paragraph("x")}, Block{ID: "", Content: Paragraph("Lost")}); ok {
 		t.Error("ReplaceBlock replaced a block without an id")
 	}
 }
@@ -78,8 +78,8 @@ func TestButtons(t *testing.T) {
 	click := func(name string) Click { return func(ClickEvent) { got = append(got, name) } }
 	html, clicks := renderClicks(t, ReportContent([]templ.Component{
 		Buttons([]Button{{ID: "rerun", Title: "<Rerun>", Color: "yellow", Click: click("rerun")}, {ID: "off", Title: "Off", Color: "purple"}}),
-		Block("more", Buttons([]Button{{ID: "cancel", Title: "Cancel", Color: "#e0362c", Click: click("cancel")}})),
-		Block("again", Buttons([]Button{{ID: "cancel", Title: "Cancel", Click: click("cancel again")}})),
+		Block{ID: "more", Content: Buttons([]Button{{ID: "cancel", Title: "Cancel", Color: "#e0362c", Click: click("cancel")}})},
+		Block{ID: "again", Content: Buttons([]Button{{ID: "cancel", Title: "Cancel", Click: click("cancel again")}})},
 	}))
 	contains(t, html,
 		`<div class="buttons"><button type="button" data-color="yellow" style="--button: var(--c-yellow);" class="button" data-click="rerun"><span class="button-dot"></span>&lt;Rerun&gt;</button>`,

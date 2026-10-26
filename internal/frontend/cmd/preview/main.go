@@ -23,8 +23,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/a-h/templ"
-
+	"github.com/TheWozard/ledge-frontend/components"
 	"github.com/TheWozard/ledge-frontend/theme"
 	"github.com/TheWozard/ledge-frontend/ui"
 )
@@ -68,16 +67,20 @@ func showWindows(name string, th theme.Theme, sample *sample) {
 			log.Print(err)
 		}
 	}
-	sample.replace = func(id, blockID string, block templ.Component) {
-		if _, err := bar.ShowReportBlock(id, blockID, block); err != nil {
+	sample.replace = func(id string, block components.Block) {
+		if _, err := bar.ShowReportBlock(id, block); err != nil {
 			log.Print(err)
 		}
 	}
-	sample.changed = func() { bar.Render(sample.shown()) }
+	sample.changed = func() {
+		if err := bar.Render(sample.shown()); err != nil {
+			log.Print(err)
+		}
+	}
 	go sample.advance()
 
 	go func() {
-		bar.Render(sample.shown())
+		sample.changed()
 		sample.open(longID)
 		log.Printf("showing %s; ctrl-c to quit", name)
 	}()

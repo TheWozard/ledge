@@ -15,7 +15,7 @@ import (
 )
 
 // ShowReport shows title and blocks in id's report window, in the bar's theme, and
-// brings it forward. Each id has its own window: showing an id again replaces what
+// brings it forward. If they can't be rendered, it says why, and nothing changes. Each id has its own window: showing an id again replaces what
 // its window shows, keeping its scroll, and one that's been closed opens anew. id is
 // the app's, such as the card or action the report is for. A block is any component;
 // components has the usual ones. Clicking what's in them, such as a Buttons' button,
@@ -53,19 +53,20 @@ func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	return nil
 }
 
-// ShowReportBlock replaces the block given blockID with components.Block in id's
-// report by block, leaving the rest of the report, its scroll and where its window
-// is as they are. It reports whether id's report is open with such a block; if not,
-// nothing changes. Called just after ShowReport, the block is replaced once the new
-// page has loaded.
-func (b *Bar) ShowReportBlock(id, blockID string, block templ.Component) (bool, error) {
+// ShowReportBlock replaces the components.Block with block's ID in id's report by
+// block, leaving the rest of the report, its scroll and where its window is as they
+// are, as a ShowReport of it all with only that block changed would, but for bringing
+// the window forward. It reports whether id's report is open with such a block; if
+// not, or if block can't be rendered, nothing changes. Called just after ShowReport,
+// the block is replaced once the new page has loaded.
+func (b *Bar) ShowReportBlock(id string, block components.Block) (bool, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	p, ok := b.reports[id]
 	if !ok {
 		return false, nil
 	}
-	blocks, ok := components.ReplaceBlock(p.blocks, blockID, block)
+	blocks, ok := components.ReplaceBlock(p.blocks, block)
 	if !ok {
 		return false, nil
 	}

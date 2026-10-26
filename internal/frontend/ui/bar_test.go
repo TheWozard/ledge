@@ -1,12 +1,17 @@
 package ui
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"io"
 	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/a-h/templ"
 
 	"github.com/TheWozard/ledge-frontend/components"
 	"github.com/TheWozard/ledge-frontend/theme"
@@ -150,8 +155,8 @@ func TestRenderCard(t *testing.T) {
 	waitFor(t, `document.querySelectorAll("#cards > li").length`, "3")
 	eval(t, `window.kept = document.getElementById("card-rc-a"), true`)
 
-	if !testBar.RenderCard(components.Basic{ID: "rc-b", Title: "Changed", Click: record("open rc-b")}) {
-		t.Fatal("RenderCard didn't find rc-b")
+	if found, err := testBar.RenderCard(components.Basic{ID: "rc-b", Title: "Changed", Click: record("open rc-b")}); !found || err != nil {
+		t.Fatalf("RenderCard(rc-b) = %v, %v", found, err)
 	}
 	waitFor(t, `document.querySelector("#card-rc-b .title").textContent`, `"Changed"`)
 	for js, want := range map[string]string{
@@ -166,7 +171,7 @@ func TestRenderCard(t *testing.T) {
 	eval(t, `document.getElementById("card-rc-b").click(), true`)
 	eventually(t, "open rc-b", func() bool { return calls.has("open rc-b") })
 
-	if testBar.RenderCard(components.Basic{ID: "rc-none", Title: "None"}) {
+	if found, _ := testBar.RenderCard(components.Basic{ID: "rc-none", Title: "None"}); found {
 		t.Error("RenderCard found a card that isn't on the bar")
 	}
 	if got := eval(t, `document.querySelectorAll("#cards > li").length`); got != "3" {
@@ -364,3 +369,57 @@ func (c *framed) Frame() components.Frame {
 	f.Color = fmt.Sprintf("#%06d", c.frames.Add(1))
 	return f
 }
+
+// What can't be rendered is said, and changes nothing: a Render or RenderCard leaves
+// the bar's cards, its page and its Clicks as they were, a ShowReport opens nothing,
+// and a ShowReportBlock leaves its report as it was.
+func TestRenderErrors(t *testing.T) {
+	b, f := fakeBar(t, theme.Theme{})
+	broken := templ.ComponentFunc(func(context.Context, io.Writer) error { return errors.New("broken") })
+	if err := b.Render(components.Cards([]components.Basic{{ID: "ok", Title: "OK", Click: record("fake open ok")}})); err != nil {
+		t.Fatal(err)
+	}
+	drawn := len(f.ran(BarWindow))
+	if err := b.Render([]components.Card{failing{Basic: components.Basic{ID: "bad"}, body: broken}}); err == nil {
+		t.Error("a card that can't be rendered rendered")
+	}
+	if found, err := b.RenderCard(failing{Basic: components.Basic{ID: "ok"}, body: broken}); !found || err == nil {
+		t.Errorf("RenderCard of a card that can't be rendered = %v, %v", found, err)
+	}
+	post(b, BarWindow, `{"action": "click", "id": "card/ok/click"}`)
+	if n := len(f.ran(BarWindow)); n != drawn+2 || !calls.has("fake open ok") {
+		t.Errorf("after what couldn't be rendered, the bar ran %d more things, and its card's Click ran: %v; want only the click's busy marks, and it to",
+			n-drawn, calls.has("fake open ok"))
+	}
+
+	if err := b.ShowReport("fe", "Broken", []templ.Component{broken}); err == nil {
+		t.Error("a report that can't be rendered was shown")
+	}
+	if f.loadCount(MenuWindow+1) != 0 || f.showing(MenuWindow+1) {
+		t.Error("a report that couldn't be rendered opened a window")
+	}
+	if err := b.ShowReport("fe", "Fine", []templ.Component{components.Block{ID: "x", Content: components.Paragraph("Fine")}}); err != nil {
+		t.Fatal(err)
+	}
+	b.mu.Lock()
+	w := b.reports["fe"].window
+	b.mu.Unlock()
+	ran := len(f.ran(w))
+	if found, err := b.ShowReportBlock("fe", components.Block{ID: "x", Content: broken}); !found || err == nil {
+		t.Errorf("ShowReportBlock of a block that can't be rendered = %v, %v", found, err)
+	}
+	b.mu.Lock()
+	kept := components.ReportContent(b.reports["fe"].blocks).Render(context.Background(), io.Discard)
+	b.mu.Unlock()
+	if len(f.ran(w)) != ran || kept != nil {
+		t.Error("a block that couldn't be rendered changed its report")
+	}
+}
+
+// failing is a Basic card with a body of its own, for TestRenderErrors.
+type failing struct {
+	components.Basic
+	body templ.Component
+}
+
+func (c failing) Body() templ.Component { return c.body }

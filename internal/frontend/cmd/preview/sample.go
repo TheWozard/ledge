@@ -30,9 +30,9 @@ type sample struct {
 	started  time.Time // when the long report's run started
 	assigned bool      // whether the long report's failures are assigned, as its triage block shows
 
-	open    func(id string)                                 // shows id's report
-	replace func(id, blockID string, block templ.Component) // replaces a block in id's report
-	changed func()                                          // shows the cards after one's dismissed
+	open    func(id string)                         // shows id's report
+	replace func(id string, block components.Block) // replaces a block in id's report
+	changed func()                                  // shows the cards after one's dismissed
 }
 
 // longID is the id of the card whose report is the long one, shown when the preview
@@ -175,7 +175,7 @@ func (s *sample) longReport() []templ.Component {
 		}),
 
 		components.Heading("Triage"),
-		components.Block("triage", s.triage()),
+		components.Block{ID: "triage", Content: s.triage()},
 
 		components.Heading("Failures"),
 		components.Note("TestRender failed on 3 of the last 5 runs; it may be flaky.", "yellow"),
@@ -209,7 +209,7 @@ func (s *sample) triage() templ.Component {
 		log.Printf("assigned %v", s.assigned)
 		block := s.triage()
 		s.mu.Unlock()
-		s.replace(longID, "triage", block)
+		s.replace(longID, components.Block{ID: "triage", Content: block})
 	}
 	if s.assigned {
 		return templ.Join(components.Note("Assigned to you.", "blue"),

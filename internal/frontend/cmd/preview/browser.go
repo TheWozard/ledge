@@ -91,7 +91,7 @@ func serveBrowser(addr, name string, load func() (theme.Theme, error), sample *s
 	}
 	// A report's clicks are only logged in the browser, so nothing's replaced: a reload
 	// shows it as it is.
-	sample.replace = func(string, string, templ.Component) {}
+	sample.replace = func(string, components.Block) {}
 	sample.changed = func() {} // every reply to a click has the cards
 
 	http.HandleFunc("GET /{$}", s.index)

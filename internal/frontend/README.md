@@ -144,10 +144,13 @@ A report is a title and any `templ.Component`s, drawn top to bottom, shown for a
 such as the card it's about. Each id has its own window: showing the same id again
 replaces what's in it, morphing it as the bar is, so it keeps its scroll, and closing
 it destroys it, so the next `ShowReport` for that id opens a new one. New windows open
-down and to the right of the last. A block wrapped in `Block(id, block)` can be
-replaced on its own with `ShowReportBlock`, which leaves the rest of the report as it
-is and doesn't bring its window forward; it says whether the report is open with such a
-block. As the bar's cards are, a report's blocks are rendered with the bar's lock
+down and to the right of the last. A block given an id, as a
+`components.Block{ID: id, Content: block}`, can be replaced on its own by
+`ShowReportBlock(report, block)`, with another `Block` with that ID, which leaves the rest of
+the report as it is and doesn't bring its window forward; it says whether the report is
+open with such a block, as `RenderCard` says whether the bar has the card. Each of
+`Render`, `RenderCard`, `ShowReport` and `ShowReportBlock` renders what it's given there
+and then, and if it can't, says why and changes nothing. As the bar's cards are, a report's blocks are rendered with the bar's lock
 held, so they mustn't call back into it. What's clicked in a report,
 such as a `Buttons`' button, calls its `Click` as one on the bar does, busy while it
 runs, until the report is shown again or closed; a block replaced with

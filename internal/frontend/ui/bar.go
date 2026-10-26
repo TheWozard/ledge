@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 	"slices"
 	"strings"
 	"sync"
@@ -23,6 +22,7 @@ type Bar struct {
 
 	mu      sync.Mutex
 	cards   []components.Card
+	content string  // the cards rendered, for the bar's page once it's ready
 	endings endings // the cards that end, and when each has completed
 	bar     *page
 	pages   map[int]*page    // the bar's and each open report's, by window
@@ -75,6 +75,7 @@ func newBar(options Options, n native) *Bar {
 	b.bar = newPage(n, BarWindow, "the bar", pageMessages, b.barMessage)
 	menu := newPage(n, MenuWindow, "the menu", menuMessages, b.menuMessage)
 	b.pages = map[int]*page{BarWindow: b.bar, MenuWindow: menu}
+	b.show(nil) // nothing else has b yet, so needs no lock: its page shows no cards once ready
 	return b
 }
 
@@ -97,35 +98,50 @@ func barPage(options *Options) (string, error) {
 // Render shows cards, of any kinds, and their actions, in the order given. From then,
 // clicking one calls its Click; a click on what a render took off the bar is dropped.
 // A card that ends has its Complete called once its end has passed, if it's still on
-// the bar then, and only once for that end, however many renders show it. Safe from
-// any goroutine.
-func (b *Bar) Render(cards []components.Card) {
+// the bar then, and only once for that end, however many renders show it. If the
+// cards can't be rendered, it says why, and nothing changes. Safe from any goroutine.
+func (b *Bar) Render(cards []components.Card) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.cards = make([]components.Card, len(cards))
+	shown := make([]components.Card, len(cards))
 	for i, card := range cards {
-		b.cards[i] = given(card)
+		shown[i] = given(card)
 	}
-	b.endings.schedule(b.cards, b.complete)
-	b.draw()
+	return b.show(shown)
 }
 
 // RenderCard replaces the card on the bar with card's ID by card, in its place, and
 // leaves the rest as they are, as a Render of them all with only it changed would.
-// It reports whether there was one; if not, nothing changes. Safe from any goroutine.
-func (b *Bar) RenderCard(card components.Card) bool {
+// It reports whether there was one; if not, or if card can't be rendered, nothing
+// changes. Safe from any goroutine.
+func (b *Bar) RenderCard(card components.Card) (bool, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	card = given(card)
 	id := card.Frame().ID
 	i := slices.IndexFunc(b.cards, func(c components.Card) bool { return c.Frame().ID == id })
 	if i < 0 {
-		return false
+		return false, nil
 	}
-	b.cards[i] = card
+	shown := slices.Clone(b.cards)
+	shown[i] = card
+	return true, b.show(shown)
+}
+
+// show renders cards, as the bar keeps them, and has the bar show them from then:
+// its page once it's ready, and its clicks call the Clicks they were rendered with.
+// If they can't be rendered, nothing changes. Call it with the bar's lock held.
+func (b *Bar) show(cards []components.Card) error {
+	var html strings.Builder
+	clicks := &components.Clicks{}
+	ctx := components.WithClicks(context.Background(), clicks)
+	if err := components.BarContent(cards, b.menu).Render(ctx, &html); err != nil {
+		return err
+	}
+	b.cards, b.content, b.bar.clicks = cards, html.String(), clicks
 	b.endings.schedule(b.cards, b.complete)
 	b.draw()
-	return true
+	return nil
 }
 
 // shownCard is a card as the bar has it: the card, with the Frame it had when the bar
@@ -144,22 +160,14 @@ func given(card components.Card) components.Card {
 	return shownCard{card, card.Frame()}
 }
 
-// draw renders what the bar has into its page, once the page is ready, and from then
-// its clicks call the Clicks it was drawn with. Call it with the bar's lock held.
+// draw has the bar's page show what the bar was last rendered with, if it's ready;
+// it's called again once it is. Call it with the bar's lock held.
 func (b *Bar) draw() {
 	if !b.bar.ready {
 		return
 	}
-	var html strings.Builder
-	clicks := &components.Clicks{}
-	ctx := components.WithClicks(context.Background(), clicks)
-	if err := components.BarContent(b.cards, b.menu).Render(ctx, &html); err != nil {
-		log.Printf("ui: rendering the bar: %v", err)
-		return
-	}
-	b.bar.clicks = clicks
 	// Marshalled, the html is a JS string; <, > and & are escaped in it.
-	js, _ := json.Marshal(html.String())
+	js, _ := json.Marshal(b.content)
 	// The busy marks go with it, in one go, so what's busy never shows otherwise.
 	b.bar.eval("update(" + string(js) + "); " + b.bar.busyJS())
 }
