@@ -5,14 +5,77 @@
 <title>ledge preview: {{.Name}}</title>
 <style>
   html, body { margin: 0; height: 100%; }
-  body { display: flex; flex-direction: column; align-items: center; background: #7a7a80; }
-  #report { flex: none; width: 900px; max-width: calc(100% - 32px); height: 700px; max-height: calc(100% - {{.BarHeight}}px - 32px);
-            margin: auto 0; border: 0; box-shadow: 0 8px 30px rgba(0, 0, 0, .35); }
+  body { display: flex; flex-direction: column; background: #7a7a80; }
+  #windows { flex: auto; display: flex; align-items: center; justify-content: center; min-height: 0; }
+  #windows iframe { flex: none; width: 900px; max-width: calc(100% - 32px); height: 700px; max-height: calc(100% - 32px);
+                    border: 0; box-shadow: 0 8px 30px rgba(0, 0, 0, .35); }
+  #windows iframe[hidden] { display: none; }
   #bar { flex: none; width: 100%; height: {{.BarHeight}}px; border: 0; }
 </style>
 </head>
 <body>
-<iframe id="report" src="/report?id={{.Report}}"></iframe>
-<iframe id="bar" src="/bar"></iframe>
+<div id="windows"></div>
+<script>
+// The bar's windows, each a frame: the bar's along the bottom, and the one in front,
+// a report or a card's menu, above it. What the bar asks of them comes from events, in
+// order; what's done in them each frame posts to the bar itself.
+const bar = {{.Bar}}, barWindow = {{.BarWindow}};
+const frames = new Map(); // by window
+let front = 0;
+
+// load gives window a frame with its page of gen, in place of any it had.
+function load(window, gen) {
+  frames.get(window)?.remove();
+  const frame = document.createElement("iframe");
+  frame.src = `/bar/${bar}/window/${window}?gen=${gen}`;
+  frame.dataset.gen = gen;
+  if (window === barWindow) {
+    frame.id = "bar";
+    document.body.append(frame);
+  } else {
+    frame.hidden = window !== front;
+    document.getElementById("windows").append(frame);
+  }
+  frames.set(window, frame);
+}
+
+// show has window's frame in front, and hides the others but the bar's.
+function show(window) {
+  front = window;
+  for (const [w, frame] of frames) {
+    if (w !== barWindow) frame.hidden = w !== window;
+  }
+}
+
+// run runs js in window's page, if it's still of gen, and if ask isn't 0, answers it
+// with what it gives back.
+function run(window, gen, js, ask) {
+  const frame = frames.get(window);
+  if (frame?.dataset.gen !== String(gen)) return;
+  let answer;
+  try {
+    answer = { value: frame.contentWindow.eval(js) };
+  } catch (error) {
+    console.error(error);
+    answer = { error: String(error) };
+  }
+  if (ask) fetch(`/bar/${bar}/answer`, { method: "POST", body: JSON.stringify({ id: ask, ...answer }) });
+}
+
+let from = 0;
+function next() {
+  fetch(`/bar/${bar}/events?from=${from}`).then(r => r.json()).then(reply => {
+    if (reply.stale) return; // a newer bar has been opened, in another tab
+    for (const e of reply.events ?? []) {
+      if (e.load) load(e.window, e.gen);
+      else if (e.front) show(e.window);
+      else run(e.window, e.gen, e.js, e.ask);
+    }
+    from += reply.events?.length ?? 0;
+    next();
+  }, () => setTimeout(next, 1000));
+}
+next();
+</script>
 </body>
 </html>

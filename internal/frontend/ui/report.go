@@ -35,10 +35,10 @@ func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	b.mu.Unlock()
 	// These wait for the main thread, which can be waiting for the lock to say a
 	// window closed, so they're called without it.
-	b.native.CreateWindow(p.window, title, 900, 700)
-	b.native.SetTitle(p.window, title)
-	b.native.SetAppearance(p.window, t.Frame.Appearance)
-	b.native.SetFrameless(p.window, t.Frame.Frameless)
+	b.windows.CreateWindow(p.window, title, 900, 700)
+	b.windows.SetTitle(p.window, title)
+	b.windows.SetAppearance(p.window, t.Frame.Appearance)
+	b.windows.SetFrameless(p.window, t.Frame.Frameless)
 	b.mu.Lock()
 	if !p.hasPage || p.css != t.Report {
 		if err := b.loadReport(p, t.Report); err != nil {
@@ -49,7 +49,7 @@ func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	p.title, p.blocks = title, blocks
 	p.show(title, html, clicks)
 	b.mu.Unlock()
-	b.native.ShowWindow(p.window)
+	b.windows.ShowWindow(p.window)
 	return nil
 }
 
@@ -118,7 +118,7 @@ func (b *Bar) report(id string) *page {
 		return p
 	}
 	b.last++
-	p := newPage(b.native, b.last, fmt.Sprintf("report window %d", b.last), pageMessages, b.reportMessage)
+	p := newPage(b.windows, b.last, fmt.Sprintf("report window %d", b.last), pageMessages, b.reportMessage)
 	p.report = id
 	b.reports[id], b.pages[p.window] = p, p
 	return p
@@ -149,7 +149,7 @@ func (b *Bar) navigate(window int, target string, clicked bool) bool {
 	}
 	if u, err := url.Parse(target); err == nil {
 		if scheme := strings.ToLower(u.Scheme); scheme == "http" || scheme == "https" {
-			go b.native.OpenURL(target)
+			go b.windows.OpenURL(target)
 		}
 	}
 	return false

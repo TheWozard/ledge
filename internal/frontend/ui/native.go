@@ -6,12 +6,18 @@ import (
 	"github.com/TheWozard/ledge-frontend/shim"
 )
 
-// native is what the bar asks of the windows once it's open: loading and running pages
-// in them, opening and showing reports' windows and the menu's pop-up, the native
-// menu, and the browser. The shim does it; the tests that don't open windows have a
-// stand-in record it instead. Opening and placing the bar, and the shim's handlers,
-// are Open's alone, and go to the shim directly.
-type native interface {
+// Windows is what a bar asks of its windows once it's open: loading pages in them,
+// each by its window id, and running JS in them; opening and showing reports' windows
+// and the menu's pop-up; the native menu; and opening a link in the browser. Open's
+// are the screen's, through the shim; OpenIn's can be anything that shows the pages,
+// such as a browser's frames. Opening and placing the bar, and the shim's handlers, are
+// Open's alone.
+//
+// The bar evaluates JS in a page only once the page has posted "ready", but for
+// EvalResult, which it asks of the menu's page once that has. The calls but EvalResult
+// and ShowMenu, which wait for their answer, mustn't wait for the bar: it can be
+// holding its lock as it makes them.
+type Windows interface {
 	LoadHTML(window int, html string)
 	Eval(window int, js string)
 	EvalResult(window int, js string) (json.RawMessage, error)
@@ -30,7 +36,7 @@ type native interface {
 	OpenURL(url string)
 }
 
-// shimNative is native through the shim.
+// shimNative is the screen's Windows, through the shim.
 type shimNative struct{}
 
 func (shimNative) LoadHTML(window int, html string) { shim.LoadHTML(window, html) }

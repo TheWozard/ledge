@@ -81,7 +81,7 @@ func (b *Bar) chooseFrom(items []components.MenuItem) choice {
 	for i, item := range items {
 		shown[i] = shim.MenuItem{Title: item.Title, Color: item.Color, Enabled: item.Enabled}
 	}
-	chosen := b.native.ShowMenu(shown)
+	chosen := b.windows.ShowMenu(shown)
 	m := chosen.Modifiers
 	return choice{chosen.Index, components.ClickEvent{Alt: m.Alt, Cmd: m.Cmd, Shift: m.Shift, Ctrl: m.Ctrl}}
 }

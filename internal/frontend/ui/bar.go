@@ -17,8 +17,9 @@ import (
 
 // Bar is the bar window and the report windows.
 type Bar struct {
-	options Options
-	native  native // the windows, once the bar's open
+	options  Options
+	windows  Windows // what's asked of its windows, once it's open
+	onScreen bool    // it's Open's, its windows the screen's, rather than OpenIn's
 
 	mu      sync.Mutex
 	cards   []components.Card
@@ -39,8 +40,8 @@ var opened atomic.Bool
 // before Run, on the main goroutine.
 func Open(options Options) (*Bar, error) { return open(options, shimNative{}) }
 
-// open is Open, with n for what's asked of the windows once the bar is open.
-func open(options Options, n native) (*Bar, error) {
+// open is Open, with w for what's asked of the windows once the bar is open.
+func open(options Options, w Windows) (*Bar, error) {
 	if !opened.CompareAndSwap(false, true) {
 		return nil, errors.New("ui: the bar is already open")
 	}
@@ -49,7 +50,8 @@ func open(options Options, n native) (*Bar, error) {
 		opened.Store(false)
 		return nil, err
 	}
-	b := newBar(options, n)
+	b := newBar(options, w)
+	b.onScreen = true
 	shim.CreateBar(BarWindow)
 	shim.SetLevel(BarWindow, options.Level)
 	b.Place()
@@ -68,12 +70,34 @@ func open(options Options, n native) (*Bar, error) {
 	return b, nil
 }
 
-// newBar is a bar with options and no cards, and no reports yet, shown through n: the
+// OpenIn is a bar whose windows are w rather than the screen's: nothing is put on
+// screen, and the pages w shows post what's done in them with Post. It's for showing
+// the bar's pages somewhere else, such as in a browser, as the preview does. Unlike
+// Open, it needs no Init or Run, and a program can have any number of them; Place
+// does nothing for one.
+func OpenIn(options Options, w Windows) (*Bar, error) {
+	html, err := barPage(&options)
+	if err != nil {
+		return nil, err
+	}
+	b := newBar(options, w)
+	b.mu.Lock()
+	b.bar.load(html)
+	b.mu.Unlock()
+	return b, nil
+}
+
+// Post carries out message, which the page in window posted, as the bar does what its
+// pages on screen post: a click calls its Click before Post returns. It's for a bar
+// from OpenIn. Safe from any goroutine.
+func (b *Bar) Post(window int, message []byte) { b.received(window, message) }
+
+// newBar is a bar with options and no cards, and no reports yet, shown through w: the
 // first report will take the window id after the menu's.
-func newBar(options Options, n native) *Bar {
-	b := &Bar{options: options, native: n, reports: map[string]*page{}, last: MenuWindow}
-	b.bar = newPage(n, BarWindow, "the bar", pageMessages, b.barMessage)
-	menu := newPage(n, MenuWindow, "the menu", menuMessages, b.menuMessage)
+func newBar(options Options, w Windows) *Bar {
+	b := &Bar{options: options, windows: w, reports: map[string]*page{}, last: MenuWindow}
+	b.bar = newPage(w, BarWindow, "the bar", pageMessages, b.barMessage)
+	menu := newPage(w, MenuWindow, "the menu", menuMessages, b.menuMessage)
 	b.pages = map[int]*page{BarWindow: b.bar, MenuWindow: menu}
 	b.show(nil) // nothing else has b yet, so needs no lock: its page shows no cards once ready
 	return b
@@ -175,5 +199,8 @@ func (b *Bar) draw() {
 // Place puts the bar along its edge of its screen, and returns where it went. The bar
 // does this itself when it opens and when the screens change.
 func (b *Bar) Place() shim.Rect {
+	if !b.onScreen {
+		return shim.Rect{}
+	}
 	return shim.PlaceBar(BarWindow, b.options.Screen, b.options.Edge == "top", float64(b.options.Height))
 }

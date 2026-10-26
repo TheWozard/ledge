@@ -65,8 +65,8 @@ func (b *Bar) popupMenu(css string, items []components.MenuItem) choice {
 		return noChoice
 	}
 	done := b.popup.open()
-	b.native.CreatePopup(MenuWindow)
-	b.native.LoadHTML(MenuWindow, page.String())
+	b.windows.CreatePopup(MenuWindow)
+	b.windows.LoadHTML(MenuWindow, page.String())
 	return <-done
 }
 
@@ -81,7 +81,7 @@ func (b *Bar) menuMessage(_ *page, m message) {
 		if !b.popup.isOpen() {
 			return
 		}
-		value, err := b.native.EvalResult(MenuWindow, measureMenu)
+		value, err := b.windows.EvalResult(MenuWindow, measureMenu)
 		var size [2]float64
 		if err == nil {
 			err = json.Unmarshal(value, &size)
@@ -91,7 +91,7 @@ func (b *Bar) menuMessage(_ *page, m message) {
 			b.popup.finish(noChoice)
 			return
 		}
-		b.native.ShowPopup(MenuWindow, size[0], size[1])
+		b.windows.ShowPopup(MenuWindow, size[0], size[1])
 	case "choose":
 		i, err := strconv.Atoi(m.ID)
 		event := m.clickEvent()
@@ -100,10 +100,10 @@ func (b *Bar) menuMessage(_ *page, m message) {
 			log.Printf("ui: the menu chose %q, which isn't an item of an open menu", m.ID)
 			return
 		}
-		b.native.HidePopup(MenuWindow)
+		b.windows.HidePopup(MenuWindow)
 	case "close":
 		if b.popup.finish(noChoice) {
-			b.native.HidePopup(MenuWindow)
+			b.windows.HidePopup(MenuWindow)
 		}
 	}
 }

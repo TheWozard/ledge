@@ -18,9 +18,9 @@ import (
 // running, and whether it's loaded. Its fields are guarded by the bar's lock, but
 // messages and handle, which never change.
 type page struct {
-	native native
-	window int
-	name   string // what the log calls it: "the bar", "report window 3" or "the menu"
+	windows Windows
+	window  int
+	name    string // what the log calls it: "the bar", "report window 3" or "the menu"
 	// messages is what the page can post, each action with whether it takes an id,
 	// and handle carries out one, once it's been checked against them.
 	messages map[string]bool
@@ -48,8 +48,8 @@ var pageMessages = map[string]bool{"ready": false, "click": true}
 
 // newPage is window's page, not loaded yet, shown through n, which can post messages,
 // each carried out by handle.
-func newPage(n native, window int, name string, messages map[string]bool, handle func(p *page, m message)) *page {
-	p := &page{native: n, window: window, name: name, messages: messages, clicks: &components.Clicks{}, running: map[string]bool{}}
+func newPage(w Windows, window int, name string, messages map[string]bool, handle func(p *page, m message)) *page {
+	p := &page{windows: w, window: window, name: name, messages: messages, clicks: &components.Clicks{}, running: map[string]bool{}}
 	p.handle = func(m message) { handle(p, m) }
 	return p
 }
@@ -58,13 +58,13 @@ func newPage(n native, window int, name string, messages map[string]bool, handle
 // waits; what was waiting for the old one is dropped.
 func (p *page) load(html string) {
 	p.hasPage, p.ready, p.queued = true, false, nil
-	p.native.LoadHTML(p.window, html)
+	p.windows.LoadHTML(p.window, html)
 }
 
 // eval runs js in p once it's ready: now if it is.
 func (p *page) eval(js string) {
 	if p.ready {
-		p.native.Eval(p.window, js)
+		p.windows.Eval(p.window, js)
 		return
 	}
 	p.queued = append(p.queued, js)
@@ -74,7 +74,7 @@ func (p *page) eval(js string) {
 func (p *page) loaded() {
 	p.ready = true
 	for _, js := range p.queued {
-		p.native.Eval(p.window, js)
+		p.windows.Eval(p.window, js)
 	}
 	p.queued = nil
 }
