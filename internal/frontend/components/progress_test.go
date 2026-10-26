@@ -13,7 +13,7 @@ func TestProgress(t *testing.T) {
 		{Basic: Basic{ID: "steps", Title: "Steps"}, Value: 0.4, Label: "2/5"},
 		{Basic: Basic{ID: "none", Title: "Not started"}},
 	}
-	html := render(t, BarContent(Cards(cards)))
+	html := render(t, BarContent(Cards(cards), nil))
 	contains(t, html,
 		`<li id="card-deploy" class="progress" data-color="#2f9e5b" style="--card-color: #2f9e5b; --progress: 0.6;">`,
 		`<span class="title">Deploy</span><div class="reading"><div class="reading-value">60%</div><div class="description">&lt;push&gt; next</div></div>`,

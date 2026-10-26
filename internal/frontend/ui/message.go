@@ -90,11 +90,12 @@ func (b *Bar) chooseFrom(items []components.MenuItem) choice {
 // shows the card's menu, as its theme draws it or natively for a theme without one,
 // and calls the Click of the action chosen from it. It runs as any Click does, so the
 // ⋯ is busy until the menu's closed and what was chosen has run, and the menu can't
-// be opened again meanwhile. The card's actions are those it had when it was drawn;
-// one a render has since taken off the bar is dropped, as a click on it would be, and
-// one a render has changed calls its new Click. A middle click does nothing.
+// be opened again meanwhile. The card's actions are those it had when it was drawn,
+// and what's chosen calls the Click its action has on the bar now: one a render has
+// since taken off is dropped, as a click on it would be, and one a render has changed
+// calls its new Click. A middle click does nothing.
 func (b *Bar) menu(f components.Frame) components.Click {
-	id, items := f.ID, f.Menu()
+	items := f.Menu()
 	return func(e components.ClickEvent) {
 		if e.Middle {
 			return
@@ -105,12 +106,7 @@ func (b *Bar) menu(f components.Frame) components.Click {
 		}
 		item := items[chosen.index].ID
 		b.mu.Lock()
-		var click components.Click
-		for _, card := range b.cards {
-			if frame := card.Frame(); frame.ID == id {
-				click = frame.Action(item)
-			}
-		}
+		click := b.bar.clicks.Action(item)
 		b.mu.Unlock()
 		if click == nil {
 			log.Printf("ui: %q was chosen from a menu, but isn't on the bar", item)

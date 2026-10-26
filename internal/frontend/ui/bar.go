@@ -136,8 +136,8 @@ func (b *Bar) draw() {
 	}
 	var html strings.Builder
 	clicks := &components.Clicks{}
-	ctx := components.WithMenus(components.WithClicks(context.Background(), clicks), b.menu)
-	if err := components.BarContent(b.cards).Render(ctx, &html); err != nil {
+	ctx := components.WithClicks(context.Background(), clicks)
+	if err := components.BarContent(b.cards, b.menu).Render(ctx, &html); err != nil {
 		log.Printf("ui: rendering the bar: %v", err)
 		return
 	}

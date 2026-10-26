@@ -31,10 +31,13 @@ type ClickEvent struct {
 }
 
 // Clicks is the Clicks on a page, put there by ClickID as it's rendered with
-// WithClicks, each by the id the page has for it. The zero Clicks is empty and ready
+// WithClicks, each by the id the page has for it, and on the bar the Clicks of the
+// cards' actions, by their menu items' ids. The page can click only the first: an
+// action is only ever chosen from its card's menu. The zero Clicks is empty and ready
 // to use.
 type Clicks struct {
-	byID map[string]Click
+	byID    map[string]Click
+	actions map[string]Click
 }
 
 // scope is what the Clicks rendered in it belong to: a card's frame ("card") or its
@@ -42,10 +45,13 @@ type Clicks struct {
 // zero scope is what's in none, such as a report's blocks without an id.
 type scope struct{ kind, id string }
 
-// Click is the Click with id, or nil.
+// Click is the Click the page has with id, or nil.
 func (c *Clicks) Click(id string) Click { return c.byID[id] }
 
-// IDs is the ids of the Clicks, sorted.
+// Action is the Click of the action whose menu item has id, or nil.
+func (c *Clicks) Action(id string) Click { return c.actions[id] }
+
+// IDs is the ids of the Clicks the page has, sorted.
 func (c *Clicks) IDs() []string { return slices.Sorted(maps.Keys(c.byID)) }
 
 // add puts click in c as id.
@@ -56,31 +62,25 @@ func (c *Clicks) add(id string, click Click) {
 	c.byID[id] = click
 }
 
-// clicksKey, scopeKey and menusKey are the context keys of the Clicks a page is
-// rendered with, of the scope what's in it is rendered in, and of what opens a
-// card's menu.
+// addActions puts the Clicks of the actions of the card with frame f in c, by their
+// menu items' ids.
+func (c *Clicks) addActions(f Frame) {
+	for i, item := range f.Menu() {
+		if click := f.Actions[i].Click; click != nil {
+			if c.actions == nil {
+				c.actions = map[string]Click{}
+			}
+			c.actions[item.ID] = click
+		}
+	}
+}
+
+// clicksKey and scopeKey are the context keys of the Clicks a page is rendered with,
+// and of the scope what's in it is rendered in.
 type (
 	clicksKey struct{}
 	scopeKey  struct{}
-	menusKey  struct{}
 )
-
-// WithMenus is ctx with menu, which gives the Click that shows the menu of the card
-// with frame f, for the bar to render its ⋯ and a right-click on it with. Rendered
-// without it, a card's menu goes nowhere.
-func WithMenus(ctx context.Context, menu func(f Frame) Click) context.Context {
-	return context.WithValue(ctx, menusKey{}, menu)
-}
-
-// menuID is the id of the Click that shows the menu of the card with frame f, put in
-// the Clicks ctx has with the Click WithMenus gives for it.
-func menuID(ctx context.Context, f Frame) string {
-	var click Click
-	if menu, ok := ctx.Value(menusKey{}).(func(Frame) Click); ok {
-		click = menu(f)
-	}
-	return ClickID(ctx, "menu", click)
-}
 
 // WithClicks is ctx with clicks, for ClickID to put the Clicks of what's rendered with
 // it in.

@@ -401,11 +401,13 @@ func TestPopup(t *testing.T) {
 
 // What the bar's page posts reaches the Click it names, with how it was clicked, and
 // nothing else: not a message that isn't one of the page's, nor one from a window
-// that isn't open, nor a Click a render has since taken off.
+// that isn't open, nor a Click a render has since taken off, nor an action, which only
+// its card's menu can choose.
 func TestClickMessages(t *testing.T) {
 	b, _ := fakeBar(t, theme.Theme{})
 	b.Render(components.Cards([]components.Basic{
-		{ID: "fc", Title: "Clicks", Click: record("fake open fc"), Dismiss: record("fake dismiss fc")},
+		{ID: "fc", Title: "Clicks", Click: record("fake open fc"), Dismiss: record("fake dismiss fc"),
+			Actions: []components.Action{{ID: "act", Title: "Act", Click: record("fake act fc")}}},
 	}))
 	post(b, BarWindow, `{"action": "click", "id": "card/fc/click", "event": {"alt": true, "middle": true}}`)
 	if got, want := calls.event("fake open fc"), (components.ClickEvent{Alt: true, Middle: true}); !calls.has("fake open fc") || got != want {
@@ -418,14 +420,15 @@ func TestClickMessages(t *testing.T) {
 	for _, message := range []string{
 		`{"action": "click"}`, `{"action": "click", "id": "card/fc/click", "path": "/etc"}`,
 		`{"action": "exec", "id": "card/fc/click"}`, `"click"`, `{"action": "click", "id": "card-fc"}`,
+		`{"action": "click", "id": "action/fc/act"}`,
 	} {
 		post(b, BarWindow, message)
 	}
 	post(b, MenuWindow+40, `{"action": "click", "id": "card/fc/click"}`)
 	b.Render(nil)
 	post(b, BarWindow, `{"action": "click", "id": "card/fc/click"}`)
-	if n := calls.count("fake open fc"); n != 1 {
-		t.Errorf("the card's Click ran %d times, want only the once it was clicked", n)
+	if n := calls.count("fake open fc"); n != 1 || calls.has("fake act fc") {
+		t.Errorf("the card's Click ran %d times, want only the once it was clicked, or the page ran its action", n)
 	}
 }
 
@@ -545,8 +548,9 @@ func TestThemeMenu(t *testing.T) {
 // In a theme without a menu of its own, a card's ⋯ pops up the native menu of its
 // actions, each with its colour, and greyed out without a Click. Choosing one calls
 // its Click with the keys held, and not its card's nor another card's action with the
-// same id; choosing nothing does nothing; and choosing one whose card a render took
-// off while the menu was open is dropped. A middle click on the ⋯ shows nothing.
+// same id; choosing nothing does nothing; choosing one a render changed while the menu
+// was open calls its new Click; and choosing one whose card a render took off is
+// dropped. A middle click on the ⋯ shows nothing.
 func TestNativeMenu(t *testing.T) {
 	b, f := fakeBar(t, theme.Theme{})
 	chosen, then := 0, func() {}
@@ -577,9 +581,17 @@ func TestNativeMenu(t *testing.T) {
 
 	chosen = -1
 	post(b, BarWindow, `{"action": "click", "id": "card/nm/menu"}`)
-	chosen, then = 0, func() { b.Render(cards[1:]) }
+	changed := components.Cards([]components.Basic{{ID: "nm", Title: "Menu", Actions: []components.Action{
+		{ID: "run", Title: "Run", Click: record("fake run nm changed")},
+	}}})
+	chosen, then = 0, func() { b.Render(changed) }
 	post(b, BarWindow, `{"action": "click", "id": "card/nm/menu"}`)
-	if n := calls.count("fake run nm"); n != 1 || calls.has("fake run other") {
+	if !calls.has("fake run nm changed") {
+		t.Error("Run, changed while its menu was open, didn't call its new Click")
+	}
+	then = func() { b.Render(cards[1:]) }
+	post(b, BarWindow, `{"action": "click", "id": "card/nm/menu"}`)
+	if n := calls.count("fake run nm"); n != 1 || calls.count("fake run nm changed") != 1 || calls.has("fake run other") {
 		t.Errorf("Run ran %d times, want only the once it was chosen while its card was there", n)
 	}
 }

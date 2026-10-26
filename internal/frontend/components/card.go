@@ -1,7 +1,9 @@
 package components
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"regexp"
 	"strconv"
 	"strings"
@@ -123,13 +125,21 @@ func (f Frame) Menu() []MenuItem {
 	return items
 }
 
-// Action is the Click of the action of the card that the item of its menu with id is
-// for, or nil if it has none.
-func (f Frame) Action(id string) Click {
-	for i, item := range f.Menu() {
-		if item.ID == id {
-			return f.Actions[i].Click
-		}
+// card is a card's frame around its body: its buttons, ⋯ if it has actions and × if
+// it can be dismissed, then the body. One with actions has data-menu, the id of the
+// Click that shows its menu, from menu, for a right-click on it to post; its ⋯ has it
+// as its data-click. The frame's Clicks are in the card's scope, and the body's in a
+// scope of their own, so the ids of its parts can be anything. Its actions' Clicks
+// are put in the Clicks too, for its menu to choose from.
+func card(f Frame, body templ.Component, menu func(Frame) Click) templ.Component {
+	var showMenu Click
+	if menu != nil && len(f.Actions) > 0 {
+		showMenu = menu(f)
 	}
-	return nil
+	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
+		if clicks, ok := ctx.Value(clicksKey{}).(*Clicks); ok {
+			clicks.addActions(f)
+		}
+		return inScope(scope{"card", f.ID}, frame(f, body, showMenu)).Render(ctx, w)
+	})
 }

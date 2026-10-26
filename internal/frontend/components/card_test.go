@@ -19,7 +19,7 @@ func TestCard(t *testing.T) {
 		{ID: "plain", Title: "Plain", Color: "red; background: url(x)"},
 		{ID: "new", Title: "New", Color: "#2f9e5b"},
 	}
-	html := render(t, BarContent(Cards(cards)))
+	html := render(t, BarContent(Cards(cards), nil))
 	contains(t, html,
 		`<li id="card-deploy" class="basic clickable" data-click="card/deploy/click" data-color="#e0362c" style="--card-color: #e0362c; --card-width: 240px;">`,
 		`<span class="title">Plain</span>`,
@@ -36,7 +36,7 @@ func TestCard(t *testing.T) {
 	if strings.Count(html, "data-click") != 2 || strings.Count(html, `class="dismiss`) != 1 {
 		t.Errorf("wrong cards are clickable or dismissable:\n%s", html)
 	}
-	contains(t, render(t, BarContent(nil)), `<ul id="cards"></ul><div class="empty">No events.</div>`)
+	contains(t, render(t, BarContent(nil, nil)), `<ul id="cards"></ul><div class="empty">No events.</div>`)
 }
 
 // Rendered with Clicks, the bar puts in them each Click on the cards by the id the page
@@ -50,7 +50,7 @@ func TestClicks(t *testing.T) {
 			Actions: []Action{{ID: "q", Click: click("q")}, {ID: "none"}}},
 		{ID: "b"},
 	}
-	html, clicks := renderClicks(t, BarContent(Cards(cards)))
+	html, clicks := renderClicks(t, BarContent(Cards(cards), nil))
 	ids := []string{"card/a/click", "card/a/dismiss"}
 	if !slices.Equal(clicks.IDs(), ids) {
 		t.Fatalf("Clicks have %q, want %q", clicks.IDs(), ids)
@@ -74,7 +74,7 @@ func TestParts(t *testing.T) {
 		parts{id: "a/b", parts: map[string]Click{"c": click("a/b c"), "click": click("a/b click")}},
 		parts{id: "a", parts: map[string]Click{"b/c": click("a b/c"), "none": nil}},
 	}
-	html, clicks := renderClicks(t, BarContent(cards))
+	html, clicks := renderClicks(t, BarContent(cards, nil))
 	ids := []string{"body/a%2Fb/c", "body/a%2Fb/click", "body/a/b%2Fc"}
 	if !slices.Equal(clicks.IDs(), ids) {
 		t.Fatalf("Clicks have %q, want %q", clicks.IDs(), ids)
@@ -132,12 +132,12 @@ func TestKinds(t *testing.T) {
 		progress{id: "build", kind: "progress", done: 40},
 		progress{id: "odd", kind: "Not a class", done: 10},
 	}
-	html := render(t, BarContent(cards))
+	html, clicks := renderClicks(t, BarContent(cards, nil))
 	contains(t, html,
 		`<li id="card-basic" class="basic">`,
 		`<li id="card-build" class="progress" data-menu="card/build/menu"><div class="card-buttons"><button class="menu clickable" title="Actions" data-click="card/build/menu">⋯</button> </div><div class="done">40%</div></li>`,
 		`<li id="card-odd" class="" data-menu="card/odd/menu">`)
-	if click := cards[1].Frame().Action("action/build/build-stop"); click == nil {
+	if click := clicks.Action("action/build/build-stop"); click == nil {
 		t.Error("the progress card's action has no Click")
 	}
 }
@@ -152,7 +152,7 @@ func TestMenu(t *testing.T) {
 		{ID: "ci", Title: "<CI>", Color: "#9b59b6", Click: nothing},
 		{ID: "bad", Title: "Bad", Color: "red; background: url(x)"},
 	}}
-	html := render(t, BarContent([]Card{card}))
+	html := render(t, BarContent([]Card{card}, nil))
 	contains(t, html,
 		`<li id="card-card" class="basic clickable" data-click="card/card/click" data-menu="card/card/menu">`,
 		`<div class="card-buttons"><button class="menu clickable" title="Actions" data-click="card/card/menu">⋯</button> `+
@@ -168,45 +168,51 @@ func TestMenu(t *testing.T) {
 		t.Errorf("Menu() = %+v, want %+v", got, want)
 	}
 
-	// The Click that shows it is the one WithMenus gives for its frame, once.
+	// The Click that shows it is the one menu gives for its frame, once, and only for
+	// a card with actions.
 	var opened []string
-	clicks := &Clicks{}
-	ctx := WithMenus(WithClicks(context.Background(), clicks), func(f Frame) Click {
-		return func(ClickEvent) { opened = append(opened, f.ID) }
-	})
-	if err := BarContent([]Card{card, Basic{ID: "plain"}}).Render(ctx, io.Discard); err != nil {
-		t.Fatal(err)
-	}
+	_, clicks := renderClicks(t, BarContent([]Card{card, Basic{ID: "plain"}}, func(f Frame) Click {
+		opened = append(opened, f.ID)
+		return func(ClickEvent) { opened = append(opened, "shown "+f.ID) }
+	}))
 	if ids := []string{"card/card/click", "card/card/dismiss", "card/card/menu"}; !slices.Equal(clicks.IDs(), ids) {
 		t.Fatalf("Clicks have %q, want %q", clicks.IDs(), ids)
 	}
 	clicks.Click("card/card/menu")(ClickEvent{})
-	if !slices.Equal(opened, []string{"card"}) {
-		t.Errorf("the ⋯ opened %q", opened)
+	if !slices.Equal(opened, []string{"card", "shown card"}) {
+		t.Errorf("menu was called, and the ⋯ clicked, for %q", opened)
 	}
 }
 
-// Action is the Click of the action an item of the card's menu is for, by the item's
-// id; two cards' actions with the same id are each their own card's.
+// Rendered with Clicks, the bar puts the Click of each action in them by its menu
+// item's id, for its menu to choose from, and not where a page's click reaches; two
+// cards' actions with the same id are each their own card's, and one without a Click
+// has none.
 func TestAction(t *testing.T) {
 	var got []string
 	click := func(name string) Click { return func(ClickEvent) { got = append(got, name) } }
-	a := Basic{ID: "a", Actions: []Action{{ID: "rerun", Click: click("a rerun")}, {ID: "info"}}}.Frame()
-	b := Basic{ID: "b", Actions: []Action{{ID: "rerun", Click: click("b rerun")}}}.Frame()
-	a.Action(a.Menu()[0].ID)(ClickEvent{})
-	b.Action(b.Menu()[0].ID)(ClickEvent{})
+	a := Basic{ID: "a", Actions: []Action{{ID: "rerun", Click: click("a rerun")}, {ID: "info"}}}
+	b := Basic{ID: "b", Actions: []Action{{ID: "rerun", Click: click("b rerun")}}}
+	_, clicks := renderClicks(t, BarContent([]Card{a, b}, nil))
+	clicks.Action(a.Frame().Menu()[0].ID)(ClickEvent{})
+	clicks.Action(b.Frame().Menu()[0].ID)(ClickEvent{})
 	if strings.Join(got, ",") != "a rerun,b rerun" {
 		t.Errorf("the actions' Clicks called %v", got)
 	}
-	for _, id := range []string{a.Menu()[1].ID, b.Menu()[0].ID, "rerun", ""} {
-		if a.Action(id) != nil {
-			t.Errorf("a.Action(%q) has a Click", id)
+	for _, id := range []string{a.Frame().Menu()[1].ID, "rerun", ""} {
+		if clicks.Action(id) != nil {
+			t.Errorf("clicks.Action(%q) has a Click", id)
+		}
+	}
+	for _, item := range append(a.Frame().Menu(), b.Frame().Menu()...) {
+		if clicks.Click(item.ID) != nil {
+			t.Errorf("the page can click %q, an action", item.ID)
 		}
 	}
 }
 
 // Cards and the row have stable ids, for update to morph each into itself.
 func TestBarContentIDs(t *testing.T) {
-	html := render(t, BarContent([]Card{Basic{ID: "ci", Title: "CI"}}))
+	html := render(t, BarContent([]Card{Basic{ID: "ci", Title: "CI"}}, nil))
 	contains(t, html, `<ul id="cards">`, `id="card-ci"`)
 }

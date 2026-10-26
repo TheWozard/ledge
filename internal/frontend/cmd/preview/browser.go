@@ -212,14 +212,14 @@ func (s *browserServer) content() string {
 	shown := s.sample.shown()
 	var buf bytes.Buffer
 	clicks := &components.Clicks{}
-	ctx := components.WithMenus(components.WithClicks(context.Background(), clicks), func(f components.Frame) components.Click {
+	menu := func(f components.Frame) components.Click {
 		return func(components.ClickEvent) {
 			s.mu.Lock()
 			s.showing = f.ElementID()
 			s.mu.Unlock()
 		}
-	})
-	if err := components.BarContent(shown).Render(ctx, &buf); err != nil {
+	}
+	if err := components.BarContent(shown, menu).Render(components.WithClicks(context.Background(), clicks), &buf); err != nil {
 		log.Print(err)
 	}
 	s.mu.Lock()
