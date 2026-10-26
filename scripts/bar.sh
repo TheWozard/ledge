@@ -6,8 +6,8 @@
 #   bar.sh [CARDS]   the examples, plus CARDS extra cards (so the row scrolls sideways)
 #   bar.sh clear     remove everything this script sent, and its pages
 #
-# Sends with $LEDGE (default: ledge on PATH, else built from this repo) to the ledge
-# of $XDG_STATE_HOME. Try it on a scratch instance:
+# Sends to the API socket of $XDG_STATE_HOME's ledge with curl. Try it on a scratch
+# instance:
 #
 #   export XDG_STATE_HOME=/tmp/ledge-scratch
 #   go run ./ledge run &
@@ -15,48 +15,12 @@
 
 set -euo pipefail
 
-REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
-if [[ -z "${LEDGE:-}" ]]; then
-  LEDGE="$(command -v ledge || true)"
-  if [[ -z "$LEDGE" ]]; then
-    LEDGE="${TMPDIR:-/tmp}"; LEDGE="${LEDGE%/}/ledge-examples/ledge"
-    (cd "$REPO_DIR" && go build -o "$LEDGE" ./ledge)
-  fi
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 SOURCE="example-bar"
-PAGES="${TMPDIR:-/tmp}"; PAGES="${PAGES%/}/ledge-examples/bar"
-send() { "$LEDGE" event "$1" >/dev/null; }
-
-# page FILE TITLE [HTML]: writes a small HTML page, stamped with the time it was
-# written so a fresh load shows. Prints the file's path.
-page() {
-  mkdir -p "$(dirname "$1")"
-  cat > "$1" <<HTML
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>$2</title>
-<style>
-  body { font: 14px/1.5 -apple-system, sans-serif; margin: 24px; color: #1d1d1f; }
-  @media (prefers-color-scheme: dark) { body { background: #1d1d1f; color: #ececef; } }
-</style>
-</head>
-<body>
-<h1>$2</h1>
-${3:-}
-<p><small>Written by $(basename "$0") at $(date +%T).</small></p>
-</body>
-</html>
-HTML
-  echo "$1"
-}
-
-# url FILE: a file:// url for a local file.
-url() { echo "file://${1// /%20}"; }
+PAGES="$(pages bar)"
 
 if [[ "${1:-}" == "clear" ]]; then
-  send "{\"source\": \"$SOURCE\", \"items\": []}"
+  section "$SOURCE" '[]'
   rm -rf "$PAGES"
   echo "Cleared $SOURCE" >&2
   exit

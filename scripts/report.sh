@@ -8,24 +8,15 @@
 #   report.sh         send the cards
 #   report.sh clear   remove them
 #
-# Sends with $LEDGE (default: ledge on PATH, else built from this repo) to the ledge
-# of $XDG_STATE_HOME.
+# Sends to the API socket of $XDG_STATE_HOME's ledge with curl.
 
 set -euo pipefail
 
-REPO_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/.." && pwd )"
-if [[ -z "${LEDGE:-}" ]]; then
-  LEDGE="$(command -v ledge || true)"
-  if [[ -z "$LEDGE" ]]; then
-    LEDGE="${TMPDIR:-/tmp}"; LEDGE="${LEDGE%/}/ledge-examples/ledge"
-    (cd "$REPO_DIR" && go build -o "$LEDGE" ./ledge)
-  fi
-fi
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 SOURCE="example-report"
-send() { "$LEDGE" event "$1" >/dev/null; }
 
 if [[ "${1:-}" == "clear" ]]; then
-  send "{\"source\": \"$SOURCE\", \"items\": []}"
+  section "$SOURCE" '[]'
   echo "Cleared $SOURCE" >&2
   exit
 fi

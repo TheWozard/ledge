@@ -45,8 +45,11 @@ func TestServer(t *testing.T) {
 		{"GET", "/schemas/nope", "", 404, "no schema"},
 		{"GET", "/status", "", 200, `"started": "2026-10-26T12:00:00Z"`},
 		{"POST", "/shutdown", "", 200, `"shutdown": true`},
+		{"DELETE", "/events", "", 200, `"dismissed": 2`},
+		{"DELETE", "/events", "", 200, `"dismissed": 0`},
+		{"GET", "/events", "", 200, `"events": []`},
 		{"POST", "/event", `{"title": "x"}`, 404, "no such path POST /event"},
-		{"DELETE", "/events", "", 404, "no such path DELETE /events"},
+		{"PATCH", "/events", "", 404, "no such path PATCH /events"},
 	} {
 		recorder := httptest.NewRecorder()
 		server.ServeHTTP(recorder, httptest.NewRequest(c.method, c.path, strings.NewReader(c.body)))
@@ -54,10 +57,10 @@ func TestServer(t *testing.T) {
 			t.Errorf("%s %s %.60s: %d %s; want %d containing %q", c.method, c.path, c.body, recorder.Code, body, c.status, c.want)
 		}
 	}
-	// Two events, two sections and two dismisses: refused ones, and a dismiss of
-	// nothing, aren't changes.
-	if changes != 6 {
-		t.Errorf("Changed called %d times, want 6", changes)
+	// Two events, two sections, two dismisses and a clear: refused ones, and
+	// dismissing or clearing nothing, aren't changes.
+	if changes != 7 {
+		t.Errorf("Changed called %d times, want 7", changes)
 	}
 	if shutdowns != 1 {
 		t.Errorf("Shutdown called %d times, want 1", shutdowns)

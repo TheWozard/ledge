@@ -142,6 +142,16 @@ func (s *Store) Remove(id string) (bool, error) {
 	return true, s.save(next)
 }
 
+// Clear removes every event. Returns how many there were.
+func (s *Store) Clear() (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if len(s.events) == 0 {
+		return 0, nil
+	}
+	return len(s.events), s.save(nil)
+}
+
 // Prune drops events past their `expires`. Returns true if any went.
 func (s *Store) Prune(now time.Time) (bool, error) {
 	s.mu.Lock()

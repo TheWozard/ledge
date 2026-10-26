@@ -5,6 +5,7 @@
 //	PUT    /sources/{source} {"items": [...]}, which become all of that source's
 //	                         events; replies with their ids
 //	DELETE /events/{id}      dismisses that event
+//	DELETE /events           dismisses every event
 //	GET    /events           the current events, as the bar shows them
 //	GET    /schemas/{name}   a schema, as built in
 //	GET    /status           this ledge's version, pid and start time
@@ -114,6 +115,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.mux.HandleFunc("POST /events", s.addEvent)
 		s.mux.HandleFunc("PUT /sources/{source}", s.replaceSource)
 		s.mux.HandleFunc("DELETE /events/{id}", s.dismiss)
+		s.mux.HandleFunc("DELETE /events", s.clear)
 		s.mux.HandleFunc("GET /events", s.events)
 		s.mux.HandleFunc("GET /schemas/{name}", s.schema)
 		s.mux.HandleFunc("GET /status", s.status)
@@ -166,6 +168,11 @@ func (s *Server) dismiss(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.respond(w, r, map[string]any{"dismissed": true}, true, err)
+}
+
+func (s *Server) clear(w http.ResponseWriter, r *http.Request) {
+	dismissed, err := s.Store.Clear()
+	s.respond(w, r, map[string]any{"dismissed": dismissed}, dismissed > 0, err)
 }
 
 func (s *Server) events(w http.ResponseWriter, r *http.Request) {

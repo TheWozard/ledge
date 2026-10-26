@@ -192,9 +192,10 @@ only stops or restarts the ledge it started itself.
 
 ## Examples
 
-[scripts/](scripts/) puts example events on the bar. Each script uses `ledge` from
-your `PATH` (or builds one) and sends to the ledge of `$XDG_STATE_HOME`, so point them
-at a scratch instance to try them:
+[scripts/](scripts/) puts example events on the bar. The scripts call the API with
+`curl --unix-socket`, as any script of yours could, through the helpers in
+[scripts/lib.sh](scripts/lib.sh). They need a ledge running, and send to the one of
+`$XDG_STATE_HOME`, so point them at a scratch instance to try them:
 
 ```sh
 export XDG_STATE_HOME=/tmp/ledge-scratch
@@ -223,6 +224,7 @@ the bar, whoever sent the events.
 | `POST /events` | an event | `{"id"}` |
 | `PUT /sources/{source}` | `{"items": [...]}`: events that replace all of that source's | `{"ids"}` |
 | `DELETE /events/{id}` | | `{"dismissed": true}`, or a 404 if there's no such event |
+| `DELETE /events` | | `{"dismissed": n}`: every event goes, whoever sent it |
 | `GET /events` | | `{"events": [...]}`, highest priority first, then newest first |
 | `GET /schemas/{name}` | | the schema: `event` or `section` |
 | `GET /status` | | `{"version", "pid", "started"}` of the ledge that answers |
