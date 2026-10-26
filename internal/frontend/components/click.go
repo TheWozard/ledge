@@ -21,9 +21,13 @@ type Click func(ClickEvent)
 // and whether with the middle mouse button rather than the main one. An action chosen
 // from a menu has the keys held as it was chosen, by a click or Return, and never the
 // middle button. (A ⌃-click on a card is a right-click: it shows the card's menu.)
+// A page posts it as JSON, with the names it has in its tags.
 type ClickEvent struct {
-	Alt, Cmd, Shift, Ctrl bool
-	Middle                bool
+	Alt    bool `json:"alt"`
+	Cmd    bool `json:"cmd"`
+	Shift  bool `json:"shift"`
+	Ctrl   bool `json:"ctrl"`
+	Middle bool `json:"middle"`
 }
 
 // Clicks is the Clicks on a page, put there by ClickID as it's rendered with

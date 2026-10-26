@@ -14,19 +14,9 @@ import (
 // message is what a page posts: an action, the id it applies to, and for a click or a
 // choice from a menu, how it was made.
 type message struct {
-	Action string `json:"action"`
-	ID     string `json:"id"`
-	Event  *event `json:"event"`
-}
-
-// event is how something was clicked or chosen, as a page posts it: the modifier keys
-// held, and whether with the middle mouse button.
-type event struct {
-	Alt    bool `json:"alt"`
-	Cmd    bool `json:"cmd"`
-	Shift  bool `json:"shift"`
-	Ctrl   bool `json:"ctrl"`
-	Middle bool `json:"middle"`
+	Action string                 `json:"action"`
+	ID     string                 `json:"id"`
+	Event  *components.ClickEvent `json:"event"`
 }
 
 // eventActions is the actions a message can have an event with.
@@ -37,13 +27,7 @@ func (m message) clickEvent() components.ClickEvent {
 	if m.Event == nil {
 		return components.ClickEvent{}
 	}
-	return components.ClickEvent(*m.Event)
-}
-
-// modifiers is the modifier keys held as the message's choice was made.
-func (m message) modifiers() shim.Modifiers {
-	e := m.clickEvent()
-	return shim.Modifiers{Alt: e.Alt, Cmd: e.Cmd, Shift: e.Shift, Ctrl: e.Ctrl}
+	return *m.Event
 }
 
 // readMessage decodes one message from a page, refusing anything else: an action
@@ -74,10 +58,19 @@ func readMessage(data []byte, actions map[string]bool) (message, error) {
 	return m, nil
 }
 
+// choice is what was chosen from a menu: the index of an item, or -1 for none, and
+// how it was chosen, which is never with the middle button.
+type choice struct {
+	index int
+	event components.ClickEvent
+}
+
+// noChoice is a menu closed without a choice.
+var noChoice = choice{index: -1}
+
 // chooseFrom pops up a menu of items, in the theme's menu if it has one, or the
-// native one, and returns what was chosen: the index of an item, or -1 for none, and
-// the keys held as it was.
-func (b *Bar) chooseFrom(items []components.MenuItem) shim.Chosen {
+// native one, and returns what was chosen from it.
+func (b *Bar) chooseFrom(items []components.MenuItem) choice {
 	b.mu.Lock()
 	css := b.options.Theme.Menu
 	b.mu.Unlock()
@@ -88,7 +81,9 @@ func (b *Bar) chooseFrom(items []components.MenuItem) shim.Chosen {
 	for i, item := range items {
 		shown[i] = shim.MenuItem{Title: item.Title, Color: item.Color, Enabled: item.Enabled}
 	}
-	return showMenu(shown)
+	chosen := showMenu(shown)
+	m := chosen.Modifiers
+	return choice{chosen.Index, components.ClickEvent{Alt: m.Alt, Cmd: m.Cmd, Shift: m.Shift, Ctrl: m.Ctrl}}
 }
 
 // showMenu pops up a native menu and returns what was chosen from it: the shim's, or
@@ -108,12 +103,11 @@ func (b *Bar) menu(f components.Frame) components.Click {
 		if e.Middle {
 			return
 		}
-		choice := b.chooseFrom(items)
-		chosen := choice.Index
-		if chosen < 0 || chosen >= len(items) {
+		chosen := b.chooseFrom(items)
+		if chosen.index < 0 || chosen.index >= len(items) {
 			return
 		}
-		item := items[chosen].ID
+		item := items[chosen.index].ID
 		b.mu.Lock()
 		var click components.Click
 		for _, card := range b.cards {
@@ -126,7 +120,6 @@ func (b *Bar) menu(f components.Frame) components.Click {
 			log.Printf("ui: %q was chosen from a menu, but isn't on the bar", item)
 			return
 		}
-		m := choice.Modifiers
-		click(components.ClickEvent{Alt: m.Alt, Cmd: m.Cmd, Shift: m.Shift, Ctrl: m.Ctrl})
+		click(chosen.event)
 	}
 }

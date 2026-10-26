@@ -441,7 +441,7 @@ func TestMenus(t *testing.T) {
 // nothing's chosen.
 func TestPopup(t *testing.T) {
 	var p popup
-	item := func(i int) shim.Chosen { return shim.Chosen{Index: i} }
+	item := func(i int) choice { return choice{index: i} }
 	if p.isOpen() || p.finish(noChoice) {
 		t.Fatal("a menu is open before any's opened")
 	}
@@ -454,7 +454,7 @@ func TestPopup(t *testing.T) {
 		t.Error("an item that can't be chosen was chosen")
 	}
 	// What's chosen goes with the keys held as it was.
-	shifted := shim.Chosen{Index: 1, Modifiers: shim.Modifiers{Shift: true}}
+	shifted := choice{1, components.ClickEvent{Shift: true}}
 	if !p.finish(shifted) || <-second != shifted || p.isOpen() {
 		t.Error("choosing an item didn't close the menu with it")
 	}
