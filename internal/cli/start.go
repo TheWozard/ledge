@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/TheWozard/ledge/internal/api"
@@ -14,8 +15,18 @@ import (
 // registerRunFlags adds `ledge run`'s flags to cmd, setting options: run, start and
 // restart take the same ones.
 func registerRunFlags(cmd *cobra.Command, options *api.Options) {
-	cmd.Flags().StringVar(&options.Config, "config", "", "settings `PATH` (JSON; default: built-in defaults)")
+	cmd.Flags().StringVar(&options.Config, "config", "",
+		"settings `PATH` (JSON; default: $"+config.Env+", else built-in defaults; \"\" for none)")
 	cmd.Flags().BoolVar(&options.Headless, "headless", false, "run only the API, with no windows")
+}
+
+// given is the options cmd was given, with --config defaulting to $LEDGE_CONFIG, and
+// its path made absolute.
+func given(cmd *cobra.Command, options api.Options) (api.Options, error) {
+	if !cmd.Flags().Changed("config") {
+		options.Config = os.Getenv(config.Env)
+	}
+	return absolute(options)
 }
 
 // absolute is options with the config's path made absolute: a background ledge runs
@@ -41,7 +52,7 @@ API to answer. Its output goes to ledge.log in the state dir. Does nothing if a 
 already answers on the state dir's socket; ` + "`ledge stop`" + ` stops it.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
-		options, err := absolute(startOptions)
+		options, err := given(cmd, startOptions)
 		if err != nil {
 			return err
 		}

@@ -12,11 +12,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
 
 	"github.com/TheWozard/ledge/internal/api"
+	"github.com/TheWozard/ledge/internal/config"
 	"github.com/TheWozard/ledge/internal/state"
 )
 
@@ -78,6 +80,9 @@ func (p *Process) Start(options api.Options) (pid int, started bool, err error) 
 	home, _ := os.UserHomeDir()
 	cmd := exec.Command(p.Binary, append([]string{"run"}, options.Args()...)...)
 	cmd.Dir = home
+	// The options are all it runs with: $LEDGE_CONFIG has been read into them already,
+	// and --config "" is none, which the variable mustn't undo.
+	cmd.Env = slices.DeleteFunc(os.Environ(), func(v string) bool { return strings.HasPrefix(v, config.Env+"=") })
 	cmd.Stdout, cmd.Stderr = log, log
 	// Its own session, so it outlives the terminal that started it.
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}

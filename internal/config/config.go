@@ -1,5 +1,5 @@
-// Package config reads the settings passed with --config. There's no default
-// location: without a file, ledge uses the defaults. The file is checked against
+// Package config reads the settings passed with --config, or named by $LEDGE_CONFIG.
+// There's no default location: without a file, ledge uses the defaults. The file is checked against
 // config.schema.json, so an unknown key or a bad value stops ledge from starting
 // rather than being quietly ignored.
 package config
@@ -28,6 +28,9 @@ type Config struct {
 	Level    string `json:"level"`
 	Commands bool   `json:"commands"`
 }
+
+// Env names the config file when --config isn't given.
+const Env = "LEDGE_CONFIG"
 
 // Defaults is the config without a file, and what a file's missing keys fall back to.
 var Defaults = Config{Screen: 0, Edge: "bottom", Height: 110, Theme: "default", Level: "normal"}

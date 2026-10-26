@@ -117,8 +117,11 @@ The blocks are `heading`, `text`, `fields`, `table`, `list`, `code`, `note` and 
 
 ## Config
 
-`--config` names a JSON file of settings, read when ledge starts, so `ledge restart`
-after changing it. Every key is optional, and an unknown key or a bad value stops ledge
+`--config` names a JSON file of settings, or without it, `$LEDGE_CONFIG` does; with
+neither, ledge uses the defaults below. `--config ""` is none, whatever the environment
+says. The file is read when ledge starts, so `ledge restart` after changing it, or after
+changing `$LEDGE_CONFIG`: `restart` keeps the running ledge's config unless one of them
+names another. Every key is optional, and an unknown key or a bad value stops ledge
 from starting:
 
 ```json

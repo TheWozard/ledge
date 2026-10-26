@@ -180,3 +180,55 @@ func TestUpdateRefusesADevBuild(t *testing.T) {
 		t.Errorf("update = %v", err)
 	}
 }
+
+// $LEDGE_CONFIG is the config unless --config is given, for start and restart alike.
+func TestConfigFromEnv(t *testing.T) {
+	home := stateHome(t)
+	t.Setenv("LEDGE_CLI_TEST", "1")
+	t.Chdir(home)
+	t.Cleanup(func() { ledge(t, "", "stop") })
+	for _, name := range []string{"env.json", "flag.json"} {
+		if err := os.WriteFile(name, []byte(`{"edge": "top"}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	config := func() string {
+		t.Helper()
+		client, err := client()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var status api.Status
+		if err := client.Call("GET", "/status", nil, &status); err != nil {
+			t.Fatalf("no ledge answering: %v", err)
+		}
+		return filepath.Base(status.Options.Config)
+	}
+
+	t.Setenv("LEDGE_CONFIG", "env.json")
+	for _, c := range []struct {
+		args []string
+		want string // the running ledge's config file, "." for none
+	}{
+		{[]string{"start", "--headless"}, "env.json"},
+		{[]string{"restart", "--headless", "--config", "flag.json"}, "flag.json"},
+		// Without flags, the environment's beats the running ledge's.
+		{[]string{"restart"}, "env.json"},
+		// --config "" is none, whatever the environment says.
+		{[]string{"restart", "--headless", "--config", ""}, "."},
+	} {
+		if _, err := ledge(t, "", c.args...); err != nil {
+			t.Fatalf("%q: %v", c.args, err)
+		}
+		if got := config(); got != c.want {
+			t.Errorf("after %q, the config is %q; want %q", c.args, got, c.want)
+		}
+	}
+
+	// A bad one fails as --config would, before anything stops.
+	t.Setenv("LEDGE_CONFIG", "missing.json")
+	if _, err := ledge(t, "", "restart"); err == nil || !strings.Contains(err.Error(), "missing.json") {
+		t.Errorf("restart with a missing $LEDGE_CONFIG = %v", err)
+	}
+	config()
+}

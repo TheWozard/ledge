@@ -22,7 +22,7 @@ var runCmd = &cobra.Command{
 --headless runs only the API, with no windows.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		options, err := absolute(runOptions)
+		options, err := given(cmd, runOptions)
 		if err != nil {
 			return err
 		}

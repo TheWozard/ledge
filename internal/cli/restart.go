@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/TheWozard/ledge/internal/api"
@@ -16,7 +17,8 @@ var restartCmd = &cobra.Command{
 	Short: "Stop the running ledge and start it again in the background",
 	Long: `Stop the running ledge, as ` + "`ledge stop`" + ` does, and start it again, reading its config file
 afresh. Without flags it starts with the running ledge's flags, or if none is running,
-the last ` + "`ledge start`" + `'s; with any flag, it uses only the flags given. Starts it if it
+the last ` + "`ledge start`" + `'s; with any flag, it uses only the flags given. Either way,
+$` + config.Env + `, if set, is the config unless --config is given. Starts it if it
 wasn't running. If the config is invalid, the running ledge is left running.`,
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
@@ -24,11 +26,9 @@ wasn't running. If the config is invalid, the running ledge is left running.`,
 		if err != nil {
 			return err
 		}
-		options, err := absolute(restartOptions)
-		if err != nil {
-			return err
-		}
-		if !cmd.Flags().Changed("config") && !cmd.Flags().Changed("headless") {
+		reuse := !cmd.Flags().Changed("config") && !cmd.Flags().Changed("headless")
+		options := restartOptions
+		if reuse {
 			if status, ok := process.Status(); ok {
 				options = status.Options
 			} else if last, ok, err := process.LastOptions(); err != nil {
@@ -36,9 +36,16 @@ wasn't running. If the config is invalid, the running ledge is left running.`,
 			} else if ok {
 				options = last
 			}
-			if args := options.Args(); len(args) > 0 {
-				fmt.Fprintf(cmd.OutOrStdout(), "Using the flags: %s\n", strings.Join(args, " "))
-			}
+		}
+		if env := os.Getenv(config.Env); env != "" && !cmd.Flags().Changed("config") {
+			options.Config = env
+		}
+		options, err = absolute(options)
+		if err != nil {
+			return err
+		}
+		if args := options.Args(); reuse && len(args) > 0 {
+			fmt.Fprintf(cmd.OutOrStdout(), "Using the flags: %s\n", strings.Join(args, " "))
 		}
 		// A bad config leaves the running ledge running.
 		if _, err := config.Load(options.Config); err != nil {
