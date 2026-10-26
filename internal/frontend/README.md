@@ -123,8 +123,8 @@ chosen, by a click or Return. (A ⌃-click on a card is a right-click: it shows 
 card's menu.) There's a `Click` for a card itself, its `Dismiss` for its × (shown only if set), an
 action's `Click`, and one for anything in a card's body clicked on its own, not as the
 card, such as a check with a `Click`: a kind of card of the app's marks each in its
-body with `data-click={ components.ClickID(ctx, id, click) }` and the class
-`clickable`, with an id unique within its card. The page has an id for each `Click`,
+body with `{ components.Clickable(ctx, id, click)... }`, which gives it `data-click`, or
+nothing for a nil `Click`, with an id unique within its card. The page has an id for each `Click`,
 made from the card's id and its own, so two cards can use the same ids, and the app
 never handles the page's ids itself; a click on something a later `Render` took off
 is dropped. While a `Click` runs, what was clicked has `data-busy`, for a theme to
@@ -152,9 +152,9 @@ held, so they mustn't call back into it. What's clicked in a report,
 such as a `Buttons`' button, calls its `Click` as one on the bar does, busy while it
 runs, until the report is shown again or closed; a block replaced with
 `ShowReportBlock` brings its own. A block of the app's can have clickable things too:
-`components.ClickID(ctx, id, click)`, called as it renders, gives the id to put in
-`data-click`. An id is unique within its `Block`, or among the report's clickable
-things in none. The built-in blocks:
+`{ components.Clickable(ctx, id, click)... }`, spread on an element as it renders,
+gives it `data-click`. An id is unique within its `Block`, or among the report's
+clickable things in none. A theme styles what can be clicked by `[data-click]`. The built-in blocks:
 
 | Block | Shows |
 |---|---|

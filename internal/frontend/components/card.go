@@ -25,8 +25,8 @@ type Card interface {
 	// Body is what's in the card, above its actions. Like everything on the bar, it
 	// should show strings as text, which templ does unless told otherwise. A click on
 	// it is a click on the card, but on a part of it the body marks with
-	// data-click={ ClickID(ctx, id, click) }, and the class clickable, it's a click on
-	// that part alone: id is the part's, unique within its card.
+	// { Clickable(ctx, id, click)... }, it's a click on that part alone: id is the
+	// part's, unique within its card.
 	Body() templ.Component
 }
 
@@ -65,17 +65,12 @@ func (f Frame) ElementID() string { return "card-" + f.ID }
 // className is what a Kind must be to be a class on its card.
 var className = regexp.MustCompile(`^[a-z0-9-]+$`)
 
-// classes is the card's classes: its kind, if that's a class name, and clickable if
-// it is.
-func (f Frame) classes() string {
-	var classes []string
+// class is the card's class: its kind, if that's a class name, or none.
+func (f Frame) class() string {
 	if className.MatchString(f.Kind) {
-		classes = append(classes, f.Kind)
+		return f.Kind
 	}
-	if f.Click != nil {
-		classes = append(classes, "clickable")
-	}
-	return strings.Join(classes, " ")
+	return ""
 }
 
 // color is the card's colour, if it has one that's #rrggbb.

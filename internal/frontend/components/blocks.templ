@@ -116,11 +116,9 @@ templ Buttons(buttons []Button) {
 				type="button"
 				data-color={ colorName(button.Color) }
 				style={ templ.SafeCSS("--button: " + cssColor(button.Color)) }
-				if button.Click != nil {
-					class="button clickable"
-					data-click={ ClickID(ctx, button.ID, button.Click) }
-				} else {
-					class="button"
+				class="button"
+				{ Clickable(ctx, button.ID, button.Click)... }
+				if button.Click == nil {
 					disabled
 				}
 			><span class="button-dot"></span>{ button.Title }</button>

@@ -21,14 +21,14 @@ func TestCard(t *testing.T) {
 	}
 	html := render(t, BarContent(Cards(cards), nil))
 	contains(t, html,
-		`<li id="card-deploy" class="basic clickable" data-click="card/deploy/click" data-color="#e0362c" style="--card-color: #e0362c; --card-width: 240px;">`,
+		`<li id="card-deploy" class="basic" data-click="card/deploy/click" data-color="#e0362c" style="--card-color: #e0362c; --card-width: 240px;">`,
 		`<span class="title">Plain</span>`,
 		// A colour that isn't #rrggbb is none.
 		`<li id="card-plain" class="basic">`,
 		`<li id="card-new" class="basic" data-color="#2f9e5b" style="--card-color: #2f9e5b;">`,
 		`&lt;b&gt;Deploy&lt;/b&gt;`, `<div class="description">done</div>`,
 		// × shows only on a card that can be dismissed.
-		`<div class="card-buttons"><button class="dismiss clickable" title="Dismiss" data-click="card/deploy/dismiss">×</button></div>`)
+		`<div class="card-buttons"><button class="dismiss" title="Dismiss" data-click="card/deploy/dismiss">×</button></div>`)
 	// Without actions, a card has no menu. Which cards are new is the page's to tell.
 	lacks(t, html, "<b>Deploy", "No events.", "data-menu", "actions", "data-new", "--i")
 	lacks(t, html, "url(x)")
@@ -135,7 +135,7 @@ func TestKinds(t *testing.T) {
 	html, clicks := renderClicks(t, BarContent(cards, nil))
 	contains(t, html,
 		`<li id="card-basic" class="basic">`,
-		`<li id="card-build" class="progress" data-menu="card/build/menu"><div class="card-buttons"><button class="menu clickable" title="Actions" data-click="card/build/menu">⋯</button> </div><div class="done">40%</div></li>`,
+		`<li id="card-build" class="progress" data-menu="card/build/menu"><div class="card-buttons"><button class="menu" title="Actions" data-click="card/build/menu">⋯</button> </div><div class="done">40%</div></li>`,
 		`<li id="card-odd" class="" data-menu="card/odd/menu">`)
 	if click := clicks.Action("action/build/build-stop"); click == nil {
 		t.Error("the progress card's action has no Click")
@@ -154,9 +154,9 @@ func TestMenu(t *testing.T) {
 	}}
 	html := render(t, BarContent([]Card{card}, nil))
 	contains(t, html,
-		`<li id="card-card" class="basic clickable" data-click="card/card/click" data-menu="card/card/menu">`,
-		`<div class="card-buttons"><button class="menu clickable" title="Actions" data-click="card/card/menu">⋯</button> `+
-			`<button class="dismiss clickable" title="Dismiss" data-click="card/card/dismiss">×</button></div>`)
+		`<li id="card-card" class="basic" data-click="card/card/click" data-menu="card/card/menu">`,
+		`<div class="card-buttons"><button class="menu" title="Actions" data-click="card/card/menu">⋯</button> `+
+			`<button class="dismiss" title="Dismiss" data-click="card/card/dismiss">×</button></div>`)
 	lacks(t, html, "AWS", "CI", "action/")
 	want := []MenuItem{
 		{Title: "AWS", Color: "green", Enabled: true, ID: "action/card/aws"},

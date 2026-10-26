@@ -82,10 +82,10 @@ func TestButtons(t *testing.T) {
 		Block("again", Buttons([]Button{{ID: "cancel", Title: "Cancel", Click: click("cancel again")}})),
 	}))
 	contains(t, html,
-		`<div class="buttons"><button type="button" data-color="yellow" style="--button: var(--c-yellow);" class="button clickable" data-click="rerun"><span class="button-dot"></span>&lt;Rerun&gt;</button>`,
+		`<div class="buttons"><button type="button" data-color="yellow" style="--button: var(--c-yellow);" class="button" data-click="rerun"><span class="button-dot"></span>&lt;Rerun&gt;</button>`,
 		`<button type="button" data-color="gray" style="--button: var(--c-gray);" class="button" disabled><span class="button-dot"></span>Off</button>`,
-		`data-color="#e0362c" style="--button: #e0362c;" class="button clickable" data-click="block/more/cancel">`,
-		`class="button clickable" data-click="block/again/cancel">`)
+		`data-color="#e0362c" style="--button: #e0362c;" class="button" data-click="block/more/cancel">`,
+		`class="button" data-click="block/again/cancel">`)
 	lacks(t, html, "<Rerun>", `data-click="off"`)
 	ids := []string{"block/again/cancel", "block/more/cancel", "rerun"}
 	if !slices.Equal(clicks.IDs(), ids) {

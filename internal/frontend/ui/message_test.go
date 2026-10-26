@@ -137,13 +137,13 @@ func TestPartClicks(t *testing.T) {
 		waitFor(t, `document.querySelector("#cards > *") === null`, "true")
 	})
 	waitFor(t, `document.querySelectorAll(".check").length`, "2")
-	eval(t, `document.querySelector(".check.clickable .check-mark").click(), true`)
+	eval(t, `document.querySelector(".check[data-click] .check-mark").click(), true`)
 	eventually(t, "open ci test", func() bool { return calls.has("open ci test") })
 	time.Sleep(200 * time.Millisecond)
 	if calls.has("open ci") {
 		t.Error("clicking a check with a Click also opened its card")
 	}
-	eval(t, `document.querySelector(".check:not(.clickable)").click(), true`)
+	eval(t, `document.querySelector(".check:not([data-click])").click(), true`)
 	eventually(t, "open ci", func() bool { return calls.has("open ci") })
 }
 

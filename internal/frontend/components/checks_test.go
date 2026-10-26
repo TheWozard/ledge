@@ -30,7 +30,7 @@ func TestChecks(t *testing.T) {
 		`<li id="card-ci" class="checks" data-menu="card/ci/menu">`)
 	lacks(t, html, "<test>", "exploded")
 
-	lacks(t, html, "check clickable", `data-click="body/`)
+	lacks(t, html, `data-click="body/`)
 
 	// Without checks, there's no row for them.
 	empty := render(t, BarContent([]Card{Checks{Basic: Basic{ID: "none", Title: "None"}}}, nil))
@@ -50,7 +50,7 @@ func TestClickableChecks(t *testing.T) {
 	html, clicks := renderClicks(t, BarContent([]Card{card}, nil))
 	contains(t, html,
 		`<span class="check" data-state="passed" title="build: passed">`,
-		`<span class="check clickable" data-click="body/ci/test" data-state="failed" title="test: failed">`)
+		`<span class="check" data-click="body/ci/test" data-state="failed" title="test: failed">`)
 	if ids := clicks.IDs(); !slices.Equal(ids, []string{"body/ci/test", "card/ci/click"}) {
 		t.Fatalf("Clicks have %q", ids)
 	}

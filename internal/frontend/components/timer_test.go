@@ -14,7 +14,7 @@ func TestTimer(t *testing.T) {
 		Start: start, End: start.Add(90*time.Second + 500*time.Millisecond), Complete: func() {}}
 	html := render(t, BarContent([]Card{timer}, nil))
 	contains(t, html,
-		`<li id="card-tea" class="timer clickable" data-click="card/tea/click" data-color="#3b82f6"`,
+		`<li id="card-tea" class="timer" data-click="card/tea/click" data-color="#3b82f6"`,
 		`<span class="title">&lt;b&gt;Tea&lt;/b&gt;</span>`,
 		fmt.Sprintf(`<div class="reading-value time-left" data-start="%d" data-end="%d">1:31</div>`, start.UnixMilli(), timer.End.UnixMilli()),
 		`data-click="card/tea/dismiss"`)

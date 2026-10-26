@@ -52,10 +52,8 @@ templ BarContent(cards []Card, menu func(f Frame) Click) {
 templ frame(f Frame, body templ.Component, showMenu Click) {
 	<li
 		id={ f.ElementID() }
-		class={ f.classes() }
-		if f.Click != nil {
-			data-click={ ClickID(ctx, "click", f.Click) }
-		}
+		class={ f.class() }
+		{ Clickable(ctx, "click", f.Click)... }
 		if len(f.Actions) > 0 {
 			data-menu={ ClickID(ctx, "menu", showMenu) }
 		}
@@ -69,10 +67,10 @@ templ frame(f Frame, body templ.Component, showMenu Click) {
 		if len(f.Actions) > 0 || f.Dismiss != nil {
 			<div class="card-buttons">
 				if len(f.Actions) > 0 {
-					<button class="menu clickable" title="Actions" data-click={ ClickID(ctx, "menu", showMenu) }>⋯</button>
+					<button class="menu" title="Actions" data-click={ ClickID(ctx, "menu", showMenu) }>⋯</button>
 				}
 				if f.Dismiss != nil {
-					<button class="dismiss clickable" title="Dismiss" data-click={ ClickID(ctx, "dismiss", f.Dismiss) }>×</button>
+					<button class="dismiss" title="Dismiss" data-click={ ClickID(ctx, "dismiss", f.Dismiss) }>×</button>
 				}
 			</div>
 		}

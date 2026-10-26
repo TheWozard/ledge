@@ -107,16 +107,16 @@ li.progress:has(.description),
 li.stat:has(.description) {
   --card-width: 200px;
 }
-/* Anything with a Click has the class clickable, and is clicked on its own: a
+/* Anything with a Click has data-click, and is clicked on its own: a
    click on a card's × or ⋯, or on a part of its body with a Click of its own, such
    as a check, isn't also a click on the card. While its Click runs, what was
    clicked has data-busy, and clicking it again does nothing; while one of a card's
    actions runs, its ⋯ has. A theme can show a card busy with any of its own with
    li:has([data-busy]). */
-.clickable {
+[data-click] {
   cursor: pointer;
 }
-.clickable[data-busy] {
+[data-click][data-busy] {
   cursor: progress;
 }
 /* Title, then description. The title clamps; the description fills the space
@@ -174,8 +174,8 @@ li.stat:has(.description) {
 }
 /* A checks card's .check-list follows its title: each check its mark and name,
    wrapping onto as many lines as they need, and scrolling if they don't fit. Each
-   has its state in data-state: passed, failed, running, pending or skipped, and is
-   .clickable if it has a Click of its own. (Not .checks, which is the card's own
+   has its state in data-state: passed, failed, running, pending or skipped, and
+   has data-click if it has a Click of its own. (Not .checks, which is the card's own
    kind.) */
 .check-list {
   display: flex;

@@ -70,7 +70,7 @@ func TestRender(t *testing.T) {
 	waitFor(t, `[...document.querySelectorAll("li .title")].map(e => e.textContent).join("|")`, `"Deploy finished|<b>not bold</b>"`)
 	for js, want := range map[string]string{
 		`document.querySelector("li .title b") === null`:   "true",
-		`document.querySelector("li").className`:           `"basic clickable"`,
+		`document.querySelector("li").className`:           `"basic"`,
 		`document.querySelector("li").dataset.color`:       `"#e0362c"`,
 		`document.querySelector("li").dataset.menu`:        `"card/deploy/menu"`,
 		`document.querySelector(".menu").closest("li").id`: `"card-deploy"`,

@@ -102,6 +102,16 @@ func ClickID(ctx context.Context, id string, click Click) string {
 	return full
 }
 
+// Clickable is the attributes that make an element clicked on its own, for a kind of
+// card's body, or a report's block, to spread on it: data-click, with the id ClickID
+// gives click as id, or none if click is nil, so it isn't clickable.
+func Clickable(ctx context.Context, id string, click Click) templ.Attributes {
+	if click == nil {
+		return templ.Attributes{}
+	}
+	return templ.Attributes{"data-click": ClickID(ctx, id, click)}
+}
+
 // pageID is the page's id for id in s: kind/scope/id, each escaped so none has a /
 // in it, or only id, escaped, for what's in no scope. No two are the same.
 func pageID(s scope, id string) string {

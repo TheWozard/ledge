@@ -62,11 +62,11 @@ li.progress {
 /* A card that can be clicked has a stripe of its colour down its left edge (a
    plain line without one), which keeps its colour while the rest of the border
    takes the accent on hover. */
-li.clickable {
+li[data-click] {
   border-left: var(--stripe) solid var(--card-color, var(--line));
 }
 
-li.clickable:hover {
+li[data-click]:hover {
   border-color: var(--accent);
 }
 
@@ -149,7 +149,7 @@ li.clickable:hover {
 
 /* A check with a Click of its own underlines on hover, so it's plain which a click
    will go to: it or its card. */
-.check.clickable:hover {
+.check[data-click]:hover {
   text-decoration: underline;
 }
 

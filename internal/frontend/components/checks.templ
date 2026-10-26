@@ -52,12 +52,8 @@ templ checksBody(c Checks) {
 		<div class="check-list">
 			for _, check := range c.Checks {
 				<span
-					if check.Click != nil {
-						class="check clickable"
-						data-click={ ClickID(ctx, check.Name, check.Click) }
-					} else {
-						class="check"
-					}
+					class="check"
+					{ Clickable(ctx, check.Name, check.Click)... }
 					data-state={ checkState(check.State) }
 					title={ check.Name + ": " + checkState(check.State) }
 				><span class="check-mark">{ checkMarks[checkState(check.State)] }</span>{ check.Name }</span>
