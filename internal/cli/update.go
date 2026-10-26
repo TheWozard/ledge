@@ -35,12 +35,12 @@ it's stopped and run again.
 			return err
 		}
 		if !newer {
-			fmt.Printf("ledge %s is up to date.\n", version.Tag())
+			fmt.Fprintf(cmd.OutOrStdout(), "ledge %s is up to date.\n", version.Tag())
 			return nil
 		}
-		fmt.Printf("ledge %s is installed; %s is the latest.\n", version.Tag(), release.Tag)
+		fmt.Fprintf(cmd.OutOrStdout(), "ledge %s is installed; %s is the latest.\n", version.Tag(), release.Tag)
 		if updateCheck {
-			fmt.Println("Run `ledge update` to install it.")
+			fmt.Fprintln(cmd.OutOrStdout(), "Run `ledge update` to install it.")
 			return nil
 		}
 		binary, err := client.Download(release)
@@ -54,7 +54,7 @@ it's stopped and run again.
 		if err := update.Replace(path, binary); err != nil {
 			return fmt.Errorf("installing %s: %w", release.Tag, err)
 		}
-		fmt.Printf("Updated to %s. A ledge that's running keeps %s until it's restarted (ledge restart).\n",
+		fmt.Fprintf(cmd.OutOrStdout(), "Updated to %s. A ledge that's running keeps %s until it's restarted (ledge restart).\n",
 			release.Tag, version.Tag())
 		return nil
 	},

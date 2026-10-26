@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +14,30 @@ import (
 	"github.com/TheWozard/ledge/internal/state"
 	"github.com/spf13/pflag"
 )
+
+// The test binary stands in for ledge: `ledge start` runs it as `<test binary> run`,
+// and with LEDGE_CLI_TEST set, that runs the CLI as ledge would.
+func TestMain(m *testing.M) {
+	if os.Getenv("LEDGE_CLI_TEST") != "" && len(os.Args) > 1 && os.Args[1] == "run" {
+		Execute()
+		return
+	}
+	os.Exit(m.Run())
+}
+
+// stateHome makes a new state home, which $XDG_STATE_HOME names for the length of the
+// test.
+func stateHome(t *testing.T) string {
+	t.Helper()
+	// Not t.TempDir(): a socket's path must fit in 104 bytes.
+	home, err := os.MkdirTemp("", "ledge")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(home) })
+	t.Setenv("XDG_STATE_HOME", home)
+	return home
+}
 
 // ledge runs the CLI with args and stdin, and gives what it printed.
 func ledge(t *testing.T, stdin string, args ...string) (string, error) {
@@ -32,17 +57,10 @@ func ledge(t *testing.T, stdin string, args ...string) (string, error) {
 	return out.String(), err
 }
 
-// runLedge runs a headless ledge in a new state dir, which $XDG_STATE_HOME names for
-// the length of the test.
+// runLedge runs a headless ledge in this test, in a new state home.
 func runLedge(t *testing.T) {
 	t.Helper()
-	// Not t.TempDir(): a socket's path must fit in 104 bytes.
-	home, err := os.MkdirTemp("", "ledge")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { os.RemoveAll(home) })
-	t.Setenv("XDG_STATE_HOME", home)
+	stateHome(t)
 	dir, err := state.Dir()
 	if err != nil {
 		t.Fatal(err)
@@ -92,5 +110,73 @@ func TestEvents(t *testing.T) {
 	}
 	if out, _ := ledge(t, "", "list"); strings.Count(out, `"id"`) != 1 || !strings.Contains(out, `"id": "d"`) {
 		t.Errorf("after the dismisses, list = %s", out)
+	}
+}
+
+// start, stop and restart, running the test binary as a background ledge.
+func TestBackground(t *testing.T) {
+	home := stateHome(t)
+	t.Setenv("LEDGE_CLI_TEST", "1")
+	t.Chdir(home)
+	t.Cleanup(func() { ledge(t, "", "stop") })
+	if err := os.WriteFile("config.json", []byte(`{"commands": true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("bad.json", []byte(`{"bad": true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	status := func() api.Status {
+		t.Helper()
+		client, err := client()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var status api.Status
+		if err := client.Call("GET", "/status", nil, &status); err != nil {
+			t.Fatalf("no ledge answering: %v", err)
+		}
+		return status
+	}
+
+	for _, c := range []struct {
+		args []string
+		want []string // what it prints, in part
+		err  string   // "" for none
+	}{
+		{[]string{"start", "--headless"}, []string{"ledge started"}, ""},
+		{[]string{"start"}, []string{"ledge is already running"}, ""},
+		{[]string{"version"}, []string{"running: ledge"}, ""},
+		// Without flags, the running ledge's.
+		{[]string{"restart"}, []string{"Using the flags: --headless\n", "ledge stopped", "ledge started"}, ""},
+		// A bad config leaves it running.
+		{[]string{"restart", "--headless", "--config", "bad.json"}, nil, "additional properties 'bad' not allowed"},
+		// A relative config is made absolute, as the background ledge runs in $HOME.
+		{[]string{"restart", "--headless", "--config", "config.json"}, []string{"ledge stopped", "ledge started"}, ""},
+		{[]string{"stop"}, []string{"ledge stopped"}, ""},
+		{[]string{"stop"}, []string{"ledge isn't running"}, ""},
+		// With none running, the last start's.
+		{[]string{"restart"}, []string{"Using the flags: --config /", "config.json --headless\n", "ledge started"}, ""},
+	} {
+		out, err := ledge(t, "", c.args...)
+		if (c.err == "") != (err == nil) || err != nil && !strings.Contains(err.Error(), c.err) {
+			t.Fatalf("%q: %v; want error %q", c.args, err, c.err)
+		}
+		for _, want := range c.want {
+			if !strings.Contains(out, want) {
+				t.Errorf("%q printed %q; want %q", c.args, out, want)
+			}
+		}
+		if c.err != "" {
+			status() // still running
+		}
+	}
+	if options := status().Options; !options.Headless || !filepath.IsAbs(options.Config) || filepath.Base(options.Config) != "config.json" {
+		t.Errorf("the running ledge's options = %+v", options)
+	}
+}
+
+func TestUpdateRefusesADevBuild(t *testing.T) {
+	if _, err := ledge(t, "", "update"); err == nil || !strings.Contains(err.Error(), "development build") {
+		t.Errorf("update = %v", err)
 	}
 }

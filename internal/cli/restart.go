@@ -28,7 +28,7 @@ wasn't running. If the config is invalid, the running ledge is left running.`,
 		if err != nil {
 			return err
 		}
-		if cmd.Flags().NFlag() == 0 {
+		if !cmd.Flags().Changed("config") && !cmd.Flags().Changed("headless") {
 			if status, ok := process.Status(); ok {
 				options = status.Options
 			} else if last, ok, err := process.LastOptions(); err != nil {
@@ -37,7 +37,7 @@ wasn't running. If the config is invalid, the running ledge is left running.`,
 				options = last
 			}
 			if args := options.Args(); len(args) > 0 {
-				fmt.Printf("Using the flags: %s\n", strings.Join(args, " "))
+				fmt.Fprintf(cmd.OutOrStdout(), "Using the flags: %s\n", strings.Join(args, " "))
 			}
 		}
 		// A bad config leaves the running ledge running.
@@ -49,9 +49,9 @@ wasn't running. If the config is invalid, the running ledge is left running.`,
 			return err
 		}
 		if stopped {
-			fmt.Println("ledge stopped")
+			fmt.Fprintln(cmd.OutOrStdout(), "ledge stopped")
 		}
-		return startWith(options)
+		return startWith(cmd, options)
 	},
 }
 

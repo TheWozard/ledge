@@ -23,10 +23,10 @@ answers after 5 seconds.`,
 			return err
 		}
 		if !stopped {
-			fmt.Println("ledge isn't running")
+			fmt.Fprintln(cmd.OutOrStdout(), "ledge isn't running")
 			return nil
 		}
-		fmt.Println("ledge stopped")
+		fmt.Fprintln(cmd.OutOrStdout(), "ledge stopped")
 		return nil
 	},
 }

@@ -45,12 +45,13 @@ already answers on the state dir's socket; ` + "`ledge stop`" + ` stops it.`,
 		if err != nil {
 			return err
 		}
-		return startWith(options)
+		return startWith(cmd, options)
 	},
 }
 
-// startWith starts `ledge run` with options in the background.
-func startWith(options api.Options) error {
+// startWith starts `ledge run` with options in the background, saying so on cmd's
+// output.
+func startWith(cmd *cobra.Command, options api.Options) error {
 	process, err := backgroundProcess()
 	if err != nil {
 		return err
@@ -64,10 +65,10 @@ func startWith(options api.Options) error {
 		return err
 	}
 	if !started {
-		fmt.Printf("ledge is already running (pid %d)\n", pid)
+		fmt.Fprintf(cmd.OutOrStdout(), "ledge is already running (pid %d)\n", pid)
 		return nil
 	}
-	fmt.Printf("ledge started (pid %d, socket %s, log %s)\n", pid, process.Socket, process.LogFile)
+	fmt.Fprintf(cmd.OutOrStdout(), "ledge started (pid %d, socket %s, log %s)\n", pid, process.Socket, process.LogFile)
 	return nil
 }
 

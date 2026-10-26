@@ -12,14 +12,14 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the ledge version, and the running ledge's",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("ledge %s (%s, built %s)\n", version.Tag(), version.Commit, version.Date)
+		fmt.Fprintf(cmd.OutOrStdout(), "ledge %s (%s, built %s)\n", version.Tag(), version.Commit, version.Date)
 		client, err := client()
 		if err != nil {
 			return
 		}
 		var status api.Status
 		if client.Call("GET", "/status", nil, &status) == nil {
-			fmt.Printf("running: ledge %s (pid %d, started %s)\n",
+			fmt.Fprintf(cmd.OutOrStdout(), "running: ledge %s (pid %d, started %s)\n",
 				status.Version, status.PID, status.Started.Local().Format("2006-01-02 15:04:05"))
 		}
 	},
