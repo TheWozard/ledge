@@ -26,5 +26,7 @@ for _ in $(seq 50); do
   kill -0 "${pids[@]}" 2>/dev/null || break
   sleep 0.1
 done
-kill -KILL "${pids[@]}" 2>/dev/null && echo "Killed what didn't exit in 5s" >&2 || true
+if kill -KILL "${pids[@]}" 2>/dev/null; then
+  echo "Killed what didn't exit in 5s" >&2
+fi
 echo "Stopped ${#pids[@]} ledge(s)" >&2

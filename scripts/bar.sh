@@ -15,6 +15,7 @@
 
 set -euo pipefail
 
+# shellcheck source=scripts/lib.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 SOURCE="example-bar"
 PAGES="$(pages bar)"

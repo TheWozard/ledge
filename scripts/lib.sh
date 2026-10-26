@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # Shared by the example scripts: calls to ledge's API on its socket, and the local
 # pages their cards open. Source it; it isn't run.
 #

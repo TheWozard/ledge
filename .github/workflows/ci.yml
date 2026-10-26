@@ -21,6 +21,41 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "Not gofmt'd:"; echo "$unformatted"; exit 1
+          fi
+      - name: go mod tidy
+        run: go mod tidy -diff
       - run: go vet ./...
+      - name: staticcheck
+        run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
       - run: go build ./...
-      - run: go test ./...
+      - run: go test -race ./...
+
+  gui:
+    # The tests that open the bar's windows. A runner's window server can be flaky,
+    # so a failure here is reported but doesn't fail the run.
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - run: go test ./internal/bar
+        env:
+          LEDGE_GUI_TEST: "1"
+
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: shellcheck
+        run: shellcheck -x --severity=warning scripts/*.sh

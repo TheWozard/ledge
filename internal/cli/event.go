@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/url"
-	"os"
 	"slices"
 	"strings"
 
@@ -44,7 +43,7 @@ What can be sent is defined by JSON Schemas; print one with --schema.`,
 			return fmt.Errorf("event: JSON can't be combined with --list, --dismiss or --schema")
 		}
 		if eventSchema != "" {
-			return printSchema(eventSchema)
+			return printSchema(cmd.OutOrStdout(), eventSchema)
 		}
 		dir, err := state.Dir()
 		if err != nil {
@@ -59,7 +58,7 @@ What can be sent is defined by JSON Schemas; print one with --schema.`,
 			if err := client.Call("GET", "/events", nil, &reply); err != nil {
 				return err
 			}
-			return printJSON(reply.Events)
+			return printJSON(cmd.OutOrStdout(), reply.Events)
 		case eventDismiss != "":
 			var reply struct{}
 			return client.Call("DELETE", "/events/"+url.PathEscape(eventDismiss), nil, &reply)
@@ -67,7 +66,7 @@ What can be sent is defined by JSON Schemas; print one with --schema.`,
 		var text []byte
 		if len(args) == 1 {
 			text = []byte(args[0])
-		} else if text, err = io.ReadAll(os.Stdin); err != nil {
+		} else if text, err = io.ReadAll(cmd.InOrStdin()); err != nil {
 			return err
 		}
 		// A section is {"source", "items"}: its items go to PUT /sources/{source}.
@@ -90,7 +89,7 @@ What can be sent is defined by JSON Schemas; print one with --schema.`,
 				return err
 			}
 			for _, id := range reply.IDs {
-				fmt.Println(id)
+				fmt.Fprintln(cmd.OutOrStdout(), id)
 			}
 			return nil
 		}
@@ -100,27 +99,27 @@ What can be sent is defined by JSON Schemas; print one with --schema.`,
 		if err := client.Call("POST", "/events", text, &reply); err != nil {
 			return err
 		}
-		fmt.Println(reply.ID)
+		fmt.Fprintln(cmd.OutOrStdout(), reply.ID)
 		return nil
 	},
 }
 
-func printSchema(name string) error {
+func printSchema(out io.Writer, name string) error {
 	source, ok := store.Schemas.Source(name)
 	if !ok {
 		return fmt.Errorf("no schema %q; there are %s", name, strings.Join(store.Schemas.Names(), ", "))
 	}
-	_, err := os.Stdout.Write(source)
+	_, err := out.Write(source)
 	return err
 }
 
-func printJSON(value any) error {
+func printJSON(out io.Writer, value any) error {
 	data, err := store.MarshalIndent(value)
 	if err != nil {
 		return err
 	}
-	fmt.Println(string(data))
-	return nil
+	_, err = fmt.Fprintln(out, string(data))
+	return err
 }
 
 func init() {

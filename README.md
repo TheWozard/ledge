@@ -316,6 +316,10 @@ shim, and click from JavaScript; `open` is recorded rather than run, so they nev
 open your browser, but commands do run. How the bar and reports look and
 behave is tested in ledge-frontend.
 
+[CI](.github/workflows/ci.yml) checks gofmt, `go mod tidy`, `go vet` and staticcheck,
+runs the tests with `-race`, and shellchecks the scripts. It runs the window tests too,
+in a job whose failure doesn't fail the run, as a runner's window server can be flaky.
+
 ## License
 
 [MIT](LICENSE)
