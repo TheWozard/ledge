@@ -74,7 +74,7 @@ func Open(options Options) (*Bar, error) {
 // newBar is a bar with options and no cards, and no reports yet: the first will take
 // the window id after the menu's.
 func newBar(options Options) *Bar {
-	bar := newPage(BarWindow, "the bar", barMessages)
+	bar := newPage(BarWindow, "the bar")
 	return &Bar{options: options, shown: map[string]bool{}, bar: bar,
 		pages: map[int]*page{BarWindow: bar}, reports: map[string]*page{}, last: MenuWindow}
 }
@@ -135,7 +135,7 @@ func (b *Bar) draw() {
 	fresh, b.shown = arrivals(b.cards, b.shown)
 	var html strings.Builder
 	clicks := &components.Clicks{}
-	ctx := components.WithClicks(context.Background(), clicks)
+	ctx := components.WithMenus(components.WithClicks(context.Background(), clicks), b.menu)
 	if err := components.BarContent(b.cards, fresh).Render(ctx, &html); err != nil {
 		log.Printf("ui: rendering the bar: %v", err)
 		return

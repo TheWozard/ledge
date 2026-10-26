@@ -75,16 +75,37 @@ func (c *Clicks) add(s scope, id string, click Click) {
 		c.byID = map[string]Click{}
 	}
 	c.enter(s)
+	if _, ok := c.byID[id]; !ok {
+		c.byScope[s] = append(c.byScope[s], id)
+	}
 	c.byID[id] = click
-	c.byScope[s] = append(c.byScope[s], id)
 }
 
-// clicksKey and scopeKey are the context keys of the Clicks a page is rendered with,
-// and of the scope what's in it is rendered in.
+// clicksKey, scopeKey and menusKey are the context keys of the Clicks a page is
+// rendered with, of the scope what's in it is rendered in, and of what opens a
+// card's menu.
 type (
 	clicksKey struct{}
 	scopeKey  struct{}
+	menusKey  struct{}
 )
+
+// WithMenus is ctx with menu, which gives the Click that shows the menu of the card
+// with frame f, for the bar to render its ⋯ and a right-click on it with. Rendered
+// without it, a card's menu goes nowhere.
+func WithMenus(ctx context.Context, menu func(f Frame) Click) context.Context {
+	return context.WithValue(ctx, menusKey{}, menu)
+}
+
+// menuID is the id of the Click that shows the menu of the card with frame f, put in
+// the Clicks ctx has with the Click WithMenus gives for it.
+func menuID(ctx context.Context, f Frame) string {
+	var click Click
+	if menu, ok := ctx.Value(menusKey{}).(func(Frame) Click); ok {
+		click = menu(f)
+	}
+	return ClickID(ctx, "menu", click)
+}
 
 // WithClicks is ctx with clicks, for ClickID to put the Clicks of what's rendered with
 // it in.

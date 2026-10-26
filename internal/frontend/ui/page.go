@@ -3,6 +3,7 @@ package ui
 import (
 	"encoding/json"
 	"log"
+	"maps"
 	"slices"
 
 	"github.com/TheWozard/ledge-frontend/components"
@@ -13,18 +14,22 @@ import (
 // the ids of what's clicked in it. It has the Clicks it was rendered with, which of
 // them are running, and whether it's loaded. Its fields are guarded by the bar's lock.
 type page struct {
-	window   int
-	name     string          // what the log calls it: "the bar", or "report window 3"
-	messages map[string]bool // what it can post, as readMessage takes them
-	ready    bool            // it's posted "ready" since it was last loaded
-	queued   []string        // the JS to run in it once it's ready
-	clicks   *components.Clicks
-	running  map[string]string // the ids of its Clicks running, each with the id it marks busy for it
+	window  int
+	name    string   // what the log calls it: "the bar", or "report window 3"
+	ready   bool     // it's posted "ready" since it was last loaded
+	queued  []string // the JS to run in it once it's ready
+	clicks  *components.Clicks
+	running map[string]bool // the ids of its Clicks running, which it marks busy
 }
 
+// pageMessages is what the bar's and a report's page can post, each action with
+// whether it takes an id: "ready", once the page has loaded, and "click", with the id
+// of a Click in it.
+var pageMessages = map[string]bool{"ready": false, "click": true}
+
 // newPage is window's page, not loaded yet.
-func newPage(window int, name string, messages map[string]bool) *page {
-	return &page{window: window, name: name, messages: messages, clicks: &components.Clicks{}, running: map[string]string{}}
+func newPage(window int, name string) *page {
+	return &page{window: window, name: name, clicks: &components.Clicks{}, running: map[string]bool{}}
 }
 
 // load replaces what p shows by html, with clicks, the Clicks in it. Until the new
@@ -54,12 +59,10 @@ func (p *page) loaded() {
 
 // busyJS is the JS that has p mark busy what's running in it, and nothing else.
 func (p *page) busyJS() string {
-	ids := []string{} // [], not null
-	for _, id := range p.running {
-		ids = append(ids, id)
+	ids := slices.Sorted(maps.Keys(p.running))
+	if ids == nil {
+		ids = []string{} // [], not null
 	}
-	slices.Sort(ids)
-	ids = slices.Compact(ids)
 	// Marshalled, the ids are a JS array of strings; <, > and & are escaped in them.
 	js, _ := json.Marshal(ids)
 	return "setBusy(" + string(js) + ")"
@@ -74,7 +77,7 @@ func (b *Bar) received(window int, data []byte) {
 		log.Printf("ui: window %d, which isn't open, sent %s", window, data)
 		return
 	}
-	m, err := readMessage(data, p.messages)
+	m, err := readMessage(data, pageMessages)
 	if err != nil {
 		log.Printf("ui: %s sent %s: %v", p.name, data, err)
 		return
@@ -98,23 +101,21 @@ func (b *Bar) received(window int, data []byte) {
 			log.Printf("ui: %s clicked %q, which isn't in it", p.name, m.ID)
 			return
 		}
-		b.run(p, m.ID, m.ID, click, m.clickEvent())
-	case "menu":
-		b.menu(m.ID)
+		b.run(p, m.ID, click, m.clickEvent())
 	}
 }
 
 // run calls click, the Click with id clickID in p, with how it was clicked, unless
 // it's already running: then the click is dropped. While it runs, p marks busy what
-// has the id busyID: what was clicked, or the ⋯ of a card whose action was chosen.
-func (b *Bar) run(p *page, clickID, busyID string, click components.Click, event components.ClickEvent) {
+// was clicked.
+func (b *Bar) run(p *page, clickID string, click components.Click, event components.ClickEvent) {
 	b.mu.Lock()
 	if _, ok := p.running[clickID]; ok {
 		b.mu.Unlock()
 		log.Printf("ui: %q is still running, so the click on it is dropped", clickID)
 		return
 	}
-	p.running[clickID] = busyID
+	p.running[clickID] = true
 	p.eval(p.busyJS())
 	b.mu.Unlock()
 	defer func() {

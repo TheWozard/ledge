@@ -61,7 +61,7 @@ func TestArrivals(t *testing.T) {
 }
 
 // A Click that's running isn't run again until it's done: a click on it meanwhile is
-// dropped. While it runs, what it marks busy is busy, each once, and nothing else.
+// dropped. While it runs, it's busy, and nothing else is.
 func TestRunOnce(t *testing.T) {
 	b := newBar(Options{})
 	p := b.bar // not ready, so it marks nothing on a page
@@ -72,30 +72,28 @@ func TestRunOnce(t *testing.T) {
 	var runs atomic.Int32
 	started, release, done := make(chan bool), make(chan bool), make(chan bool)
 	slow := func(components.ClickEvent) { runs.Add(1); started <- true; <-release }
-	go func() { b.run(p, "card/a/click", "card/a/click", slow, components.ClickEvent{}); done <- true }()
+	go func() { b.run(p, "card/a/click", slow, components.ClickEvent{}); done <- true }()
 	<-started
-	go func() { b.run(p, "action/a/q", "menu-card-a", slow, components.ClickEvent{}); done <- true }()
+	go func() { b.run(p, "card/a/menu", slow, components.ClickEvent{}); done <- true }()
 	<-started
-	go func() { b.run(p, "action/a/r", "menu-card-a", slow, components.ClickEvent{}); done <- true }()
-	<-started
-	if got := busy(); got != `setBusy(["card/a/click","menu-card-a"])` {
-		t.Errorf("while three run, %s", got)
+	if got := busy(); got != `setBusy(["card/a/click","card/a/menu"])` {
+		t.Errorf("while two run, %s", got)
 	}
-	b.run(p, "card/a/click", "card/a/click", func(components.ClickEvent) { t.Error("a click on a running Click ran it again") }, components.ClickEvent{})
+	b.run(p, "card/a/click", func(components.ClickEvent) { t.Error("a click on a running Click ran it again") }, components.ClickEvent{})
 	close(release)
-	for range 3 {
+	for range 2 {
 		<-done
 	}
 	if got := busy(); got != "setBusy([])" {
 		t.Errorf("once they're done, %s", got)
 	}
-	b.run(p, "card/a/click", "card/a/click", func(e components.ClickEvent) {
+	b.run(p, "card/a/click", func(e components.ClickEvent) {
 		if e.Alt {
 			runs.Add(1)
 		}
 	}, components.ClickEvent{Alt: true})
-	if runs.Load() != 4 {
-		t.Errorf("ran %d times, want 4", runs.Load())
+	if runs.Load() != 3 {
+		t.Errorf("ran %d times, want 3", runs.Load())
 	}
 }
 
@@ -111,7 +109,7 @@ func TestRender(t *testing.T) {
 		`document.querySelector("li .title b") === null`:   "true",
 		`document.querySelector("li").className`:           `"basic clickable"`,
 		`document.querySelector("li").dataset.color`:       `"#e0362c"`,
-		`document.querySelector("li").dataset.menu`:        `"card-deploy"`,
+		`document.querySelector("li").dataset.menu`:        `"card/deploy/menu"`,
 		`document.querySelector(".menu").closest("li").id`: `"card-deploy"`,
 		// Its actions are in its menu, not on the page.
 		`document.body.textContent.includes("AWS")`:                "false",

@@ -1,19 +1,5 @@
 const app = document.getElementById("app");
-
-// Everything the page tells the app: an action, the id it applies to, and for a
-// click, how it was made.
-function send(action, id, event) {
-  const message = { action };
-  if (id != null) message.id = id;
-  if (event != null) message.event = event;
-  window.webkit.messageHandlers.ledge.postMessage(message);
-}
-
-// how is how a mouse event clicked: the modifier keys held, and whether with the
-// middle button.
-function how(event) {
-  return { alt: event.altKey, cmd: event.metaKey, shift: event.shiftKey, ctrl: event.ctrlKey, middle: event.button === 1 };
-}
+clickable(app);
 
 // update shows html, rendered by Go from BarContent, with its text escaped. It
 // morphs #app into it, matching cards by their ids, so what's still there keeps its
@@ -51,50 +37,14 @@ function leave(node) {
   setTimeout(gone, 3000);
 }
 
-// A click on a card's ⋯ asks for its menu. A click on anything else with
-// data-click posts its id, and how it was clicked: the innermost, so a click on the ×
-// or a part of the card's body, such as a check, isn't also its card's. One on
-// what's busy, its Click still running from the last, posts nothing (and the app
-// would drop it).
-app.addEventListener("click", event => {
-  const menu = event.target.closest("button[data-menu]");
-  if (menu) {
-    send("menu", menu.dataset.menu);
-    return;
-  }
-  clicked(event);
-});
-
-// A click with the middle button is a click too, but never asks for a menu: on a
-// card's ⋯, it does nothing, rather than click the card.
-app.addEventListener("auxclick", event => {
-  if (event.button === 1 && !event.target.closest("button[data-menu]")) clicked(event);
-});
-
-// clicked posts a click on what event is on with data-click, if it isn't busy.
-function clicked(event) {
-  const target = event.target.closest("[data-click]");
-  if (target && !target.hasAttribute("data-busy")) send("click", target.dataset.click, how(event));
-}
-
-// setBusy marks data-busy what has each of ids, and takes it off everything else:
-// something clicked, by its data-click, while its Click runs, and a card's ⋯, by
-// "menu-" and its data-menu, while one of the card's actions runs. The app calls it
-// whenever that changes, and with every update, as a morph takes data-busy off.
-function setBusy(ids) {
-  const busy = new Set(ids);
-  for (const node of app.querySelectorAll("[data-click], button[data-menu]")) {
-    const id = "click" in node.dataset ? node.dataset.click : "menu-" + node.dataset.menu;
-    node.toggleAttribute("data-busy", busy.has(id));
-  }
-}
-
-// A right-click on a card with actions asks for its menu, which the app shows.
-// WebKit's own menu never shows, anywhere on the page.
+// A right-click on a card with actions is a click on its ⋯, whose id it has in
+// data-menu: the app shows its menu. WebKit's own menu never shows, anywhere on the
+// page.
 document.addEventListener("contextmenu", event => {
   event.preventDefault();
   const card = event.target.closest?.("[data-menu]");
-  if (card) send("menu", card.dataset.menu);
+  const menu = card?.querySelector(":scope > .card-buttons > .menu");
+  if (card && !menu?.hasAttribute("data-busy")) send("click", card.dataset.menu, how(event));
 });
 
 // Whether node, or something it's in, scrolls vertically and has more to show, as

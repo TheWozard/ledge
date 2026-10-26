@@ -9,6 +9,8 @@ import (
 // The pages' own layout styles and scripts, inlined into them, since they can't
 // fetch files. The layout styles' opening comments say what a theme can hook into.
 var (
+	//go:embed page/ledge.js
+	ledgeJS string
 	//go:embed page/bar.css
 	barCSS string
 	//go:embed page/bar.js

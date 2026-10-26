@@ -33,6 +33,7 @@ templ MenuPage(themeCSS string, items []MenuItem) {
 					><span class="menu-dot"></span><span class="menu-title">{ item.Title }</span></div>
 				}
 			</div>
+			@script(ledgeJS)
 			@script(menuJS)
 		</body>
 	</html>

@@ -135,17 +135,17 @@ func TestKinds(t *testing.T) {
 	html := render(t, BarContent(cards, nil))
 	contains(t, html,
 		`<li id="card-basic" class="basic">`,
-		`<li id="card-build" class="progress" data-menu="card-build"><div class="card-buttons"><button class="menu clickable" title="Actions" data-menu="card-build">⋯</button> </div><div class="done">40%</div></li>`,
-		`<li id="card-odd" class="" data-menu="card-odd">`)
+		`<li id="card-build" class="progress" data-menu="card/build/menu"><div class="card-buttons"><button class="menu clickable" title="Actions" data-click="card/build/menu">⋯</button> </div><div class="done">40%</div></li>`,
+		`<li id="card-odd" class="" data-menu="card/odd/menu">`)
 	if click := cards[1].Frame().Action("action/build/build-stop"); click == nil {
 		t.Error("the progress card's action has no Click")
 	}
 }
 
-// A card's actions are its menu, not on the page: the card has data-menu, and a ⋯
-// before its × to ask for the menu too. Its Menu is an item for each action, in
-// order: its title, its colour as the page would name it, whether it can be
-// chosen, and its id, with its card's in it.
+// A card's actions are its menu, not on the page: a ⋯ before its × is a click that
+// shows it, and the card has the ⋯'s id in data-menu, for a right-click to post. Its
+// Menu is an item for each action, in order: its title, its colour as the page would
+// name it, whether it can be chosen, and its id, with its card's in it.
 func TestMenu(t *testing.T) {
 	card := Basic{ID: "card", Title: "Card", Description: "Desc", Click: nothing, Dismiss: nothing, Actions: []Action{
 		{ID: "aws", Title: "AWS", Color: "green", Click: nothing},
@@ -154,8 +154,8 @@ func TestMenu(t *testing.T) {
 	}}
 	html := render(t, BarContent([]Card{card}, nil))
 	contains(t, html,
-		`<li id="card-card" class="basic clickable" data-click="card/card/click" data-menu="card-card">`,
-		`<div class="card-buttons"><button class="menu clickable" title="Actions" data-menu="card-card">⋯</button> `+
+		`<li id="card-card" class="basic clickable" data-click="card/card/click" data-menu="card/card/menu">`,
+		`<div class="card-buttons"><button class="menu clickable" title="Actions" data-click="card/card/menu">⋯</button> `+
 			`<button class="dismiss clickable" title="Dismiss" data-click="card/card/dismiss">×</button></div>`)
 	lacks(t, html, "AWS", "CI", "action/")
 	want := []MenuItem{
@@ -166,6 +166,23 @@ func TestMenu(t *testing.T) {
 	}
 	if got := card.Frame().Menu(); !slices.Equal(got, want) {
 		t.Errorf("Menu() = %+v, want %+v", got, want)
+	}
+
+	// The Click that shows it is the one WithMenus gives for its frame, once.
+	var opened []string
+	clicks := &Clicks{}
+	ctx := WithMenus(WithClicks(context.Background(), clicks), func(f Frame) Click {
+		return func(ClickEvent) { opened = append(opened, f.ID) }
+	})
+	if err := BarContent([]Card{card, Basic{ID: "plain"}}, nil).Render(ctx, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if ids := []string{"card/card/click", "card/card/dismiss", "card/card/menu"}; !slices.Equal(clicks.IDs(), ids) {
+		t.Fatalf("Clicks have %q, want %q", clicks.IDs(), ids)
+	}
+	clicks.Click("card/card/menu")(ClickEvent{})
+	if !slices.Equal(opened, []string{"card"}) {
+		t.Errorf("the ⋯ opened %q", opened)
 	}
 }
 

@@ -80,10 +80,6 @@ func (b *Bar) ShowReportBlock(id, blockID string, block templ.Component) (bool, 
 	return true, nil
 }
 
-// reportMessages is what a report's page can post, each action with whether it takes
-// an id: "ready", once the page has loaded, and "click", with the id of a Click in it.
-var reportMessages = map[string]bool{"ready": false, "click": true}
-
 // report is id's report's page, given a new window if it hasn't one open. Each
 // report has its own window, its id never reused. Call it with the bar's lock held.
 func (b *Bar) report(id string) *page {
@@ -91,7 +87,7 @@ func (b *Bar) report(id string) *page {
 		return p
 	}
 	b.last++
-	p := newPage(b.last, fmt.Sprintf("report window %d", b.last), reportMessages)
+	p := newPage(b.last, fmt.Sprintf("report window %d", b.last))
 	b.reports[id], b.pages[p.window] = p, p
 	return p
 }

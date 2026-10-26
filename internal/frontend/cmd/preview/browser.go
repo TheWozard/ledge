@@ -67,6 +67,7 @@ type browserServer struct {
 
 	mu      sync.Mutex
 	opening string             // the report a click opened, to send back with its reply
+	showing string             // the element id of the card whose menu a click showed, likewise
 	clicks  *components.Clicks // the Clicks on the bar as last sent
 }
 
@@ -165,9 +166,10 @@ func (s *browserServer) action(w http.ResponseWriter, r *http.Request) {
 		if s.opening != "" {
 			reply["report"], s.opening = s.opening, ""
 		}
+		if s.showing != "" {
+			reply["menu"], s.showing = s.showing, ""
+		}
 		s.mu.Unlock()
-	case "menu":
-		reply["menu"] = message.ID
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(reply)
@@ -191,12 +193,19 @@ func (s *browserServer) page(w http.ResponseWriter, render func(theme.Theme) tem
 }
 
 // content is the bar's content: the sample's cards. From then, a click calls the
-// Clicks it was rendered with.
+// Clicks it was rendered with, and one on a card's ⋯ shows its menu.
 func (s *browserServer) content() string {
 	shown := s.sample.shown()
 	var buf bytes.Buffer
 	clicks := &components.Clicks{}
-	if err := components.BarContent(shown, map[string]int{}).Render(components.WithClicks(context.Background(), clicks), &buf); err != nil {
+	ctx := components.WithMenus(components.WithClicks(context.Background(), clicks), func(f components.Frame) components.Click {
+		return func(components.ClickEvent) {
+			s.mu.Lock()
+			s.showing = f.ElementID()
+			s.mu.Unlock()
+		}
+	})
+	if err := components.BarContent(shown, map[string]int{}).Render(ctx, &buf); err != nil {
 		log.Print(err)
 	}
 	s.mu.Lock()

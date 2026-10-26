@@ -27,10 +27,10 @@ func TestChecks(t *testing.T) {
 		`data-state="pending" title="odd: pending"><span class="check-mark">○</span>odd</span>`,
 		`</div><div class="description">On main</div></li>`,
 		// Its action, to rerun the failed one, is in its menu.
-		`<li id="card-ci" class="checks" data-menu="card-ci">`)
+		`<li id="card-ci" class="checks" data-menu="card/ci/menu">`)
 	lacks(t, html, "<test>", "exploded")
 
-	lacks(t, html, "check clickable", "data-click")
+	lacks(t, html, "check clickable", `data-click="body/`)
 
 	// Without checks, there's no row for them.
 	empty := render(t, BarContent([]Card{Checks{Basic: Basic{ID: "none", Title: "None"}}}, nil))

@@ -46,11 +46,6 @@ func (m message) modifiers() shim.Modifiers {
 	return shim.Modifiers{Alt: e.Alt, Cmd: e.Cmd, Shift: e.Shift, Ctrl: e.Ctrl}
 }
 
-// barMessages is what the bar page can post, each action with whether it takes an
-// id: "ready", once the page has loaded; "click", with the id of a Click; and "menu",
-// with the element id of a card whose menu of actions to show.
-var barMessages = map[string]bool{"ready": false, "click": true, "menu": true}
-
 // readMessage decodes one message from a page, refusing anything else: an action
 // that isn't one of actions, an unknown property, an id with an action that takes
 // none, or none with one that does, or an event with an action that isn't a click or
@@ -96,51 +91,42 @@ func (b *Bar) chooseFrom(items []components.MenuItem) shim.Chosen {
 	return showMenu(shown)
 }
 
-// menuBusyID is the id the page marks busy while an action of the card whose element
-// id is id runs: its ⋯. It's apart from every click id, so it's never the card's own.
-func menuBusyID(id string) string { return "menu-" + id }
-
 // showMenu pops up a native menu and returns what was chosen from it: the shim's, or
 // a test's in its place.
 var showMenu = shim.ShowMenu
 
-// menu shows the menu of the card whose element id is id, as its theme draws it or
-// natively for a theme without one, and calls the Click of the action chosen from it,
-// its ⋯ busy while it runs. The card's actions are those it had when it was asked for;
+// menu is the Click on the ⋯ of the card with frame f, and a right-click on it: it
+// shows the card's menu, as its theme draws it or natively for a theme without one,
+// and calls the Click of the action chosen from it. It runs as any Click does, so the
+// ⋯ is busy until the menu's closed and what was chosen has run, and the menu can't
+// be opened again meanwhile. The card's actions are those it had when it was drawn;
 // one a render has since taken off the bar is dropped, as a click on it would be, and
-// one a render has changed calls its new Click.
-func (b *Bar) menu(id string) {
-	b.mu.Lock()
-	var items []components.MenuItem
-	for _, card := range b.cards {
-		if frame := card.Frame(); frame.ElementID() == id {
-			items = frame.Menu()
+// one a render has changed calls its new Click. A middle click does nothing.
+func (b *Bar) menu(f components.Frame) components.Click {
+	id, items := f.ID, f.Menu()
+	return func(e components.ClickEvent) {
+		if e.Middle {
+			return
 		}
-	}
-	b.mu.Unlock()
-	if len(items) == 0 {
-		log.Printf("ui: the bar asked for the menu of %q, which has none", id)
-		return
-	}
-	choice := b.chooseFrom(items)
-	chosen := choice.Index
-	if chosen < 0 || chosen >= len(items) {
-		return
-	}
-	item := items[chosen].ID
-	b.mu.Lock()
-	var click components.Click
-	for _, card := range b.cards {
-		if frame := card.Frame(); frame.ElementID() == id {
-			click = frame.Action(item)
+		choice := b.chooseFrom(items)
+		chosen := choice.Index
+		if chosen < 0 || chosen >= len(items) {
+			return
 		}
+		item := items[chosen].ID
+		b.mu.Lock()
+		var click components.Click
+		for _, card := range b.cards {
+			if frame := card.Frame(); frame.ID == id {
+				click = frame.Action(item)
+			}
+		}
+		b.mu.Unlock()
+		if click == nil {
+			log.Printf("ui: %q was chosen from a menu, but isn't on the bar", item)
+			return
+		}
+		m := choice.Modifiers
+		click(components.ClickEvent{Alt: m.Alt, Cmd: m.Cmd, Shift: m.Shift, Ctrl: m.Ctrl})
 	}
-	b.mu.Unlock()
-	if click == nil {
-		log.Printf("ui: %q was chosen from a menu, but isn't on the bar", item)
-		return
-	}
-	m := choice.Modifiers
-	b.run(b.bar, item, menuBusyID(id), click,
-		components.ClickEvent{Alt: m.Alt, Cmd: m.Cmd, Shift: m.Shift, Ctrl: m.Ctrl})
 }

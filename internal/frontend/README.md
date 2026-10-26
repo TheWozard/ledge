@@ -127,9 +127,10 @@ body with `data-click={ components.ClickID(ctx, id, click) }` and the class
 `clickable`, with an id unique within its card. The page has an id for each `Click`,
 made from the card's id and its own, so two cards can use the same ids, and the app
 never handles the page's ids itself; a click on something a later `Render` took off
-is dropped. While a `Click` runs, what was clicked has `data-busy`
-(a card's ⋯ has it while one of its actions runs), for a theme to show, and a click
-on it meanwhile is dropped, so a double-click doesn't run it twice.
+is dropped. While a `Click` runs, what was clicked has `data-busy`, for a theme to
+show, and a click on it meanwhile is dropped, so a double-click doesn't run it twice.
+A card's ⋯ is busy from when its menu opens until it's closed and what was chosen
+has run, so its menu can't be opened twice at once.
 
 A card's actions are things to do about it without opening a report, in a menu:
 right-clicking the card, or clicking its ⋯ (shown only if it has some), pops it up
@@ -170,17 +171,16 @@ and can't add CSS.
 
 ### What the pages can do
 
-The bar page posts only `{action: "click", id, event}` (for a card, its × or a part
-of it, with `event` how it was clicked, `{alt, cmd, shift, ctrl, middle}`),
-`{action: "menu", id}` for a card's
-menu, and `{action: "ready"}` once loaded, checked strictly before it reaches a
-`Click`. It holds nothing but ids: it never names a url, path or command, so what a
+The bar page posts only `{action: "click", id, event}` (for a card, its ×, its ⋯ or
+a right-click on it, which shows its menu, or a part of it, with `event` how it was
+clicked, `{alt, cmd, shift, ctrl, middle}`), and `{action: "ready"}` once loaded,
+checked strictly before it reaches a `Click`. It holds nothing but ids: it never names a url, path or command, so what a
 click does is only ever the app's `Click`. A card's menu is built from its actions in
 Go, not by the bar page; WebKit's own right-click menu never shows. A theme's menu
 page posts only `{action: "choose", id, event}`, with the index of the item chosen and
 the keys held,
 `{action: "close"}`, and `{action: "ready"}`, checked as strictly. A
-report page posts only `{action: "click", id, event}`, checked as strictly, and reaching only
+report page posts only `{action: "click", id, event}` and `{action: "ready"}`, checked as strictly, and reaching only
 a `Click` in that report: never one on the bar or in another report. Its only other
 channel is to its own window, handled natively: `drag` (on a mouse-down in its title
 bar; a double-click zooms), `close`, `minimise` and `zoom`.

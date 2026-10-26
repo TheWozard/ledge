@@ -35,12 +35,12 @@ func TestUpcomingTimer(t *testing.T) {
 		Actions: []Action{{ID: "join", Title: "Join", Color: "blue", Click: nothing}}}, End: end}
 	html := render(t, BarContent([]Card{timer}, nil))
 	contains(t, html,
-		`<li id="card-standup" class="timer" data-menu="card-standup" style="--card-width: 200px;">`,
+		`<li id="card-standup" class="timer" data-menu="card/standup/menu" style="--card-width: 200px;">`,
 		// The title, then the time with the description beside it.
 		fmt.Sprintf(`<span class="title">Standup</span><div class="reading"><div class="reading-value time-left" data-end="%d">12:01</div>`, end.UnixMilli()),
 		`<div class="description">10:30 · &lt;Room 4&gt;</div></div>`,
 		// Its action, to join the meeting, is in its menu.
-		`data-menu="card-standup"`)
+		`data-menu="card/standup/menu"`)
 	lacks(t, html, "data-start")
 	if timer.Frame().Action("action/standup/join") == nil {
 		t.Error("the timer's action has no Click")

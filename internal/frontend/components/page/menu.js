@@ -1,14 +1,5 @@
 const items = [...document.querySelectorAll(".menu-item")];
 
-// Everything the page tells the app: an action, the id it applies to, and for a
-// choice, the modifier keys held as it was made.
-function send(action, id, event) {
-  const message = { action };
-  if (id != null) message.id = id;
-  if (event != null) message.event = event;
-  window.webkit.messageHandlers.ledge.postMessage(message);
-}
-
 // active is the item the mouse or the keys are on, or -1 for none.
 let active = -1;
 
@@ -34,7 +25,7 @@ function move(step) {
 // event, a click or a key, chose it.
 function choose(i, event) {
   if (enabled(i)) {
-    send("choose", String(i), { alt: event.altKey, cmd: event.metaKey, shift: event.shiftKey, ctrl: event.ctrlKey });
+    send("choose", String(i), how(event));
   }
 }
 

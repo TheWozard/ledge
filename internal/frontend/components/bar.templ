@@ -11,8 +11,9 @@ package components
 // event} when something clickable is clicked, with the main or middle button: a
 // card, its ×, or a part of it. The id is the one ClickID gave out for its Click, and
 // event is how it was clicked, {alt, cmd, shift, ctrl, middle}; the page never holds
-// anything but ids. It also posts {action: "menu", id} for a card's menu, and
-// {action: "ready"} once loaded.
+// anything but ids; a card's ⋯, and a right-click on it, is a click that shows its
+// menu. It also posts {action: "ready"} once loaded. Its script starts with
+// page/ledge.js, as every page's does.
 templ BarPage(themeCSS string, edge string) {
 	<!DOCTYPE html>
 	<html lang="en">
@@ -24,6 +25,7 @@ templ BarPage(themeCSS string, edge string) {
 		<body class={ edge }>
 			<div id="app"></div>
 			@script(idiomorph)
+			@script(ledgeJS)
 			@script(barJS)
 		</body>
 	</html>
@@ -45,8 +47,9 @@ templ BarContent(cards []Card, fresh map[string]int) {
 }
 
 // card is a card's frame around its body: its buttons, ⋯ if it has actions and × if
-// it can be dismissed, then the body. One with actions has data-menu, its element
-// id, for a right-click on it, or a click on its ⋯, to ask for its menu. The frame's
+// it can be dismissed, then the body. One with actions has data-menu, the id of the
+// Click that shows its menu, for a right-click on it to post; its ⋯ has it as its
+// data-click. The frame's
 // Clicks are in the card's scope, and the body's in a scope of their own, so the ids
 // of its parts can be anything.
 templ card(f Frame, body templ.Component, fresh map[string]int) {
@@ -62,7 +65,7 @@ templ frame(f Frame, body templ.Component, fresh map[string]int) {
 			data-click={ ClickID(ctx, "click", f.Click) }
 		}
 		if len(f.Actions) > 0 {
-			data-menu={ f.ElementID() }
+			data-menu={ menuID(ctx, f) }
 		}
 		if color, ok := f.color(); ok {
 			data-color={ color }
@@ -77,7 +80,7 @@ templ frame(f Frame, body templ.Component, fresh map[string]int) {
 		if len(f.Actions) > 0 || f.Dismiss != nil {
 			<div class="card-buttons">
 				if len(f.Actions) > 0 {
-					<button class="menu clickable" title="Actions" data-menu={ f.ElementID() }>⋯</button>
+					<button class="menu clickable" title="Actions" data-click={ menuID(ctx, f) }>⋯</button>
 				}
 				if f.Dismiss != nil {
 					<button class="dismiss clickable" title="Dismiss" data-click={ ClickID(ctx, "dismiss", f.Dismiss) }>×</button>

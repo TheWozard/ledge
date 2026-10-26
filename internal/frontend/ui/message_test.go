@@ -19,42 +19,39 @@ func TestReadMessage(t *testing.T) {
 		body    string
 		want    string
 	}{
-		{barMessages, `{"action": "ready"}`, ""},
-		{barMessages, `{"action": "click", "id": "a"}`, ""},
-		{barMessages, `{"action": "menu", "id": "card-a"}`, ""},
-		{barMessages, `{"action": "menu"}`, "menu needs an id"},
-		{barMessages, `{"action": "click"}`, "click needs an id"},
-		{barMessages, `{"action": "ready", "id": "a"}`, "ready takes no id"},
-		{barMessages, `{"action": "open", "id": "a"}`, `no action "open"`},
-		{barMessages, `{"action": "choose", "id": "0"}`, `no action "choose"`},
-		{barMessages, `{"action": "click", "id": "a", "path": "/etc"}`, `unknown field "path"`},
-		{barMessages, `"click"`, "cannot unmarshal string"},
-		{barMessages, `{"action": "click", "id": "a"} {}`, "more than one value"},
+		{pageMessages, `{"action": "ready"}`, ""},
+		{pageMessages, `{"action": "click", "id": "a"}`, ""},
+		{pageMessages, `{"action": "menu", "id": "card-a"}`, `no action "menu"`},
+		{pageMessages, `{"action": "click"}`, "click needs an id"},
+		{pageMessages, `{"action": "ready", "id": "a"}`, "ready takes no id"},
+		{pageMessages, `{"action": "open", "id": "a"}`, `no action "open"`},
+		{pageMessages, `{"action": "choose", "id": "0"}`, `no action "choose"`},
+		{pageMessages, `{"action": "click", "id": "a", "path": "/etc"}`, `unknown field "path"`},
+		{pageMessages, `"click"`, "cannot unmarshal string"},
+		{pageMessages, `{"action": "click", "id": "a"} {}`, "more than one value"},
 		{menuMessages, `{"action": "choose", "id": "0"}`, ""},
 		{menuMessages, `{"action": "close"}`, ""},
 		{menuMessages, `{"action": "close", "id": "0"}`, "close takes no id"},
 		{menuMessages, `{"action": "choose"}`, "choose needs an id"},
 		{menuMessages, `{"action": "click", "id": "card-a"}`, `no action "click"`},
-		{barMessages, `{"action": "click", "id": "a", "event": {"alt": true, "cmd": false, "shift": true, "ctrl": false, "middle": true}}`, ""},
-		{barMessages, `{"action": "click", "id": "a", "event": {}}`, ""},
+		{pageMessages, `{"action": "click", "id": "a", "event": {"alt": true, "cmd": false, "shift": true, "ctrl": false, "middle": true}}`, ""},
+		{pageMessages, `{"action": "click", "id": "a", "event": {}}`, ""},
 		{menuMessages, `{"action": "choose", "id": "0", "event": {"cmd": true}}`, ""},
-		{reportMessages, `{"action": "click", "id": "go", "event": {"shift": true}}`, ""},
-		{barMessages, `{"action": "menu", "id": "card-a", "event": {"alt": true}}`, "menu takes no event"},
-		{barMessages, `{"action": "ready", "event": {}}`, "ready takes no event"},
-		{barMessages, `{"action": "click", "id": "a", "event": {"alt": "yes"}}`, "cannot unmarshal string"},
-		{barMessages, `{"action": "click", "id": "a", "event": {"url": "x"}}`, `unknown field "url"`},
-		{barMessages, `{"action": "click", "id": "a", "event": "alt"}`, "cannot unmarshal string"},
+		{pageMessages, `{"action": "ready", "event": {}}`, "ready takes no event"},
+		{pageMessages, `{"action": "click", "id": "a", "event": {"alt": "yes"}}`, "cannot unmarshal string"},
+		{pageMessages, `{"action": "click", "id": "a", "event": {"url": "x"}}`, `unknown field "url"`},
+		{pageMessages, `{"action": "click", "id": "a", "event": "alt"}`, "cannot unmarshal string"},
 	} {
 		_, err := readMessage([]byte(c.body), c.actions)
 		if c.want == "" && err != nil || c.want != "" && (err == nil || !strings.Contains(err.Error(), c.want)) {
 			t.Errorf("%s: got %v, want %q", c.body, err, c.want)
 		}
 	}
-	m, err := readMessage([]byte(`{"action": "click", "id": "a", "event": {"alt": true, "middle": true}}`), barMessages)
+	m, err := readMessage([]byte(`{"action": "click", "id": "a", "event": {"alt": true, "middle": true}}`), pageMessages)
 	if want := (components.ClickEvent{Alt: true, Middle: true}); err != nil || m.clickEvent() != want {
 		t.Errorf("the click's event is %+v, %v; want %+v", m.clickEvent(), err, want)
 	}
-	if m, _ := readMessage([]byte(`{"action": "click", "id": "a"}`), barMessages); m.clickEvent() != (components.ClickEvent{}) {
+	if m, _ := readMessage([]byte(`{"action": "click", "id": "a"}`), pageMessages); m.clickEvent() != (components.ClickEvent{}) {
 		t.Errorf("a click without an event has %+v", m.clickEvent())
 	}
 }
@@ -254,6 +251,7 @@ func TestNativeMenus(t *testing.T) {
 		t.Error("WebKit's menu wasn't stopped")
 	}
 	eventually(t, "run run", func() bool { return calls.has("run run") })
+	idle(t, "card-m")
 	if got, want := calls.event("run run"), (components.ClickEvent{Cmd: true}); got != want {
 		t.Errorf("Run, chosen with ⌘ held, was clicked %+v, want %+v", got, want)
 	}
@@ -272,6 +270,7 @@ func TestNativeMenus(t *testing.T) {
 	mu.Unlock()
 	eval(t, `document.querySelector("#card-m .menu").click(), true`)
 	eventually(t, "the ⋯ menu", func() bool { return opened() == 2 })
+	idle(t, "card-m")
 
 	// A card without actions has no menu, nor WebKit's.
 	if got := rightClick(t, "card-plain"); got != "false" {
@@ -316,6 +315,14 @@ func TestNotJSON(t *testing.T) {
 	}
 }
 
+// idle waits for the ⋯ of the card with element id, if it's there, not to be busy: for
+// the Click that shows its menu, and runs what's chosen, to be done, so it can show it
+// again.
+func idle(t *testing.T, id string) {
+	t.Helper()
+	waitFor(t, `document.querySelector("#`+id+` .menu")?.hasAttribute("data-busy") === true`, "false")
+}
+
 // rightClick right-clicks element id on the bar, and says whether WebKit's own menu
 // was let show.
 func rightClick(t *testing.T, id string) string {
@@ -355,6 +362,7 @@ func TestMenus(t *testing.T) {
 	hidden := func(t *testing.T) {
 		t.Helper()
 		eventually(t, "the menu to hide", func() bool { return !shim.WindowVisible(MenuWindow) })
+		idle(t, "card-m")
 	}
 
 	// A right-click shows the menu, and a click on Go chooses it.
