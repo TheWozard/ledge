@@ -1,6 +1,7 @@
 package theme
 
 import (
+	"encoding/base64"
 	"io/fs"
 	"path"
 	"strings"
@@ -8,7 +9,7 @@ import (
 	"testing/fstest"
 )
 
-// Every built-in theme loads from its manifest, with its fonts inlined, and every file
+// Every built-in theme loads from its manifest, with its fonts and icons inlined, and every file
 // in themes/ is used. Each stylesheet starts with a comment naming its theme, which
 // the window tests wait for to know a theme has loaded.
 func TestBuiltin(t *testing.T) {
@@ -23,6 +24,11 @@ func TestBuiltin(t *testing.T) {
 		used[file] = true
 		data, _ := fs.ReadFile(Files, file)
 		manifest, _ := readManifest(data)
+		for _, icon := range []string{manifest.Icons.Menu, manifest.Icons.Dismiss, manifest.Icons.Copy} {
+			if icon != "" {
+				used[path.Join(path.Dir(file), icon)] = true
+			}
+		}
 		for _, page := range []struct {
 			files []string
 			css   string
@@ -61,9 +67,10 @@ func TestBuiltin(t *testing.T) {
 
 // A theme loads from its manifest in any files: each page's stylesheets joined in
 // order, paths relative to the manifest, fonts relative to their stylesheet. Anything
-// missing or wrong is an error.
+// missing or wrong is an error. Icons are SVGs, relative to the manifest, inlined.
 func TestLoad(t *testing.T) {
 	file := func(data string) *fstest.MapFile { return &fstest.MapFile{Data: []byte(data)} }
+	svg := `<?xml version="1.0"?><!-- an icon --><svg viewBox="0 0 16 16"><path d="M0 0h16v16z"/></svg>`
 	fsys := fstest.MapFS{
 		"common/fonts.css":   file(`@font-face { src: url("../fonts/neon.ttf") }`),
 		"common/base.css":    file(`:root { --page: #000 }`),
@@ -81,6 +88,11 @@ func TestLoad(t *testing.T) {
 		"badappearance.json": file(`{"name": "x", "frame": {"appearance": "sepia"}}`),
 		"unknown.json":       file(`{"name": "x", "frameless": true}`),
 		"two.json":           file(`{"name": "x"} {"name": "y"}`),
+		"icons/x.svg":        file(svg),
+		"icons/icons.json":   file(`{"name": "icons", "icons": {"dismiss": "x.svg", "copy": "x.svg"}}`),
+		"noicon.json":        file(`{"name": "x", "icons": {"menu": "icons/gone.svg"}}`),
+		"notsvg.json":        file(`{"name": "x", "icons": {"menu": "a.css"}}`),
+		"unknownicon.json":   file(`{"name": "x", "icons": {"close": "icons/x.svg"}}`),
 	}
 	theme, err := Load(fsys, "neon/theme.json")
 	if err != nil {
@@ -94,7 +106,12 @@ func TestLoad(t *testing.T) {
 	if theme, err := Load(fsys, "plain.json"); err != nil || theme != (Theme{Name: "plain", Bar: "a {}"}) {
 		t.Errorf("Load(plain) = %+v, %v", theme, err)
 	}
-	for _, name := range []string{"noname", "nofile", "nofont", "outside", "badappearance", "unknown", "two", "missing"} {
+	inlined := "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString([]byte(svg))
+	want = Theme{Name: "icons", Icons: Icons{Dismiss: inlined, Copy: inlined}}
+	if theme, err := Load(fsys, "icons/icons.json"); err != nil || theme != want {
+		t.Errorf("Load(icons) = %+v, %v; want %+v", theme, err, want)
+	}
+	for _, name := range []string{"noname", "nofile", "nofont", "outside", "badappearance", "unknown", "two", "missing", "noicon", "notsvg", "unknownicon"} {
 		if _, err := Load(fsys, name+".json"); err == nil {
 			t.Errorf("Load(%s.json) should be an error", name)
 		}

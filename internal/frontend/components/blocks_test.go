@@ -144,6 +144,13 @@ func TestCode(t *testing.T) {
 	if !slices.Equal(got, []string{"<b>log</b>", "other"}) {
 		t.Errorf("the buttons copied %q", got)
 	}
+	// With a copy icon, the button shows it rather than "Copy".
+	html.Reset()
+	icon := "data:image/svg+xml;base64,PHN2Zy8+"
+	if err := Code("log").Render(WithIcons(ctx, Icons{Copy: icon}), &html); err != nil {
+		t.Fatal(err)
+	}
+	contains(t, html.String(), `title="Copy" data-click="`+copyID("log")+`"><span class="icon" aria-hidden="true"></span></button>`)
 }
 
 // A table's cells can be links, alone or among other text: each is an <a> with its

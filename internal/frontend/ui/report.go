@@ -26,7 +26,8 @@ func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	blocks = slices.Clone(blocks)
 	b.mu.Lock()
 	t := b.options.Theme
-	html, clicks, err := renderReport(blocks, b.windows.Copy)
+	icons := components.Icons(t.Icons)
+	html, clicks, err := renderReport(blocks, b.windows.Copy, icons)
 	if err != nil {
 		b.mu.Unlock()
 		return err
@@ -40,8 +41,8 @@ func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	b.windows.SetAppearance(p.window, t.Frame.Appearance)
 	b.windows.SetFrameless(p.window, t.Frame.Frameless)
 	b.mu.Lock()
-	if !p.hasPage || p.css != t.Report {
-		if err := b.loadReport(p, t.Report); err != nil {
+	if !p.hasPage || p.css != t.Report || p.icons != icons {
+		if err := b.loadReport(p, t.Report, icons); err != nil {
 			b.mu.Unlock()
 			return err
 		}
@@ -70,7 +71,7 @@ func (b *Bar) ShowReportBlock(id string, block components.Block) (bool, error) {
 	if !ok {
 		return false, nil
 	}
-	html, clicks, err := renderReport(blocks, b.windows.Copy)
+	html, clicks, err := renderReport(blocks, b.windows.Copy, p.icons)
 	if err != nil {
 		return true, err
 	}
@@ -80,23 +81,24 @@ func (b *Bar) ShowReportBlock(id string, block components.Block) (bool, error) {
 }
 
 // renderReport renders blocks as a report shows them, and the Clicks in them, with
-// put to copy a Code block's text.
-func renderReport(blocks []templ.Component, put func(text string)) (string, *components.Clicks, error) {
+// put to copy a Code block's text, and icons for its button.
+func renderReport(blocks []templ.Component, put func(text string), icons components.Icons) (string, *components.Clicks, error) {
 	var html strings.Builder
 	clicks := &components.Clicks{}
 	ctx := components.WithCopy(components.WithClicks(context.Background(), clicks), put)
+	ctx = components.WithIcons(ctx, icons)
 	err := components.ReportContent(blocks).Render(ctx, &html)
 	return html.String(), clicks, err
 }
 
-// loadReport loads p, a report's page, afresh, in css, the theme's stylesheet for it.
-// Call it with the bar's lock held.
-func (b *Bar) loadReport(p *page, css string) error {
+// loadReport loads p, a report's page, afresh, in css, the theme's stylesheet for it,
+// with its icons. Call it with the bar's lock held.
+func (b *Bar) loadReport(p *page, css string, icons components.Icons) error {
 	var html bytes.Buffer
-	if err := components.ReportPage(css).Render(context.Background(), &html); err != nil {
+	if err := components.ReportPage(css, icons).Render(context.Background(), &html); err != nil {
 		return err
 	}
-	p.css = css
+	p.css, p.icons = css, icons
 	p.load(html.String())
 	return nil
 }

@@ -253,8 +253,8 @@ func testTheme(name string) (theme.Theme, error) {
 	return theme.Builtin(name)
 }
 
-// withTheme reloads the bar's page in theme for the length of the test; the page then
-// says it's ready, and the bar draws into it.
+// withTheme reloads the bar's page in theme for the length of the test, and renders
+// its cards again in it; the page then says it's ready, and the bar draws into it.
 func withTheme(t *testing.T, name string) {
 	t.Helper()
 	load := func(name string) {
@@ -263,9 +263,10 @@ func withTheme(t *testing.T, name string) {
 			t.Fatal(err)
 		}
 		var page bytes.Buffer
-		components.BarPage(th.Bar, testBar.options.Edge).Render(context.Background(), &page)
+		components.BarPage(th.Bar, testBar.options.Edge, components.Icons(th.Icons)).Render(context.Background(), &page)
 		testBar.mu.Lock()
 		testBar.options.Theme, testBar.bar.ready = th, false
+		testBar.show(testBar.cards) // again, with the theme's icons
 		testBar.mu.Unlock()
 		shim.LoadHTML(BarWindow, page.String())
 	}

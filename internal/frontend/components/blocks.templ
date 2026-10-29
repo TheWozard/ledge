@@ -181,12 +181,15 @@ templ listItems(items []Item) {
 }
 
 // Code is preformatted text, such as a log, in a fixed-width font. Long lines scroll
-// sideways. Rendered WithCopy, as a report is, it has a button that copies its text.
+// sideways. Rendered WithCopy, as a report is, it has a button that copies its text,
+// drawn with its icon from WithIcons, if it has one.
 templ Code(text string) {
 	<div class="code">
 		<pre><code>{ text }</code></pre>
 		if click := copyClick(ctx, text); click != nil {
-			<button type="button" class="copy" title="Copy" { Clickable(ctx, copyID(text), click)... }>Copy</button>
+			<button type="button" class="copy" title="Copy" { Clickable(ctx, copyID(text), click)... }>
+				@buttonFace(iconsIn(ctx).Copy, "Copy")
+			</button>
 		}
 	</div>
 }

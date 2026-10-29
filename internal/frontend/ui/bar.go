@@ -113,7 +113,7 @@ func barPage(options *Options) (string, error) {
 		}
 	}
 	var page bytes.Buffer
-	if err := components.BarPage(options.Theme.Bar, options.Edge).Render(context.Background(), &page); err != nil {
+	if err := components.BarPage(options.Theme.Bar, options.Edge, components.Icons(options.Theme.Icons)).Render(context.Background(), &page); err != nil {
 		return "", err
 	}
 	return page.String(), nil
@@ -159,6 +159,7 @@ func (b *Bar) show(cards []components.Card) error {
 	var html strings.Builder
 	clicks := &components.Clicks{}
 	ctx := components.WithClicks(context.Background(), clicks)
+	ctx = components.WithIcons(ctx, components.Icons(b.options.Theme.Icons))
 	if err := components.BarContent(cards, b.menu).Render(ctx, &html); err != nil {
 		return err
 	}

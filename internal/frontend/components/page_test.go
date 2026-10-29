@@ -12,7 +12,7 @@ import (
 )
 
 func TestBarPage(t *testing.T) {
-	html := render(t, BarPage(":root { --bar: #fff; }", "top"))
+	html := render(t, BarPage(":root { --bar: #fff; }", "top", Icons{}))
 	contains(t, html, `<body class="top">`, "<style>\n:root { --bar: #fff; }</style>", `<div id="app"></div>`,
 		// The layout and the script come through as written.
 		"/* Layout only. How the bar looks comes from its theme", `send("ready");`, `event.target.closest("[data-click]")`,
@@ -23,7 +23,7 @@ func TestBarPage(t *testing.T) {
 // The report page draws its title bar and an empty <article>, under its theme, with
 // its script, which morphs what it's given into the <article>.
 func TestReportPage(t *testing.T) {
-	html := render(t, ReportPage(":root { --page: #fff; }"))
+	html := render(t, ReportPage(":root { --page: #fff; }", Icons{}))
 	contains(t, html,
 		`<header class="titlebar"><span></span>`, `<button class="close"`,
 		"<style>\n:root { --page: #fff; }</style>",
@@ -45,8 +45,8 @@ func TestCSP(t *testing.T) {
 	scriptTag := regexp.MustCompile(`(?s)<script>(.*?)</script>`)
 	hashSource := regexp.MustCompile(`'sha256-[^']+'`)
 	for name, page := range map[string]templ.Component{
-		"bar":    BarPage("", "top"),
-		"report": ReportPage(""),
+		"bar":    BarPage("", "top", Icons{}),
+		"report": ReportPage("", Icons{}),
 		"menu":   MenuPage("", []MenuItem{{Title: "Rerun", Enabled: true}}),
 	} {
 		html := render(t, page)

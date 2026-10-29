@@ -15,7 +15,8 @@ import templruntime "github.com/a-h/templ/runtime"
 // title bar, and morphs the <article> into html, so what's still there keeps its
 // element and the report its scroll. It also takes setBusy(ids), which marks
 // data-busy what's clicked with those ids. Its layout is page/report.css, and its
-// script page/report.js.
+// script page/report.js. icons are the theme's too, and its ReportContent is to be
+// rendered WithIcons the same.
 //
 // Apart from ready, the page posts to window.webkit.messageHandlers.ledge only
 // {action: "click", id, event} when something with data-click is clicked, with the
@@ -26,7 +27,7 @@ import templruntime "github.com/a-h/templ/runtime"
 // (the second of a double-click zooms), and the title bar's buttons, when a theme
 // shows them, close, minimise and zoom it. A LinkTo is a real <a>; clicking one asks
 // the window to navigate, which the app decides on.
-func ReportPage(themeCSS string) templ.Component {
+func ReportPage(themeCSS string, icons Icons) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -56,6 +57,10 @@ func ReportPage(themeCSS string) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		templ_7745c5c3_Err = style(reportCSS).Render(ctx, templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = iconStyle(icons).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

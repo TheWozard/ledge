@@ -10,6 +10,7 @@ import (
 	"embed"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -47,6 +48,18 @@ type Theme struct {
 	// of its own; "" for the native macOS menu instead.
 	Menu  string
 	Frame Frame
+	Icons Icons
+}
+
+// Icons is a theme's pictures for the bar's and report's buttons, in place of their
+// text, such as icons from a set like Font Awesome or Boxicons. In a Manifest each is
+// the path of an SVG file, relative to it; in a Theme, that file as a data: url. An
+// icon left out is "", and its button shows its text. An icon is drawn as a mask in
+// its button's colour, so only its shape counts, not its own colours.
+type Icons struct {
+	Menu    string `json:"menu,omitempty"`    // a card's ⋯, for its menu
+	Dismiss string `json:"dismiss,omitempty"` // a card's ×
+	Copy    string `json:"copy,omitempty"`    // a report's Code block's Copy
 }
 
 // Frame is how a theme's report window frame looks. Its page draws the title bar.
@@ -69,10 +82,13 @@ type Frame struct {
 //	  "bar": ["css/neon-font.css", "css/neon.css"],
 //	  "report": ["css/neon-font.css", "css/neon.report.css"],
 //	  "menu": ["css/neon-font.css", "css/neon.menu.css"],
-//	  "frame": {"appearance": "dark"}
+//	  "frame": {"appearance": "dark"},
+//	  "icons": {"menu": "icons/ellipsis.svg", "dismiss": "icons/xmark.svg", "copy": "icons/copy.svg"}
 //	}
 //
-// "menu" is optional: without it, a card's menu is the native one. One theme in a Set can say it's the Default, the one to use when none is chosen.
+// "menu" is optional: without it, a card's menu is the native one. So are "icons",
+// and each of them; see Icons. One theme in a Set can say it's the Default, the one
+// to use when none is chosen.
 type Manifest struct {
 	Name    string   `json:"name"`
 	Default bool     `json:"default,omitempty"`
@@ -80,11 +96,12 @@ type Manifest struct {
 	Report  []string `json:"report"`
 	Menu    []string `json:"menu,omitempty"`
 	Frame   Frame    `json:"frame"`
+	Icons   Icons    `json:"icons"`
 }
 
 // Load reads the theme whose manifest is file in fsys: each page's stylesheets, joined
 // in order, with every font they name by a relative url, such as
-// url(../fonts/neon.woff2), read from fsys and inlined.
+// url(../fonts/neon.woff2), read from fsys and inlined, and its icons, inlined too.
 func Load(fsys fs.FS, file string) (Theme, error) {
 	data, err := fs.ReadFile(fsys, file)
 	if err != nil {
@@ -111,7 +128,42 @@ func load(fsys fs.FS, file string, manifest Manifest) (Theme, error) {
 	if t.Menu, err = joinStylesheets(fsys, dir, manifest.Menu); err != nil {
 		return t, fmt.Errorf("theme %s: %w", t.Name, err)
 	}
+	t.Icons = manifest.Icons
+	for _, icon := range []*string{&t.Icons.Menu, &t.Icons.Dismiss, &t.Icons.Copy} {
+		if *icon == "" {
+			continue
+		}
+		if *icon, err = loadIcon(fsys, path.Join(dir, *icon)); err != nil {
+			return t, fmt.Errorf("theme %s: %w", t.Name, err)
+		}
+	}
 	return t, nil
+}
+
+// loadIcon is the SVG file in fsys as a data: url.
+func loadIcon(fsys fs.FS, file string) (string, error) {
+	data, err := fs.ReadFile(fsys, file)
+	if err != nil {
+		return "", err
+	}
+	if !isSVG(data) {
+		return "", fmt.Errorf("%s isn't an SVG", file)
+	}
+	return "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString(data), nil
+}
+
+// isSVG is whether data is XML whose first element is an <svg>.
+func isSVG(data []byte) bool {
+	decoder := xml.NewDecoder(bytes.NewReader(data))
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return false
+		}
+		if start, ok := token.(xml.StartElement); ok {
+			return start.Name.Local == "svg"
+		}
+	}
 }
 
 // joinStylesheets is the stylesheets files, relative to dir in fsys, each with its

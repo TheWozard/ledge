@@ -33,10 +33,11 @@ type page struct {
 	running map[string]bool // the ids of its Clicks running, which it marks busy
 
 	// A report's page has the id it was shown for, what it shows, so a block of it can
-	// be replaced, and the stylesheet it was loaded with, so it's loaded again in
-	// another.
+	// be replaced, and the stylesheet and icons it was loaded with, so it's loaded
+	// again in others.
 	report string
 	css    string
+	icons  components.Icons
 	title  string
 	blocks []templ.Component
 }

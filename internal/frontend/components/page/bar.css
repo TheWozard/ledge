@@ -10,7 +10,9 @@
    it in data-color, and as CSS in --card-color; a theme shows it however it
    likes, or not at all. A card with actions has data-menu and a ⋯ button, .menu,
    beside its × in its .card-buttons; its actions are in a native menu, not the
-   page.
+   page. A theme with icons for them (theme.Icons) has each drawn as an .icon in
+   its button, rather than its text: the icon's shape in the button's colour,
+   --icon-size square (12px).
 
    Entering and leaving: a card new since the last render has data-new and --i,
    its place among the new ones, for an entrance animation; the next render takes
@@ -236,6 +238,24 @@ li.stat:has(.description) {
   cursor: pointer;
   background: none;
   border: 0;
+}
+/* An icon is its theme's picture, from --icon-menu or --icon-dismiss, as a mask over
+   the button's colour, fitted to --icon-size in the middle of the button. */
+.card-buttons .icon {
+  display: block;
+  width: var(--icon-size, 12px);
+  height: var(--icon-size, 12px);
+  margin: auto;
+  background: currentColor;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+}
+.menu .icon {
+  mask-image: var(--icon-menu);
+}
+.dismiss .icon {
+  mask-image: var(--icon-dismiss);
 }
 
 .empty {
