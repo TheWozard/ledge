@@ -398,7 +398,7 @@ func TestRenderErrors(t *testing.T) {
 	if f.loadCount(MenuWindow+1) != 0 || f.showing(MenuWindow+1) {
 		t.Error("a report that couldn't be rendered opened a window")
 	}
-	if err := b.ShowReport("fe", "Fine", []templ.Component{components.Block{ID: "x", Content: components.Paragraph("Fine")}}); err != nil {
+	if err := b.ShowReport("fe", "Fine", []templ.Component{components.Block{ID: "x", Content: components.Paragraph(components.Text("Fine"))}}); err != nil {
 		t.Fatal(err)
 	}
 	b.mu.Lock()

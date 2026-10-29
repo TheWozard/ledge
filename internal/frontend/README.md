@@ -25,8 +25,9 @@ func main() {
 	}
 	go func() {
 		report := []templ.Component{
-			components.Note("Two jobs failed.", "red"),
-			components.Table([]string{"Job", "State"}, [][]string{{"build", "failed"}}),
+			components.Note("red", components.Text("Two jobs failed.")),
+			components.Table([]string{"Job", "State"}, [][]components.Inline{
+				{components.Mono("build"), components.Strong(components.Text("failed"))}}),
 		}
 		bar.Render([]components.Card{components.Basic{ID: "ci", Title: "CI failed", Color: "#e0362c",
 			Click: func(e components.ClickEvent) {
@@ -161,17 +162,25 @@ clickable things in none. A theme styles what can be clicked by `[data-click]`. 
 
 | Block | Shows |
 |---|---|
-| `Heading(text)` | a section heading |
-| `Paragraph(text)` | a paragraph; line breaks are kept |
+| `Heading(level, ...)` | a heading, level 1 to 6: an `<h1>` to an `<h6>`; sections are usually 2, as the window has the report's title |
+| `Paragraph(...)` | a paragraph; line breaks are kept |
 | `Fields([]Field)` | label and value rows |
 | `Table(columns, rows)` | a table; short rows are padded, long ones cut |
-| `List(items, ordered)` | bullets, or numbers |
+| `List(ordered, ...Item)` | bullets, or numbers; an `Item` can have a list of its own |
 | `Code(text)` | fixed-width text that scrolls sideways |
-| `Note(text, color)` | a callout in a colour |
-| `Link(text, url)` | a link; clicking it opens it in the browser if it's http(s) |
+| `Note(color, ...)` | a callout in a colour |
+| `Quote(...)` | quoted text |
+| `Rule()` | a line between parts of the report |
+| `Details(summary, ...blocks)` | blocks hidden under a summary until it's clicked |
+| `Image(src, alt)` | a picture from a `data:` URL of an image; any other src shows only `alt` |
 | `Buttons([]Button)` | a row of buttons, each with a dot in its colour, calling its `Click`; one without is disabled |
 
-Every string is escaped by templ, so text can't add markup. Colours are a theme's named
+Text in a block, the `...` above, a field's value and a table's cells, is `Inline`:
+`Text(s)`, `Strong(...)`, `Em(...)`, `Mono(s)` (code), `LinkTo(url, ...)`, which opens in
+the browser if it's http(s), and `templ.Join(...)` of those. `Inline` is any templ
+component, so an app can have inline text of its own; a block in a line of text, such
+as a `Table` in a `Paragraph`, makes for HTML that isn't. Each block is one HTML
+element, and every string is escaped by templ, so text can't add markup. Colours are a theme's named
 colours (`green`, `yellow`, `red`, `blue`, `gray`) or `#rrggbb`; anything else is gray,
 and can't add CSS.
 

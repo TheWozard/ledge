@@ -1,7 +1,8 @@
 // Package components is the bar's and the report window's HTML, as templ components:
 // the pages (BarPage, ReportPage), what goes in them (BarContent, and the report
-// blocks: Heading, Paragraph, Fields, Table, List, Code, Note, Link, Buttons), and
-// the data they show (Card, Action, Button).
+// blocks: Heading, Paragraph, Fields, Table, List, Code, Note, Quote, Rule, Details,
+// Image, Buttons, and the Inline text in them: Text, Strong, Em, Mono, LinkTo),
+// and the data they show (Card, Action, Button).
 //
 // Each kind of card has a file of its own (basic.templ, timer.templ), with its type
 // and its body. The pages' layout styles and scripts are in page/.

@@ -33,7 +33,7 @@ func TestReportPage(t *testing.T) {
 
 // A report's content is its blocks, top to bottom, and nothing else.
 func TestReportContent(t *testing.T) {
-	html := render(t, ReportContent([]templ.Component{Heading("Jobs"), Block{ID: "x", Content: Paragraph("CI <failed>")}}))
+	html := render(t, ReportContent([]templ.Component{Heading(2, Text("Jobs")), Block{ID: "x", Content: Paragraph(Text("CI <failed>"))}}))
 	if want := "<h2>Jobs</h2><p>CI &lt;failed&gt;</p>"; html != want {
 		t.Errorf("the report's content is %s, want %s", html, want)
 	}

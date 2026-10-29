@@ -1,35 +1,117 @@
 package components
 
-// The blocks a report is made of, drawn top to bottom in ReportPage.
+// The blocks a report is made of, drawn top to bottom in ReportPage, and the Inline
+// text in them. Each is an HTML element, and every string is shown as text.
 
-// Heading is a section heading.
-templ Heading(text string) {
-	<h2>{ text }</h2>
+// Inline is text in a block, such as a Paragraph's: Text, or text in Strong, Em, Mono
+// or a LinkTo, or templ.Join of those. It's any component, so an app can have inline
+// text of its own; one that's a block, such as a Table, in a line of text makes for
+// HTML that isn't.
+type Inline = templ.Component
+
+// Text is text, as it's written; a line break in it is kept.
+templ Text(text string) {
+	{ text }
 }
 
-// Paragraph is a paragraph; line breaks in text are kept.
-templ Paragraph(text string) {
-	<p>{ text }</p>
+templ inlines(parts []Inline) {
+	for _, part := range parts {
+		@part
+	}
+}
+
+// Strong is parts in bold.
+templ Strong(parts ...Inline) {
+	<strong>
+		@inlines(parts)
+	</strong>
+}
+
+// Em is parts in italics.
+templ Em(parts ...Inline) {
+	<em>
+		@inlines(parts)
+	</em>
+}
+
+// Mono is text in a fixed-width font, such as a name in code.
+templ Mono(text string) {
+	<code>{ text }</code>
+}
+
+// LinkTo is parts as a link to url, which opens in the browser if it's http(s);
+// anything else goes nowhere. A url that isn't safe, such as javascript:, is replaced
+// so it can't run.
+templ LinkTo(url string, parts ...Inline) {
+	<a href={ templ.URL(url) } title={ url }>
+		@inlines(parts)
+	</a>
+}
+
+// Heading is a heading, level 1 to 6, as HTML's <h1> to <h6>; a level below 1 is 1,
+// and above 6 is 6. The report's title is its window's, so its sections are usually
+// level 2.
+templ Heading(level int, parts ...Inline) {
+	switch min(max(level, 1), 6) {
+		case 1:
+			<h1>
+				@inlines(parts)
+			</h1>
+		case 2:
+			<h2>
+				@inlines(parts)
+			</h2>
+		case 3:
+			<h3>
+				@inlines(parts)
+			</h3>
+		case 4:
+			<h4>
+				@inlines(parts)
+			</h4>
+		case 5:
+			<h5>
+				@inlines(parts)
+			</h5>
+		default:
+			<h6>
+				@inlines(parts)
+			</h6>
+	}
+}
+
+// Paragraph is a paragraph; line breaks in its text are kept.
+templ Paragraph(parts ...Inline) {
+	<p>
+		@inlines(parts)
+	</p>
 }
 
 // Field is a labelled value, a row of Fields.
 type Field struct {
 	Label string
-	Value string
+	Value Inline // nil is none
 }
 
 // Fields is labelled values, one per row.
 templ Fields(items []Field) {
 	<dl>
 		for _, item := range items {
-			<div class="field"><dt>{ item.Label }</dt><dd>{ item.Value }</dd></div>
+			<div class="field">
+				<dt>{ item.Label }</dt>
+				<dd>
+					if item.Value != nil {
+						@item.Value
+					}
+				</dd>
+			</div>
 		}
 	</dl>
 }
 
 // Table is column headings and rows of cells. Rows are cut or padded to the columns,
-// so every row lines up.
-templ Table(columns []string, rows [][]string) {
+// so every row lines up; a nil cell is empty.
+templ Table(columns []string, rows [][]Inline) {
 	<div class="table">
 		<table>
 			<thead>
@@ -43,7 +125,11 @@ templ Table(columns []string, rows [][]string) {
 				for _, row := range rows {
 					<tr>
 						for i := range columns {
-							<td>{ cell(row, i) }</td>
+							<td>
+								if c := cell(row, i); c != nil {
+									@c
+								}
+							</td>
 						}
 					</tr>
 				}
@@ -52,27 +138,45 @@ templ Table(columns []string, rows [][]string) {
 	</div>
 }
 
-func cell(row []string, i int) string {
+func cell(row []Inline, i int) Inline {
 	if i < len(row) {
 		return row[i]
 	}
-	return ""
+	return nil
 }
 
-// List is a bulleted list, or a numbered one if ordered.
-templ List(items []string, ordered bool) {
+// Item is an item in a List: its text, and the list under it, if it has Items,
+// numbered if Ordered.
+type Item struct {
+	Text    Inline // nil is none
+	Ordered bool
+	Items   []Item
+}
+
+// List is a bulleted list, or a numbered one if ordered. Its items can have lists of
+// their own.
+templ List(ordered bool, items ...Item) {
 	if ordered {
 		<ol>
-			for _, item := range items {
-				<li>{ item }</li>
-			}
+			@listItems(items)
 		</ol>
 	} else {
 		<ul>
-			for _, item := range items {
-				<li>{ item }</li>
-			}
+			@listItems(items)
 		</ul>
+	}
+}
+
+templ listItems(items []Item) {
+	for _, item := range items {
+		<li>
+			if item.Text != nil {
+				@item.Text
+			}
+			if len(item.Items) > 0 {
+				@List(item.Ordered, item.Items...)
+			}
+		</li>
 	}
 }
 
@@ -82,16 +186,49 @@ templ Code(text string) {
 	<pre><code>{ text }</code></pre>
 }
 
-// Note is a callout in a colour; "" is gray.
-templ Note(text string, color string) {
-	<div class="note" data-color={ colorName(color) } style={ templ.SafeCSS("--note: " + cssColor(color)) }>{ text }</div>
+// Note is a callout in a colour; "" is gray. Line breaks in its text are kept.
+templ Note(color string, parts ...Inline) {
+	<div class="note" data-color={ colorName(color) } style={ templ.SafeCSS("--note: " + cssColor(color)) }>
+		@inlines(parts)
+	</div>
 }
 
-// Link is a link to url, which opens in the browser if it's http(s); anything
-// else goes nowhere. A url that isn't safe, such as javascript:, is replaced so
-// it can't run.
-templ Link(text string, url string) {
-	<p class="link"><a href={ templ.URL(url) } title={ url }>{ text }</a></p>
+// Quote is quoted text, such as from a message or a log.
+templ Quote(parts ...Inline) {
+	<blockquote>
+		@inlines(parts)
+	</blockquote>
+}
+
+// Rule is a line across the report, between parts of it.
+templ Rule() {
+	<hr/>
+}
+
+// Details is blocks hidden under summary until it's clicked, then shown, such as a
+// long log.
+templ Details(summary Inline, blocks ...templ.Component) {
+	<details>
+		<summary>
+			if summary != nil {
+				@summary
+			}
+		</summary>
+		for _, block := range blocks {
+			@block
+		}
+	</details>
+}
+
+// Image is a picture, src, a data: URL of a PNG, JPEG, GIF, WebP or SVG image, base64,
+// with alt saying what it shows. The page can't fetch anything, and mustn't try, so
+// any other src isn't shown, only alt.
+templ Image(src string, alt string) {
+	if dataImage.MatchString(src) {
+		<img src={ templ.SafeURL(src) } alt={ alt }/>
+	} else {
+		<p class="image-alt">{ alt }</p>
+	}
 }
 
 // Button is a button in a report's Buttons: its title, with a dot in its colour (a

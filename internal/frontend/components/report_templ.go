@@ -24,7 +24,7 @@ import templruntime "github.com/a-h/templ/runtime"
 // its window, through
 // its "frame" handler (see the shim), is: a mouse-down on the title bar starts a drag
 // (the second of a double-click zooms), and the title bar's buttons, when a theme
-// shows them, close, minimise and zoom it. A Link is a real <a>; clicking one asks
+// shows them, close, minimise and zoom it. A LinkTo is a real <a>; clicking one asks
 // the window to navigate, which the app decides on.
 func ReportPage(themeCSS string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
@@ -83,8 +83,8 @@ func ReportPage(themeCSS string) templ.Component {
 
 // ReportContent is what a report shows in its page's <article>: blocks, top to
 // bottom. A block is any component; the ones in blocks.templ are Heading, Paragraph,
-// Fields, Table, List, Code, Note, Link and Buttons, and any of them can be given an
-// id with Block.
+// Fields, Table, List, Code, Note, Quote, Rule, Details, Image and Buttons, and any
+// of them can be given an id with Block.
 func ReportContent(blocks []templ.Component) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context

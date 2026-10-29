@@ -16,14 +16,15 @@ import (
 
 // reportBlocks is one of each block, its text partly HTML-looking.
 var reportBlocks = []templ.Component{
-	components.Heading("Summary"),
-	components.Paragraph("<b>not bold</b>\nsecond line"),
-	components.Fields([]components.Field{{Label: "Branch", Value: "main"}, {Label: "Failures", Value: "2"}}),
-	components.Table([]string{"Job", "Result"}, [][]string{{"lint", "ok"}, {"test"}, {"build", "ok", "extra"}}),
-	components.List([]string{"one", "two"}, true),
+	components.Heading(2, components.Text("Summary")),
+	components.Paragraph(components.Text("<b>not bold</b>\nsecond line")),
+	components.Fields([]components.Field{{Label: "Branch", Value: components.Text("main")}, {Label: "Failures", Value: components.Text("2")}}),
+	components.Table([]string{"Job", "Result"}, [][]components.Inline{{components.Text("lint"), components.Text("ok")}, {components.Text("test")},
+		{components.Text("build"), components.Text("ok"), components.Text("extra")}}),
+	components.List(true, components.Item{Text: components.Text("one")}, components.Item{Text: components.Text("two")}),
 	components.Code("$ go test\nFAIL"),
-	components.Note("Flaky", "yellow"),
-	components.Link("The run", "https://example.com/from-report"),
+	components.Note("yellow", components.Text("Flaky")),
+	components.Paragraph(components.LinkTo("https://example.com/from-report", components.Text("The run"))),
 }
 
 func TestReportWindow(t *testing.T) {
@@ -52,7 +53,7 @@ func TestReportWindow(t *testing.T) {
 	}
 	// Showing its id again replaces it, in the same window, and the same page.
 	evalIn(t, w, `window.kept = true`)
-	if again := showReport(t, "report", "Another", []templ.Component{components.Paragraph("Second version")}); again != w {
+	if again := showReport(t, "report", "Another", []templ.Component{components.Paragraph(components.Text("Second version"))}); again != w {
 		t.Errorf("showing the same id again opened window %d, not %d", again, w)
 	}
 	waitIn(t, w, `document.querySelector("p")?.textContent`, `"Second version"`)
@@ -71,7 +72,7 @@ func TestReportWindow(t *testing.T) {
 // an onerror, though the page's own and the app's calls run.
 func TestReportCSP(t *testing.T) {
 	gui(t)
-	w := showReport(t, "csp", "CSP", []templ.Component{components.Paragraph("Kept")})
+	w := showReport(t, "csp", "CSP", []templ.Component{components.Paragraph(components.Text("Kept"))})
 	waitIn(t, w, `document.querySelector("p")?.textContent`, `"Kept"`)
 	evalIn(t, w, `(() => {
 		window.blocked = 0;
@@ -94,11 +95,11 @@ func TestReportCSP(t *testing.T) {
 // block it hasn't, is left alone.
 func TestReportBlock(t *testing.T) {
 	gui(t)
-	blocks := []templ.Component{components.Heading("Top")}
+	blocks := []templ.Component{components.Heading(2, components.Text("Top"))}
 	for i := range 60 {
-		blocks = append(blocks, components.Paragraph(fmt.Sprint("Filler ", i)))
+		blocks = append(blocks, components.Paragraph(components.Text(fmt.Sprint("Filler ", i))))
 	}
-	blocks = append(blocks, components.Block{ID: "status", Content: components.Note("Running", "blue")}, components.Paragraph("After"))
+	blocks = append(blocks, components.Block{ID: "status", Content: components.Note("blue", components.Text("Running"))}, components.Paragraph(components.Text("After")))
 	w := showReport(t, "blocks", "Blocks", blocks)
 	waitIn(t, w, `document.querySelectorAll("main > article > *").length`, fmt.Sprint(len(blocks)))
 	evalIn(t, w, `window.kept = document.querySelector("h2");
@@ -107,7 +108,7 @@ func TestReportBlock(t *testing.T) {
 		t.Fatalf("the report scrolled to %s, want 200; the test needs more blocks", got)
 	}
 
-	open, err := testBar.ShowReportBlock("blocks", components.Block{ID: "status", Content: components.Paragraph("<b>Done</b>")})
+	open, err := testBar.ShowReportBlock("blocks", components.Block{ID: "status", Content: components.Paragraph(components.Text("<b>Done</b>"))})
 	if err != nil || !open {
 		t.Fatalf("ShowReportBlock = %v, %v", open, err)
 	}
@@ -125,13 +126,13 @@ func TestReportBlock(t *testing.T) {
 		}
 	}
 
-	if open, err := testBar.ShowReportBlock("blocks", components.Block{ID: "missing", Content: components.Paragraph("Lost")}); open || err != nil {
+	if open, err := testBar.ShowReportBlock("blocks", components.Block{ID: "missing", Content: components.Paragraph(components.Text("Lost"))}); open || err != nil {
 		t.Errorf("ShowReportBlock of a block the report hasn't = %v, %v", open, err)
 	}
 	if got := evalIn(t, w, `document.querySelectorAll("main > article > *").length`); got != fmt.Sprint(len(blocks)) {
 		t.Errorf("%s blocks after replacing a missing one, want %d", got, len(blocks))
 	}
-	if open, _ := testBar.ShowReportBlock("not-open", components.Block{ID: "status", Content: components.Paragraph("Lost")}); open {
+	if open, _ := testBar.ShowReportBlock("not-open", components.Block{ID: "status", Content: components.Paragraph(components.Text("Lost"))}); open {
 		t.Error("ShowReportBlock found a report that isn't open")
 	}
 }
@@ -216,7 +217,7 @@ func TestReportFrame(t *testing.T) {
 	if got := eval(t, `!!window.webkit.messageHandlers.frame`); got != "false" {
 		t.Error("the bar page has the frame handler")
 	}
-	blocks := []templ.Component{components.Paragraph("Framed")}
+	blocks := []templ.Component{components.Paragraph(components.Text("Framed"))}
 	w := showReport(t, "report", "Framed report", blocks)
 	waitIn(t, w, `document.querySelector(".titlebar span")?.textContent`, `"Framed report"`)
 	if got := evalIn(t, w, `!!window.webkit.messageHandlers.frame`); got != "true" {
@@ -256,8 +257,8 @@ func TestReportFrame(t *testing.T) {
 // closing one leaves the others.
 func TestReportWindowPerID(t *testing.T) {
 	gui(t)
-	a := showReport(t, "card-a", "Report A", []templ.Component{components.Paragraph("A")})
-	b := showReport(t, "card-b", "Report B", []templ.Component{components.Paragraph("B")})
+	a := showReport(t, "card-a", "Report A", []templ.Component{components.Paragraph(components.Text("A"))})
+	b := showReport(t, "card-b", "Report B", []templ.Component{components.Paragraph(components.Text("B"))})
 	if a == b || a == BarWindow || b == BarWindow {
 		t.Fatalf("card-a and card-b have windows %d and %d", a, b)
 	}
@@ -355,7 +356,7 @@ func TestReportMessages(t *testing.T) {
 	})}); !open || err != nil {
 		t.Fatalf("ShowReportBlock = %v, %v", open, err)
 	}
-	if open, err := b.ShowReportBlock("fr", components.Block{ID: "missing", Content: components.Paragraph("Lost")}); open || err != nil {
+	if open, err := b.ShowReportBlock("fr", components.Block{ID: "missing", Content: components.Paragraph(components.Text("Lost"))}); open || err != nil {
 		t.Errorf("ShowReportBlock of a block the report hasn't = %v, %v", open, err)
 	}
 	if ran := f.ran(w); len(ran) != 0 {
@@ -375,7 +376,7 @@ func TestReportMessages(t *testing.T) {
 	if !calls.has("fake report go") || !calls.has("fake report new") || calls.has("fake report old") || calls.has("fake open fbar") {
 		t.Error("the report's clicks didn't reach only its own Clicks, as they are now")
 	}
-	if open, _ := b.ShowReportBlock("fake-not-open", components.Block{ID: "more", Content: components.Paragraph("Lost")}); open {
+	if open, _ := b.ShowReportBlock("fake-not-open", components.Block{ID: "more", Content: components.Paragraph(components.Text("Lost"))}); open {
 		t.Error("ShowReportBlock found a report that isn't open")
 	}
 

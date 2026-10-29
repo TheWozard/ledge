@@ -8,46 +8,62 @@ import (
 	"github.com/a-h/templ"
 )
 
-// Each block shows its text escaped; a table's rows line up with its columns, and a
-// link that isn't safe goes nowhere.
+// Each block shows its text escaped, in its element and nothing else: a heading at
+// its level, inline text in its own, a table's rows lined up with its columns, a
+// list's items with lists of their own, and a link that isn't safe going nowhere.
 func TestBlocks(t *testing.T) {
 	blocks := []templ.Component{
-		Heading("Jobs"),
-		Paragraph("<b>not bold</b>\nsecond line"),
-		Fields([]Field{{Label: "Branch", Value: "main"}}),
-		Table([]string{"Job", "Result"}, [][]string{{"lint", "ok"}, {"test"}, {"build", "ok", "extra"}}),
-		List([]string{"one", "two"}, true),
+		Heading(1, Text("Top")), Heading(2, Text("Jobs")), Heading(4, Text("Sub")), Heading(9, Text("Deep")), Heading(0, Text("Least")),
+		Paragraph(Text("<b>not bold</b>\nsecond line "), Strong(Text("bold "), Em(Text("both"))), Text(" "),
+			Mono("Render()"), Text(" "), LinkTo("https://example.com/run", Text("The run")), LinkTo("javascript:alert(1)", Text("Bad"))),
+		Fields([]Field{{Label: "Branch", Value: Text("main")}, {Label: "Empty"}}),
+		Table([]string{"Job", "Result"}, [][]Inline{{Text("lint"), Strong(Text("ok"))}, {Text("test")}, {Text("build"), Text("ok"), Text("extra")}}),
+		List(true, Item{Text: Text("one"), Items: []Item{{Text: Text("one a")}}}, Item{Text: Text("two")}),
 		Code("$ go test\nFAIL"),
-		Note("Flaky", "yellow"),
-		Note("Plain", ""),
-		Note("Purple", "purple"),
-		Link("The run", "https://example.com/run"),
-		Link("Bad", "javascript:alert(1)"),
+		Note("yellow", Text("Flaky")), Note("", Text("Plain")), Note("purple", Text("Purple")),
+		Quote(Text("<i>quoted</i>")),
+		Rule(),
+		Details(Text("More"), Paragraph(Text("Hidden"))),
 	}
 	var html strings.Builder
 	for _, block := range blocks {
 		html.WriteString(render(t, block))
 	}
 	contains(t, html.String(),
-		"<h2>Jobs</h2>", "<p>&lt;b&gt;not bold&lt;/b&gt;\nsecond line</p>",
-		`<div class="field"><dt>Branch</dt><dd>main</dd></div>`,
-		"<th>Job</th><th>Result</th>",
+		"<h1>Top</h1>", "<h2>Jobs</h2>", "<h4>Sub</h4>", "<h6>Deep</h6>", "<h1>Least</h1>",
+		"<p>&lt;b&gt;not bold&lt;/b&gt;\nsecond line <strong>bold <em>both</em></strong> <code>Render()</code> ",
+		`<a href="https://example.com/run" title="https://example.com/run">The run</a>`,
+		`<div class="field"><dt>Branch</dt><dd>main</dd></div><div class="field"><dt>Empty</dt><dd></dd></div>`,
+		"<th>Job</th><th>Result</th>", "<tr><td>lint</td><td><strong>ok</strong></td></tr>",
 		"<tr><td>test</td><td></td></tr>", "<tr><td>build</td><td>ok</td></tr>",
-		"<ol><li>one</li><li>two</li></ol>", "<pre><code>$ go test\nFAIL</code></pre>",
-		`data-color="yellow" style="--note: var(--c-yellow);"`, `data-color="gray" style="--note: var(--c-gray);">Plain`,
+		"<ol><li>one<ul><li>one a</li></ul></li><li>two</li></ol>", "<pre><code>$ go test\nFAIL</code></pre>",
+		`data-color="yellow" style="--note: var(--c-yellow);">Flaky`, `data-color="gray" style="--note: var(--c-gray);">Plain`,
 		`data-color="gray" style="--note: var(--c-gray);">Purple`,
-		`<a href="https://example.com/run" title="https://example.com/run">The run</a>`)
-	lacks(t, html.String(), "<b>not bold", "extra", `href="javascript:`)
+		"<blockquote>&lt;i&gt;quoted&lt;/i&gt;</blockquote>", "<hr>",
+		"<details><summary>More</summary> <p>Hidden</p></details>")
+	lacks(t, html.String(), "<b>not bold", "<i>", "extra", `href="javascript:`)
+}
+
+// An image is shown only from a data: URL of an image; anything else, which the page
+// would fetch, shows only its alt.
+func TestImage(t *testing.T) {
+	png := "data:image/png;base64,iVBORw0KGgo="
+	contains(t, render(t, Image(png, "A <chart>")), `<img src="`+png+`" alt="A &lt;chart&gt;">`)
+	for _, src := range []string{"https://example.com/x.png", "data:text/html;base64,PGI+", "javascript:alert(1)", ""} {
+		if html := render(t, Image(src, "A chart")); html != `<p class="image-alt">A chart</p>` {
+			t.Errorf("Image(%q) is %s", src, html)
+		}
+	}
 }
 
 // A block with an id is drawn as itself, its text escaped. ReplaceBlock replaces only
 // the Block with its id, as a Block with it, and leaves the blocks it's given as they
 // are; without one, nothing changes.
 func TestBlock(t *testing.T) {
-	if html := render(t, Block{ID: `"x"`, Content: Paragraph("<b>")}); html != `<p>&lt;b&gt;</p>` {
+	if html := render(t, Block{ID: `"x"`, Content: Paragraph(Text("<b>"))}); html != `<p>&lt;b&gt;</p>` {
 		t.Errorf("the block is %s", html)
 	}
-	blocks := []templ.Component{Heading("Top"), Block{ID: "x", Content: Paragraph("Old")}, Block{ID: "y", Content: Paragraph("Kept")}}
+	blocks := []templ.Component{Heading(2, Text("Top")), Block{ID: "x", Content: Paragraph(Text("Old"))}, Block{ID: "y", Content: Paragraph(Text("Kept"))}}
 	replaced, ok := ReplaceBlock(blocks, Block{ID: "x", Content: Buttons([]Button{{ID: "go", Title: "Go", Click: nothing}})})
 	if !ok {
 		t.Fatal("ReplaceBlock didn't find x")
@@ -61,10 +77,10 @@ func TestBlock(t *testing.T) {
 	if render(t, ReportContent(blocks)) != "<h2>Top</h2><p>Old</p><p>Kept</p>" {
 		t.Error("ReplaceBlock changed the blocks it was given")
 	}
-	if same, ok := ReplaceBlock(blocks, Block{ID: "z", Content: Paragraph("Lost")}); ok || len(same) != len(blocks) {
+	if same, ok := ReplaceBlock(blocks, Block{ID: "z", Content: Paragraph(Text("Lost"))}); ok || len(same) != len(blocks) {
 		t.Error("ReplaceBlock replaced a Block that isn't there")
 	}
-	if _, ok := ReplaceBlock([]templ.Component{Paragraph("x")}, Block{ID: "", Content: Paragraph("Lost")}); ok {
+	if _, ok := ReplaceBlock([]templ.Component{Paragraph(Text("x"))}, Block{ID: "", Content: Paragraph(Text("Lost"))}); ok {
 		t.Error("ReplaceBlock replaced a block without an id")
 	}
 }

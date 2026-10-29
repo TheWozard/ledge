@@ -6,6 +6,11 @@
    a .button-dot; one with a Click has data-click, and data-busy while it runs, and
    one without is disabled.
 
+   A Heading is an <h1> to <h6> by its level. Inline text is <strong>, <em>,
+   <code> (Mono) and <a> (LinkTo). A Quote is a <blockquote>, a Rule an <hr>, and
+   Details a <details> with its <summary>, then its blocks. An Image is an <img>, or,
+   for a src the page can't show, its alt in a <p class="image-alt">.
+
    The page fills the window, title bar included: macOS draws only the close,
    minimise and zoom buttons, at the top left. .titlebar is the page's own title
    bar under them, --titlebar high and kept clear of them, with the title in a
@@ -88,12 +93,34 @@ article > * {
 article > * + * {
   margin-top: 12px;
 }
+h1 {
+  font-size: 1.3em;
+}
 h2 {
   font-size: 1.15em;
 }
+h3,
+h4,
+h5,
+h6 {
+  font-size: 1em;
+}
 /* A heading has more room above it, unless it's first. */
-article > * + h2 {
+article > * + :is(h1, h2, h3, h4, h5, h6) {
   margin-top: 20px;
+}
+blockquote {
+  margin-inline: 0;
+  white-space: pre-wrap;
+}
+details > :not(summary) {
+  margin: 12px 0 0;
+}
+summary {
+  cursor: default;
+}
+img {
+  max-width: 100%;
 }
 p {
   white-space: pre-wrap;

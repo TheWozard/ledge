@@ -160,42 +160,53 @@ func (s *sample) longReport() []templ.Component {
 			fmt.Sprintf("%dm %02ds", 3+i%3, (i*17)%60), []string{"dan", "sam", "alex"}[i%3]})
 	}
 	return []templ.Component{
-		components.Heading("Summary"),
-		components.Note("Two jobs failed.", "red"),
-		components.Paragraph("The run on main failed after a merge.\nThe second line keeps its break."),
-		components.Fields([]components.Field{{Label: "Branch", Value: "main"}, {Label: "Commit", Value: "465882e"}}),
-		components.Table([]string{"Job", "Result", "Time"}, [][]string{{"build", "ok", "1m"}, {"test", "failed", "3m"}, {"lint", "failed", "20s"}}),
-		components.List([]string{"Fix the test", "Fix the lint", "Run it again"}, true),
+		components.Heading(2, components.Text("Summary")),
+		components.Note("red", components.Text("Two jobs failed.")),
+		components.Paragraph(components.Text("The run on main failed after a merge.\nThe second line keeps its break.")),
+		components.Fields([]components.Field{{Label: "Branch", Value: components.Text("main")}, {Label: "Commit", Value: components.Text("465882e")}}),
+		components.Table([]string{"Job", "Result", "Time"}, cells([][]string{{"build", "ok", "1m"}, {"test", "failed", "3m"}, {"lint", "failed", "20s"}})),
+		components.List(true, items("Fix the test", "Fix the lint", "Run it again")...),
 		components.Code("$ go test ./...\n--- FAIL: TestRender (0.21s)\n    ui_test.go:218: a very long line that scrolls sideways rather than wrapping in the report window"),
-		components.Link("The run", "https://example.com/runs/1"),
+		components.Paragraph(components.LinkTo("https://example.com/runs/1", components.Text("The run"))),
 		components.Buttons([]components.Button{
 			{ID: "rerun-jobs", Title: "Rerun failed jobs", Color: "yellow", Click: s.slowly("rerun-jobs")},
 			{ID: "view-logs", Title: "View logs", Color: "blue", Click: s.runs("view-logs")},
 			{ID: "merge", Title: "Merge", Color: "green"},
 		}),
 
-		components.Heading("Triage"),
+		components.Heading(2, components.Text("Triage")),
 		components.Block{ID: "triage", Content: s.triage()},
 
-		components.Heading("Failures"),
-		components.Note("TestRender failed on 3 of the last 5 runs; it may be flaky.", "yellow"),
+		components.Heading(2, components.Text("Failures")),
+		components.Note("yellow", components.Text("TestRender failed on 3 of the last 5 runs; it may be flaky.")),
 		components.Code(strings.Join(failureLog, "\n")),
-		components.Paragraph("The lint failure is a new rule: exported functions need a comment. " +
-			"It flags 4 functions, all added in the last week."),
-		components.List([]string{"ui/bar.go:61 Render", "ui/report.go:19 ShowReport", "theme/theme.go:57 CSS", "shim/shim.go:150 EvalResult"}, false),
+		components.Paragraph(components.Text("The lint failure is a new rule: exported functions need a comment. " +
+			"It flags 4 functions, all added in the last week.")),
+		components.List(false, items("ui/bar.go:61 Render", "ui/report.go:19 ShowReport", "theme/theme.go:57 CSS", "shim/shim.go:150 EvalResult")...),
 
-		components.Heading("History"),
-		components.Table([]string{"Run", "Commit", "Result", "Time", "Author"}, history),
-		components.Note("The last green run was #108, 9 hours ago.", "green"),
+		components.Heading(2, components.Text("History")),
+		components.Table([]string{"Run", "Commit", "Result", "Time", "Author"}, cells(history)),
+		components.Note("green", components.Text("The last green run was #108, 9 hours ago.")),
 
-		components.Heading("Environment"),
+		components.Heading(2, components.Text("Environment")),
 		components.Fields([]components.Field{
-			{Label: "Runner", Value: "macos-14-arm64"}, {Label: "Go", Value: "1.26.1"}, {Label: "templ", Value: "v0.3.1001"},
-			{Label: "Started", Value: now.Add(-3 * time.Minute).Format(time.Kitchen)}, {Label: "Duration", Value: "4m 21s"},
-			{Label: "Trigger", Value: "push to main"},
+			{Label: "Runner", Value: components.Text("macos-14-arm64")}, {Label: "Go", Value: components.Mono("1.26.1")},
+			{Label: "templ", Value: components.Mono("v0.3.1001")},
+			{Label: "Started", Value: components.Text(now.Add(-3 * time.Minute).Format(time.Kitchen))},
+			{Label: "Duration", Value: components.Text("4m 21s")}, {Label: "Trigger", Value: components.Text("push to main")},
 		}),
-		components.Paragraph(strings.Repeat("A longer paragraph that wraps across several lines, so the report runs well past the bottom of its window. ", 6)),
-		components.Link("All runs", "https://example.com/runs"),
+		components.Heading(3, components.Text("The rule")),
+		components.Paragraph(components.Text("The "), components.Strong(components.Text("lint")), components.Text(" job flags "),
+			components.Mono("Render"), components.Text(", which "), components.Em(components.Text("is")), components.Text(" exported; "),
+			components.LinkTo("https://example.com/lint", components.Text("the rule")), components.Text(" says why.")),
+		components.Quote(components.Text("exported function Render should have a comment")),
+		components.List(false, components.Item{Text: components.Text("Exported"), Items: items("functions", "types")},
+			components.Item{Text: components.Text("Not checked"), Ordered: true, Items: items("tests", "generated files")}),
+		components.Details(components.Text("The whole lint output"), components.Code(strings.Join(failureLog[:8], "\n"))),
+		components.Image(sparkPNG, "A run-time chart"),
+		components.Rule(),
+		components.Paragraph(components.Text(strings.Repeat("A longer paragraph that wraps across several lines, so the report runs well past the bottom of its window. ", 6))),
+		components.Paragraph(components.LinkTo("https://example.com/runs", components.Text("All runs"))),
 	}
 }
 
@@ -212,11 +223,34 @@ func (s *sample) triage() templ.Component {
 		s.replace(longID, components.Block{ID: "triage", Content: block})
 	}
 	if s.assigned {
-		return templ.Join(components.Note("Assigned to you.", "blue"),
+		return templ.Join(components.Note("blue", components.Text("Assigned to you.")),
 			components.Buttons([]components.Button{{ID: "unassign", Title: "Unassign", Color: "gray", Click: assign}}))
 	}
-	return templ.Join(components.Note("Nobody has these failures yet.", "yellow"),
+	return templ.Join(components.Note("yellow", components.Text("Nobody has these failures yet.")),
 		components.Buttons([]components.Button{{ID: "assign", Title: "Assign to me", Color: "blue", Click: assign}}))
+}
+
+// sparkPNG is a small picture for the long report's Image: an 8 by 8 green PNG.
+const sparkPNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGPQ7/fDihiGlgQAJo5DAT4nLTsAAAAASUVORK5CYII="
+
+// cells is rows of text as a Table's cells.
+func cells(rows [][]string) [][]components.Inline {
+	out := make([][]components.Inline, len(rows))
+	for i, row := range rows {
+		for _, text := range row {
+			out[i] = append(out[i], components.Text(text))
+		}
+	}
+	return out
+}
+
+// items is texts as a List's items.
+func items(texts ...string) []components.Item {
+	out := make([]components.Item, len(texts))
+	for i, text := range texts {
+		out[i] = components.Item{Text: components.Text(text)}
+	}
+	return out
 }
 
 // how is how a click was made, as the Clicks log it: "", or such as " with ⌥⌘" or
@@ -331,15 +365,15 @@ func (s *sample) report(id string) (string, []templ.Component) {
 	}
 	if i := slices.IndexFunc(s.progress, func(p components.Progress) bool { return p.ID == id }); i >= 0 {
 		p := s.progress[i]
-		return p.Title, []templ.Component{components.Heading(p.Title), components.Fields([]components.Field{
-			{Label: "Done", Value: fmt.Sprintf("%.0f%%", p.Value*100)},
+		return p.Title, []templ.Component{components.Heading(2, components.Text(p.Title)), components.Fields([]components.Field{
+			{Label: "Done", Value: components.Text(fmt.Sprintf("%.0f%%", p.Value*100))},
 		})}
 	}
 	if i := slices.IndexFunc(s.messages, func(m components.Message) bool { return m.ID == id }); i >= 0 {
 		m := s.messages[i]
-		return m.Title, []templ.Component{components.Heading(m.Title), components.Fields([]components.Field{
-			{Label: "From", Value: m.From}, {Label: "Sent", Value: m.Sent.Format(time.Kitchen)},
-		}), components.Paragraph(m.Description)}
+		return m.Title, []templ.Component{components.Heading(2, components.Text(m.Title)), components.Fields([]components.Field{
+			{Label: "From", Value: components.Text(m.From)}, {Label: "Sent", Value: components.Text(m.Sent.Format(time.Kitchen))},
+		}), components.Paragraph(components.Text(m.Description))}
 	}
 	if i := slices.IndexFunc(s.checks, func(c components.Checks) bool { return c.ID == id }); i >= 0 {
 		c := s.checks[i]
@@ -347,7 +381,7 @@ func (s *sample) report(id string) (string, []templ.Component) {
 		for _, check := range c.Checks {
 			rows = append(rows, []string{check.Name, check.State})
 		}
-		return c.Title, []templ.Component{components.Heading(c.Title), components.Table([]string{"Check", "State"}, rows),
+		return c.Title, []templ.Component{components.Heading(2, components.Text(c.Title)), components.Table([]string{"Check", "State"}, cells(rows)),
 			components.Buttons([]components.Button{
 				{ID: "rerun-failed", Title: "Rerun failed", Color: "yellow", Click: s.slowly("rerun-failed")},
 				{ID: "view-run", Title: "View run", Color: "blue", Click: s.runs("view-run")},
@@ -356,29 +390,29 @@ func (s *sample) report(id string) (string, []templ.Component) {
 	}
 	if i := slices.IndexFunc(s.stats, func(st components.Stat) bool { return st.ID == id }); i >= 0 {
 		st := s.stats[i]
-		return st.Title, []templ.Component{components.Heading(st.Title), components.Fields([]components.Field{
-			{Label: "Now", Value: st.Value}, {Label: "Change", Value: st.Change},
+		return st.Title, []templ.Component{components.Heading(2, components.Text(st.Title)), components.Fields([]components.Field{
+			{Label: "Now", Value: components.Text(st.Value)}, {Label: "Change", Value: components.Text(st.Change)},
 		})}
 	}
 	if i := slices.IndexFunc(s.timers, func(t components.Timer) bool { return t.ID == id }); i >= 0 {
 		t := s.timers[i]
-		return t.Title, []templ.Component{components.Heading(t.Title), components.Fields([]components.Field{
-			{Label: "Started", Value: t.Start.Format(time.Kitchen)}, {Label: "Ends", Value: t.End.Format(time.Kitchen)},
+		return t.Title, []templ.Component{components.Heading(2, components.Text(t.Title)), components.Fields([]components.Field{
+			{Label: "Started", Value: components.Text(t.Start.Format(time.Kitchen))}, {Label: "Ends", Value: components.Text(t.End.Format(time.Kitchen))},
 		})}
 	}
 	if i := slices.IndexFunc(s.cards, func(c components.Basic) bool { return c.ID == id }); i >= 0 {
 		c := s.cards[i]
-		blocks := []templ.Component{components.Heading(c.Title)}
+		blocks := []templ.Component{components.Heading(2, components.Text(c.Title))}
 		if c.Description != "" {
-			blocks = append(blocks, components.Paragraph(c.Description))
+			blocks = append(blocks, components.Paragraph(components.Text(c.Description)))
 		}
 		return c.Title, blocks
 	}
 	for _, c := range s.cards {
 		if i := slices.IndexFunc(c.Actions, func(q components.Action) bool { return q.ID == id }); i >= 0 {
 			q := c.Actions[i]
-			return q.Title, []templ.Component{components.Heading(q.Title), components.Paragraph("On " + c.Title + ".")}
+			return q.Title, []templ.Component{components.Heading(2, components.Text(q.Title)), components.Paragraph(components.Text("On " + c.Title + "."))}
 		}
 	}
-	return id, []templ.Component{components.Paragraph("Nothing to show for " + id + ".")}
+	return id, []templ.Component{components.Paragraph(components.Text("Nothing to show for " + id + "."))}
 }
