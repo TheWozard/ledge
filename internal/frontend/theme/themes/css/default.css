@@ -193,13 +193,15 @@ li:has(.menu):has(.dismiss) .message-head {
   color: var(--muted);
 }
 
-/* The card's buttons always show. */
+/* The card's buttons always show. Their icons, Boxicons once downloaded, have room
+   around them inside their square, so they're drawn as big as the button. */
 .card-buttons {
   top: 4px;
   right: 8px;
 }
 
 .card-buttons button {
+  --icon-size: 18px;
   font-size: 14px;
   line-height: 18px;
   color: var(--muted);

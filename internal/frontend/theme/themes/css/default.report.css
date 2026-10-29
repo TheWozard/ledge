@@ -130,6 +130,11 @@ pre {
 .copy:active {
   background: var(--code);
 }
+/* With its icon, the copy button is a square around it. */
+.copy:has(.icon) {
+  --icon-size: 16px;
+  padding: 3px;
+}
 .note {
   padding: 8px 12px;
   background: color-mix(in srgb, var(--note) 12%, var(--page));

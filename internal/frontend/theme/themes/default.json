@@ -3,5 +3,10 @@
   "default": true,
   "bar": ["css/default.colors.css", "css/default.css"],
   "report": ["css/default.report.css"],
-  "menu": ["css/default.colors.css", "css/default.menu.css"]
+  "menu": ["css/default.colors.css", "css/default.menu.css"],
+  "icons": {
+    "menu": "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-dots-horizontal-rounded.svg",
+    "dismiss": "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-x.svg",
+    "copy": "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-copy.svg"
+  }
 }
