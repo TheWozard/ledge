@@ -71,6 +71,36 @@ func TestReportWindow(t *testing.T) {
 	}
 }
 
+// A link in a table's cell opens in the browser, as one in a paragraph does, and the
+// report stays put; one that isn't safe goes nowhere.
+func TestReportTableLinks(t *testing.T) {
+	gui(t)
+	w := showReport(t, "table-links", "Table links", []templ.Component{
+		components.Table([]string{"Job", "Run"}, [][]components.Inline{
+			{components.Text("bad"), components.LinkTo("javascript:window.ran = true", components.Text("run"))},
+			{components.Text("build"), templ.Join(components.Text("see "),
+				components.LinkTo("https://example.com/table-run", components.Strong(components.Text("#1"))))},
+		}),
+	})
+	waitIn(t, w, `document.querySelectorAll("td a").length`, "2")
+	// The bad one first: had it gone anywhere, it would have by the time the good one has.
+	evalIn(t, w, `document.querySelectorAll("td a")[0].click(), true`)
+	evalIn(t, w, `document.querySelector("td a strong").click(), true`)
+	eventually(t, "the table's link to open", func() bool { return calls.has("url https://example.com/table-run") })
+	for js, want := range map[string]string{
+		`location.href`:                            `"about:blank"`,
+		`window.ran ?? "not run"`:                  `"not run"`,
+		`document.querySelectorAll("td a").length`: "2",
+	} {
+		if got := evalIn(t, w, js); got != want {
+			t.Errorf("after the clicks, %s = %s, want %s", js, got, want)
+		}
+	}
+	if calls.has("url about:invalid#TemplFailedSanitizationURL") {
+		t.Error("the bad link was opened")
+	}
+}
+
 // The report's Content-Security-Policy stops a script that gets into it, a <script> or
 // an onerror, though the page's own and the app's calls run.
 func TestReportCSP(t *testing.T) {

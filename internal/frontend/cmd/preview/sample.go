@@ -141,23 +141,28 @@ func newSample(now time.Time) *sample {
 	return s
 }
 
-// longReport is one of every block, with a log and a run history long enough to
-// scroll, the log sideways too, and buttons: some that run, one that can't, and one
-// that replaces the triage block it's in. Call it with s's lock held.
+// longReport is one of every block, with a log and a run history, its runs links,
+// long enough to scroll, the log sideways too, and buttons: some that run, one that
+// can't, and one that replaces the triage block it's in. Call it with s's lock held.
 func (s *sample) longReport() []templ.Component {
 	now := s.started
 	var failureLog []string
 	for i := range 30 {
 		failureLog = append(failureLog, fmt.Sprintf("    ui_test.go:%d: step %02d: got %q, want %q", 200+i, i, "rgba(0, 0, 0, 0)", "rgb(192, 192, 192)"))
 	}
-	var history [][]string
+	// Each run links to it, and its commit is in code.
+	var history [][]components.Inline
 	for i := range 20 {
 		result := "ok"
 		if i%4 == 0 || i == 1 {
 			result = "failed"
 		}
-		history = append(history, []string{fmt.Sprintf("#%d", 128-i), fmt.Sprintf("%07x", 0x465882e+i*0x1f3a), result,
-			fmt.Sprintf("%dm %02ds", 3+i%3, (i*17)%60), []string{"dan", "sam", "alex"}[i%3]})
+		run := 128 - i
+		history = append(history, []components.Inline{
+			components.LinkTo(fmt.Sprintf("https://example.com/runs/%d", run), components.Text(fmt.Sprintf("#%d", run))),
+			components.Mono(fmt.Sprintf("%07x", 0x465882e+i*0x1f3a)), components.Text(result),
+			components.Text(fmt.Sprintf("%dm %02ds", 3+i%3, (i*17)%60)), components.Text([]string{"dan", "sam", "alex"}[i%3]),
+		})
 	}
 	return []templ.Component{
 		components.Heading(2, components.Text("Summary")),
@@ -185,7 +190,7 @@ func (s *sample) longReport() []templ.Component {
 		components.List(false, items("ui/bar.go:61 Render", "ui/report.go:19 ShowReport", "theme/theme.go:57 CSS", "shim/shim.go:150 EvalResult")...),
 
 		components.Heading(2, components.Text("History")),
-		components.Table([]string{"Run", "Commit", "Result", "Time", "Author"}, cells(history)),
+		components.Table([]string{"Run", "Commit", "Result", "Time", "Author"}, history),
 		components.Note("green", components.Text("The last green run was #108, 9 hours ago.")),
 
 		components.Heading(2, components.Text("Environment")),

@@ -145,3 +145,22 @@ func TestCode(t *testing.T) {
 		t.Errorf("the buttons copied %q", got)
 	}
 }
+
+// A table's cells can be links, alone or among other text: each is an <a> with its
+// url as its title, its text escaped, and one that isn't safe goes nowhere. A link in
+// a cell past the columns is cut with it.
+func TestTableLinks(t *testing.T) {
+	html := render(t, Table([]string{"Job", "Run"}, [][]Inline{
+		{Text("build"), LinkTo("https://example.com/runs/1", Text("#1"))},
+		{LinkTo("https://example.com/jobs/lint", Mono("lint")), templ.Join(Text("see "), LinkTo("https://example.com/runs/2?a=1&b=<2>", Strong(Text("<#2>"))))},
+		{Text("bad"), LinkTo("javascript:alert(1)", Text("run"))},
+		{Text("cut"), Text("kept"), LinkTo("https://example.com/cut", Text("gone"))},
+	}))
+	contains(t, html,
+		`<tr><td>build</td><td><a href="https://example.com/runs/1" title="https://example.com/runs/1">#1</a></td></tr>`,
+		`<td><a href="https://example.com/jobs/lint" title="https://example.com/jobs/lint"><code>lint</code></a></td>`,
+		`<td>see <a href="https://example.com/runs/2?a=1&amp;b=&lt;2&gt;" title="https://example.com/runs/2?a=1&amp;b=&lt;2&gt;"><strong>&lt;#2&gt;</strong></a></td>`,
+		`<td><a href="about:invalid#TemplFailedSanitizationURL" title="javascript:alert(1)">run</a></td>`,
+		"<tr><td>cut</td><td>kept</td></tr>")
+	lacks(t, html, `href="javascript:`, "<#2>", "gone", "example.com/cut")
+}
