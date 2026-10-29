@@ -15,6 +15,7 @@ templ MenuPage(themeCSS string, items []MenuItem) {
 	<html lang="en">
 		<head>
 			<meta charset="utf-8"/>
+			@menuCSP
 			@style(menuCSS)
 			@style(themeCSS)
 		</head>
@@ -33,8 +34,9 @@ templ MenuPage(themeCSS string, items []MenuItem) {
 					><span class="menu-dot"></span><span class="menu-title">{ item.Title }</span></div>
 				}
 			</div>
-			@script(ledgeJS)
-			@script(menuJS)
+			for _, js := range menuScripts {
+				@script(js)
+			}
 		</body>
 	</html>
 }

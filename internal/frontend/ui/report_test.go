@@ -67,6 +67,28 @@ func TestReportWindow(t *testing.T) {
 	}
 }
 
+// The report's Content-Security-Policy stops a script that gets into it, a <script> or
+// an onerror, though the page's own and the app's calls run.
+func TestReportCSP(t *testing.T) {
+	gui(t)
+	w := showReport(t, "csp", "CSP", []templ.Component{components.Paragraph("Kept")})
+	waitIn(t, w, `document.querySelector("p")?.textContent`, `"Kept"`)
+	evalIn(t, w, `(() => {
+		window.blocked = 0;
+		document.addEventListener("securitypolicyviolation", () => window.blocked++);
+		const article = document.querySelector("article");
+		const s = document.createElement("script");
+		s.textContent = "window.ran = 'script'";
+		article.append(s);
+		article.insertAdjacentHTML("beforeend", '<img src="x:" onerror="window.ran = \'onerror\'">');
+		return true;
+	})()`)
+	waitIn(t, w, `window.blocked >= 2`, "true")
+	if got := evalIn(t, w, `window.ran ?? "nothing"`); got != `"nothing"` {
+		t.Errorf("a script that got into the report ran: %s", got)
+	}
+}
+
 // A block with an id is drawn as itself, and ShowReportBlock replaces only it, leaving
 // the rest of the report's elements and its scroll. A report that isn't open, or a
 // block it hasn't, is left alone.

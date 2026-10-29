@@ -202,6 +202,10 @@ a `Click` in that report: never one on the bar or in another report. Its only ot
 channel is to its own window, handled natively: `drag` (on a mouse-down in its title
 bar; a double-click zooms), `close`, `minimise` and `zoom`.
 Neither window can navigate: a report's clicked http(s) link opens in the browser.
+Every page has a Content-Security-Policy that runs only its own scripts, by their
+hashes, and loads only `data:` images and fonts, so a script that got past templ's
+escaping or `HTML`'s policy wouldn't run; the app's calls into the page aren't
+stopped by it.
 
 ## Themes
 

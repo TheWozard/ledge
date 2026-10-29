@@ -19,14 +19,15 @@ templ BarPage(themeCSS string, edge string) {
 	<html lang="en">
 		<head>
 			<meta charset="utf-8"/>
+			@barCSP
 			@style(barCSS)
 			@style(themeCSS)
 		</head>
 		<body class={ edge }>
 			<div id="app"></div>
-			@script(idiomorph)
-			@script(ledgeJS)
-			@script(barJS)
+			for _, js := range barScripts {
+				@script(js)
+			}
 		</body>
 	</html>
 }

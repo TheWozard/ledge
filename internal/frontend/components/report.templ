@@ -23,6 +23,7 @@ templ ReportPage(themeCSS string) {
 	<html lang="en">
 		<head>
 			<meta charset="utf-8"/>
+			@reportCSP
 			@style(reportCSS)
 			@style(themeCSS)
 		</head>
@@ -31,9 +32,9 @@ templ ReportPage(themeCSS string) {
 			<main tabindex="-1">
 				<article></article>
 			</main>
-			@script(idiomorph)
-			@script(ledgeJS)
-			@script(reportJS)
+			for _, js := range reportScripts {
+				@script(js)
+			}
 		</body>
 	</html>
 }

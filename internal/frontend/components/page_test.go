@@ -1,6 +1,11 @@
 package components
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
+	"regexp"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/a-h/templ"
@@ -31,5 +36,35 @@ func TestReportContent(t *testing.T) {
 	html := render(t, ReportContent([]templ.Component{Heading("Jobs"), Block{ID: "x", Content: Paragraph("CI <failed>")}}))
 	if want := "<h2>Jobs</h2><p>CI &lt;failed&gt;</p>"; html != want {
 		t.Errorf("the report's content is %s, want %s", html, want)
+	}
+}
+
+// Each page's Content-Security-Policy comes first in its <head>, and lets run exactly
+// the scripts the page has, by their hashes, and nothing else.
+func TestCSP(t *testing.T) {
+	scriptTag := regexp.MustCompile(`(?s)<script>(.*?)</script>`)
+	hashSource := regexp.MustCompile(`'sha256-[^']+'`)
+	for name, page := range map[string]templ.Component{
+		"bar":    BarPage("", "top"),
+		"report": ReportPage(""),
+		"menu":   MenuPage("", []MenuItem{{Title: "Rerun", Enabled: true}}),
+	} {
+		html := render(t, page)
+		policy, ok := strings.CutPrefix(html, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="`)
+		if !ok {
+			t.Errorf("%s: the policy isn't first in the <head>:\n%.300s", name, html)
+			continue
+		}
+		policy, _, _ = strings.Cut(policy, `"`)
+		var want []string
+		for _, m := range scriptTag.FindAllStringSubmatch(html, -1) {
+			sum := sha256.Sum256([]byte(m[1]))
+			want = append(want, "'sha256-"+base64.StdEncoding.EncodeToString(sum[:])+"'")
+		}
+		if got := hashSource.FindAllString(policy, -1); len(want) == 0 || !slices.Equal(got, want) {
+			t.Errorf("%s: the policy lets %q run, but the page's scripts are %q", name, got, want)
+		}
+		contains(t, policy, "default-src 'none'; script-src 'sha256-", "; style-src 'unsafe-inline'; img-src data:; font-src data:")
+		lacks(t, policy, "unsafe-eval", "script-src 'unsafe-inline'")
 	}
 }

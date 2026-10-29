@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"os/exec"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -178,7 +179,9 @@ func (s *browserServer) events(w http.ResponseWriter, r *http.Request) {
 
 // page serves the page window was last loaded with, if it's ?gen=, with a stub at
 // the top of its head that posts what's done in it to post, and opens its links in a
-// new tab rather than in its frame.
+// new tab rather than in its frame. Its Content-Security-Policy is taken off: the
+// stub fetches, and the frame's parent runs the app's calls with eval, both of which
+// it would stop.
 func (s *browserServer) page(w http.ResponseWriter, r *http.Request) {
 	_, windows, ok := s.at(r)
 	window, _ := strconv.Atoi(r.PathValue("window"))
@@ -202,8 +205,12 @@ window.webkit = { messageHandlers: {
 </script>`, r.PathValue("bar"), window, gen)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
+	html = csp.ReplaceAllString(html, "")
 	fmt.Fprint(w, strings.Replace(html, "<head>", "<head>"+stub, 1))
 }
+
+// csp is a page's Content-Security-Policy.
+var csp = regexp.MustCompile(`<meta http-equiv="Content-Security-Policy" content="[^"]*"/?>`)
 
 // post has the bar carry out what the page in window, if it's still ?gen=, posted.
 func (s *browserServer) post(w http.ResponseWriter, r *http.Request) {
