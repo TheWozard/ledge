@@ -159,8 +159,10 @@ func TestReadSet(t *testing.T) {
 }
 
 // A font's url, relative to the files given, is inlined whether it's quoted or not,
-// with its type; a missing font is an error, and other urls are left alone.
+// with its type; a missing font is an error, and other urls, a font by https url not
+// yet downloaded's included, are left alone.
 func TestInlineFonts(t *testing.T) {
+	withCache(t)
 	fonts := fstest.MapFS{"fonts/silkscreen.woff2": &fstest.MapFile{Data: []byte("font")}}
 	for _, css := range []string{
 		`src: url(fonts/silkscreen.woff2)`,

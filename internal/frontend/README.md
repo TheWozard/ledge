@@ -55,7 +55,7 @@ func must[T any](v T, err error) T {
 |---|---|
 | `ui` | the bar and report windows: `Open` places the bar and loads its page, `Render` shows cards and `RenderCard` replaces one by its ID, `ShowReport` shows a report in its id's own window and `ShowReportBlock` replaces one block in it; clicks call the cards' `Click`s, a card's right-click menu its actions', and a report's buttons theirs |
 | `components` | the templ components: the pages (`BarPage`, `ReportPage`), the bar's contents (`BarContent`, from `Card`s of any kind, such as the built-in `Basic`, and their `Action`s), and the report blocks |
-| `theme` | a `Theme`: the bar's and report window's stylesheets, fonts inlined, and how the report window's frame looks; `ReadSet` finds the themes in any files, `Load` reads one, `Builtin` is one of the built-in themes |
+| `theme` | a `Theme`: the bar's and report window's stylesheets, fonts inlined, its icons for the buttons, and how the report window's frame looks; `ReadSet` finds the themes in any files, `Load` reads one, `Builtin` is one of the built-in themes, `Download` (`just cache-theme`) fetches the icons and fonts a theme names by https url for this user, and `ClearCache` (`just clear-cache`) deletes them |
 | `shim` | the native layer (cgo + Objective-C): windows and WKWebView, opening links and copying to the pasteboard, and nothing else |
 
 ### Components

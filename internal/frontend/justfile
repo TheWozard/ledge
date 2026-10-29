@@ -46,6 +46,15 @@ gui-themes themes: generate
 gui-all: generate
     LEDGE_GUI_TEST=1 go test -count=1 ./ui
 
+# Download the icons and fonts themes name by url, for this user: each a name, or a
+# theme's .json; with none, every built-in theme.
+cache-theme *themes:
+    go run ./cmd/cache-theme {{themes}}
+
+# Delete everything cache-theme downloaded, for every theme.
+clear-cache:
+    go run ./cmd/clear-cache
+
 # Open a bar and a report window in a theme, until ctrl-c.
 preview theme="default": generate
     go run ./cmd/preview {{theme}}

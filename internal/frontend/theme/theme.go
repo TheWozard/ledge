@@ -39,7 +39,8 @@ var Builtins = func() *Set {
 // Theme is a theme, ready to use. Its stylesheets go on top of the pages' layout
 // styles; the comments at the top of those (in components) say what they can hook
 // into. A page can't fetch files, so any font a stylesheet uses must be in it, as a
-// data: url; Load and InlineFonts do that.
+// data: url; Load and InlineFonts do that, a font by https url's too once it's been
+// downloaded (see Cache).
 type Theme struct {
 	Name   string // for errors and logs
 	Bar    string // the bar's stylesheet
@@ -53,9 +54,13 @@ type Theme struct {
 
 // Icons is a theme's pictures for the bar's and report's buttons, in place of their
 // text, such as icons from a set like Font Awesome or Boxicons. In a Manifest each is
-// the path of an SVG file, relative to it; in a Theme, that file as a data: url. An
-// icon left out is "", and its button shows its text. An icon is drawn as a mask in
-// its button's colour, so only its shape counts, not its own colours.
+// the path of an SVG file, relative to it, or the https url of one; in a Theme, that
+// file as a data: url. An icon left out is "", and its button shows its text. An
+// icon is drawn as a mask in its button's colour, so only its shape counts, not its
+// own colours.
+//
+// An icon by url is for one the theme can't ship: each user downloads it with
+// Download, and until then its button shows its text; see Cache.
 type Icons struct {
 	Menu    string `json:"menu,omitempty"`    // a card's ⋯, for its menu
 	Dismiss string `json:"dismiss,omitempty"` // a card's ×
@@ -129,16 +134,22 @@ func load(fsys fs.FS, file string, manifest Manifest) (Theme, error) {
 		return t, fmt.Errorf("theme %s: %w", t.Name, err)
 	}
 	t.Icons = manifest.Icons
-	for _, icon := range []*string{&t.Icons.Menu, &t.Icons.Dismiss, &t.Icons.Copy} {
-		if *icon == "" {
-			continue
-		}
-		if *icon, err = loadIcon(fsys, path.Join(dir, *icon)); err != nil {
-			return t, fmt.Errorf("theme %s: %w", t.Name, err)
+	for _, icon := range t.Icons.all() {
+		switch {
+		case *icon == "":
+		case isRemote(*icon):
+			*icon = cachedIcon(*icon)
+		default:
+			if *icon, err = loadIcon(fsys, path.Join(dir, *icon)); err != nil {
+				return t, fmt.Errorf("theme %s: %w", t.Name, err)
+			}
 		}
 	}
 	return t, nil
 }
+
+// all is each of the icons.
+func (icons *Icons) all() []*string { return []*string{&icons.Menu, &icons.Dismiss, &icons.Copy} }
 
 // loadIcon is the SVG file in fsys as a data: url.
 func loadIcon(fsys fs.FS, file string) (string, error) {
@@ -149,7 +160,12 @@ func loadIcon(fsys fs.FS, file string) (string, error) {
 	if !isSVG(data) {
 		return "", fmt.Errorf("%s isn't an SVG", file)
 	}
-	return "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString(data), nil
+	return iconDataURL(data), nil
+}
+
+// iconDataURL is an SVG as a data: url.
+func iconDataURL(svg []byte) string {
+	return "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString(svg)
 }
 
 // isSVG is whether data is XML whose first element is an <svg>.
@@ -208,6 +224,11 @@ func readManifest(data []byte) (Manifest, error) {
 		return manifest, errors.New("no name")
 	case !slices.Contains([]string{"", "light", "dark"}, manifest.Frame.Appearance):
 		return manifest, fmt.Errorf("appearance %q isn't light, dark or unset", manifest.Frame.Appearance)
+	}
+	for _, icon := range manifest.Icons.all() {
+		if strings.Contains(*icon, ":") && !isRemote(*icon) {
+			return manifest, fmt.Errorf("icon %q is neither a relative path nor an https url", *icon)
+		}
 	}
 	return manifest, nil
 }
@@ -302,7 +323,8 @@ var fontTypes = map[string]string{"woff2": "font/woff2", "woff": "font/woff", "t
 
 // InlineFonts replaces each font url in css with the file it names in fonts, as a
 // data: url; a path is relative to fonts, as it would be to the stylesheet's own
-// directory. A font that isn't in fonts is an error.
+// directory. A font that isn't in fonts is an error. A font by https url is inlined
+// from Cache if it's been downloaded, and left as it is if not.
 func InlineFonts(css string, fonts fs.FS) (string, error) {
 	return inlineFonts(css, fonts, ".")
 }
@@ -318,7 +340,12 @@ func inlineFonts(css string, fsys fs.FS, dir string) (string, error) {
 			missing = err
 			return url
 		}
-		return "url(data:" + fontTypes[match[2]] + ";base64," + base64.StdEncoding.EncodeToString(data) + ")"
+		return fontDataURL(match[2], data)
 	})
-	return inlined, missing
+	return inlineRemoteFonts(inlined), missing
+}
+
+// fontDataURL is a font of kind, such as woff2, as a url() of its data.
+func fontDataURL(kind string, data []byte) string {
+	return "url(data:" + fontTypes[kind] + ";base64," + base64.StdEncoding.EncodeToString(data) + ")"
 }
