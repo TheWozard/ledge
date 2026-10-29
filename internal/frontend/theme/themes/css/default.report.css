@@ -48,8 +48,37 @@ h2 {
   font-weight: 600;
   border-bottom: 1px solid var(--line);
 }
+h1 {
+  font-size: 18px;
+  font-weight: 600;
+}
+h3,
+h4,
+h5,
+h6 {
+  font-size: 14px;
+  font-weight: 600;
+}
 dt {
   color: var(--muted);
+}
+blockquote {
+  padding-left: 12px;
+  color: var(--muted);
+  border-left: 3px solid var(--line);
+}
+hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+:not(pre) > code {
+  padding: 1px 4px;
+  font:
+    12px / 1.5 ui-monospace,
+    Menlo,
+    monospace;
+  background: var(--code);
+  border-radius: 4px;
 }
 th {
   font-size: 12px;
@@ -78,6 +107,9 @@ pre {
 }
 a {
   color: var(--accent);
+}
+a[aria-disabled] {
+  color: var(--muted);
 }
 /* Buttons like the bar's menu items: a dot in the button's colour before its title.
    One whose Click is running blinks; one without a Click is faded. */

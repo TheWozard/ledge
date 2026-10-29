@@ -40,8 +40,8 @@ templ ReportPage(themeCSS string) {
 
 // ReportContent is what a report shows in its page's <article>: blocks, top to
 // bottom. A block is any component; the ones in blocks.templ are Heading, Paragraph,
-// Fields, Table, List, Code, Note, Link and Buttons, and any of them can be given an
-// id with Block.
+// Fields, Table, List, Code, Note, Link and Buttons, and html.go has HTML; any of
+// them can be given an id with Block.
 templ ReportContent(blocks []templ.Component) {
 	for _, block := range blocks {
 		@block
