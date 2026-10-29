@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/TheWozard/ledge-frontend/theme"
 	"github.com/TheWozard/ledge/internal/api"
 	"github.com/TheWozard/ledge/internal/app"
 	"github.com/TheWozard/ledge/internal/state"
@@ -231,4 +232,32 @@ func TestConfigFromEnv(t *testing.T) {
 		t.Errorf("restart with a missing $LEDGE_CONFIG = %v", err)
 	}
 	config()
+}
+
+func TestThemeCacheRefusesAnUnknownTheme(t *testing.T) {
+	t.Cleanup(func(old string) func() { return func() { theme.Cache = old } }(theme.Cache))
+	theme.Cache = t.TempDir()
+	if _, err := ledge(t, "", "theme", "cache", "nope"); err == nil || !strings.Contains(err.Error(), `no theme "nope"`) {
+		t.Errorf("theme cache nope = %v", err)
+	}
+}
+
+func TestThemeClearCache(t *testing.T) {
+	t.Cleanup(func(old string) func() { return func() { theme.Cache = old } }(theme.Cache))
+	theme.Cache = filepath.Join(t.TempDir(), "themes")
+	if out, err := ledge(t, "", "theme", "clear-cache"); err != nil || out != "nothing to clear\n" {
+		t.Errorf("theme clear-cache with no cache = %q, %v", out, err)
+	}
+	if err := os.MkdirAll(theme.Cache, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(theme.Cache, "icon.svg"), []byte("<svg/>"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := ledge(t, "", "theme", "clear-cache"); err != nil || out != "cleared "+theme.Cache+"\n" {
+		t.Errorf("theme clear-cache = %q, %v", out, err)
+	}
+	if _, err := os.Stat(theme.Cache); !os.IsNotExist(err) {
+		t.Errorf("the cache is still there: %v", err)
+	}
 }

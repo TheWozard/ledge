@@ -52,7 +52,7 @@ themes) are ledge-frontend. ledge is everything else:
 | Path | What it is |
 |---|---|
 | `main.go` | `main`, which hands off to `internal/cli` |
-| `internal/cli/` | the CLI, one file per subcommand (cobra) |
+| `internal/cli/` | the CLI, one file per subcommand (cobra); `ledge theme` downloads and deletes the icons and fonts themes name by url |
 | `internal/app/` | `ledge run`: the store, the API on the socket, pruning, and the bar unless headless |
 | `internal/api/` | the HTTP server on the socket, and the client the CLI uses |
 | `internal/store/` | the `Event` type sent events are checked and decoded into, the event and section schemas, and the events file |

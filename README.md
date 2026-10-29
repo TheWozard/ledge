@@ -151,8 +151,22 @@ from starting:
 | `edge` | `bottom` (default) or `top` |
 | `height` | the bar's height in points; default 110 |
 | `level` | which windows the bar stays above: `top` for everything, the Dock included; `floating` for other apps' windows; `normal` (default) for none |
-| `theme` | how the bar and reports look: `default`, rounded cards, light or dark with the system. Themes live in [ledge-frontend](https://github.com/TheWozard/ledge-frontend). |
+| `theme` | how the bar and reports look: `default`, rounded cards, light or dark with the system. Themes live in [ledge-frontend](https://github.com/TheWozard/ledge-frontend). A theme's icons and fonts may need downloading; see [Themes](#themes). |
 | `commands` | `true` to let events carry a `command` (above); default `false` |
+
+## Themes
+
+A theme can name icons and fonts it isn't allowed to ship by their https urls, such as
+the `default` theme's Boxicons for ⋯, × and Copy. Download them once:
+
+```sh
+ledge theme cache                  # every theme's; or name them: ledge theme cache default
+ledge theme clear-cache            # delete them all
+ledge restart                      # a running ledge loaded its theme when it started
+```
+
+They go in `~/Library/Caches/ledge/themes`. Until they're there, a button shows its text
+instead of its icon, and text uses the theme's fallback font.
 
 ## Running in the background
 
