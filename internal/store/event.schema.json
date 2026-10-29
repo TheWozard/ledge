@@ -45,7 +45,7 @@
     "block": {
       "type": "object",
       "description": "One part of a report. `type` says which, and so which other properties it takes. All text is shown as plain text, never as HTML.",
-      "properties": {"type": {"enum": ["heading", "text", "fields", "table", "list", "code", "note", "quote", "link", "buttons", "image", "details", "rule"]}},
+      "properties": {"type": {"enum": ["heading", "text", "fields", "table", "list", "code", "note", "quote", "link", "buttons", "image", "details", "rule", "run"]}},
       "required": ["type"],
       "allOf": [
         {"if": {"properties": {"type": {"const": "heading"}}}, "then": {"$ref": "#/$defs/heading"}},
@@ -60,7 +60,8 @@
         {"if": {"properties": {"type": {"const": "buttons"}}}, "then": {"$ref": "#/$defs/buttons"}},
         {"if": {"properties": {"type": {"const": "image"}}}, "then": {"$ref": "#/$defs/image"}},
         {"if": {"properties": {"type": {"const": "details"}}}, "then": {"$ref": "#/$defs/details"}},
-        {"if": {"properties": {"type": {"const": "rule"}}}, "then": {"$ref": "#/$defs/rule"}}
+        {"if": {"properties": {"type": {"const": "rule"}}}, "then": {"$ref": "#/$defs/rule"}},
+        {"if": {"properties": {"type": {"const": "run"}}}, "then": {"$ref": "#/$defs/run"}}
       ]
     },
     "heading": {"description": "A section heading, level 1 (largest) to 6. Default 2: the report's title is its window's.",
@@ -112,10 +113,15 @@
               "required": ["src", "alt"], "additionalProperties": false},
     "details": {"description": "Blocks hidden under `summary` until it's clicked, such as a long log.",
                 "properties": {"type": true, "summary": {"$ref": "#/$defs/inline"},
-                               "blocks": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/block"}}},
+                               "blocks": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/block",
+                                          "not": {"properties": {"type": {"const": "run"}}, "required": ["type"],
+                                                  "description": "a run can't be in details: it goes at the top level of a report"}}}},
                 "required": ["summary", "blocks"], "additionalProperties": false},
     "rule": {"description": "A line across the report, between parts of it.",
-             "properties": {"type": true}, "additionalProperties": false}
+             "properties": {"type": true}, "additionalProperties": false},
+    "run": {"description": "A command with a button that runs it, in a colour for how its last run went, when it started, its output (stdout and stderr) as it comes, and a button that stops it (SIGTERM to it and whatever it started). The command runs with `bash -lc` in your home directory, with nothing on its stdin; only if commands are allowed, as for cards, and otherwise the button's disabled. ledge keeps each event's last run of a command until it stops, so the report shows it when opened again; running it again replaces it. Only at the top level of a report, not in details.",
+            "properties": {"type": true, "command": {"$ref": "#/$defs/text"}, "title": {"$ref": "#/$defs/text", "description": "The button's title; default \"Run\", or the theme's run icon alone."}},
+            "required": ["command"], "additionalProperties": false}
   },
   "properties": {
     "kind": {"enum": ["basic", "timer", "progress", "stat", "checks", "message"],

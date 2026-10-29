@@ -81,6 +81,9 @@ func TestNormalizeRefuses(t *testing.T) {
 		`{"title": "x", "report": [{"type": "details", "summary": "s", "blocks": [{"type": "chart"}]}]}`:                  "report/0/blocks/0/type: value must be one of",
 		`{"title": "x", "report": [{"type": "rule", "text": "r"}]}`:                                                       "report/0: additional properties 'text' not allowed",
 		`{"title": "x", "report": [{"type": "fields", "items": [{"label": "a"}]}]}`:                                       "report/0/items/0: missing property 'value'",
+		`{"title": "x", "report": [{"type": "run"}]}`:                                                                     "report/0: missing property 'command'",
+		`{"title": "x", "report": [{"type": "run", "command": "ls", "color": "red"}]}`:                                    "report/0: additional properties 'color' not allowed",
+		`{"title": "x", "report": [{"type": "details", "summary": "s", "blocks": [{"type": "run", "command": "ls"}]}]}`:   "a run can't be in details",
 	} {
 		_, err := Normalize(decode(t, body), "", received)
 		if _, ok := err.(*Error); !ok || !strings.Contains(err.Error(), want) {
@@ -98,7 +101,8 @@ func TestEventJSON(t *testing.T) {
 			{"type": "fields", "items": [{"label": "a", "value": 2}, {"label": "b", "value": "2"}]},
 			{"type": "table", "columns": ["a", "b"], "rows": [["x", 1.50], []]}, {"type": "table", "columns": ["a"], "rows": []},
 			{"type": "list", "items": ["one"], "ordered": true}, {"type": "code", "text": "c"},
-			{"type": "note", "text": "n", "color": "red"}, {"type": "link", "text": "l", "url": "https://a"}]}`,
+			{"type": "note", "text": "n", "color": "red"}, {"type": "link", "text": "l", "url": "https://a"},
+			{"type": "run", "command": "ls"}, {"type": "run", "command": "make", "title": "Build"}]}`,
 		`{"kind": "basic", "title": "x", "report": [{"type": "heading", "text": ["a ", {"type": "strong", "text": [{"type": "em", "text": "b"}]}], "level": 3},
 			{"type": "text", "text": [{"type": "mono", "text": "m"}, {"type": "link", "text": "l", "url": "https://a"}]},
 			{"type": "fields", "items": [{"label": "a", "value": {"type": "buttons", "items": [{"title": "b"}]}}]},

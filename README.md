@@ -119,8 +119,8 @@ never as HTML. Each card's report has its own window, where Cmd-C, Cmd-A and Cmd
 
 The blocks are `heading` (`level` 1 to 6, default 2), `text`, `fields`, `table`, `list`
 (an item can have a list under it), `code`, `note`, `quote`, `link` (http(s) only),
-`buttons`, `image` (a base64 `data:` url), `details` (blocks hidden until clicked) and
-`rule`.
+`buttons`, `image` (a base64 `data:` url), `details` (blocks hidden until clicked),
+`rule` and `run` (below).
 
 Text in a block can be a string, a span, or an array of strings and spans run together:
 `strong`, `em`, `mono` and `link` spans, as in `["Run ", {"type": "mono", "text": "make"},
@@ -131,6 +131,19 @@ a number, or a row of buttons.
 A button opens its `url` (with `open`, as a card's does), runs its `command` (only with
 `commands` on, as a card's does; otherwise it's disabled), or dismisses its event with
 `"dismiss": true`. `ledge schema event` describes it all.
+
+A `run` block is a command you can run from the report and watch: a button (`title`,
+default "Run") in a colour for how the last run went, when it started, its output,
+stdout and stderr together, as it comes, and a Stop button, which sends SIGTERM to the
+command and whatever it started. It runs as a card's command does, with
+`bash -lc` in your home directory, nothing on its stdin, and only with `commands` on;
+its output goes to the report rather than `commands.log`. ledge keeps each event's last
+run of a command until it stops, so closing the report and opening it again shows it;
+running it again replaces it. A run goes at the top level of a report, not in `details`.
+
+```json
+{"type": "run", "title": "Re-run lint", "command": "cd ~/src/app && make lint"}
+```
 
 ## Config
 

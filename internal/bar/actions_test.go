@@ -51,4 +51,12 @@ func TestReportWindow(t *testing.T) {
 	add(t, `{"id": "card-report", "title": "Card with a report", "report": [{"type": "text", "text": "Second version"}]}`)
 	click(t, cardJS("Card with a report"))
 	waitIn(t, window, `document.querySelector("p")?.textContent`, `"Second version"`)
+
+	// A run block's button runs its command, and its output reaches the window.
+	add(t, `{"id": "card-report", "title": "Card with a report", "report": [{"type": "run", "command": "echo from the run"}]}`)
+	click(t, cardJS("Card with a report"))
+	waitIn(t, window, `document.querySelector(".run [data-click]") != null`, "true")
+	evalIn(t, window, `document.querySelector(".run [data-click]").click(), true`)
+	waitIn(t, window, `document.querySelector(".run pre")?.textContent`, `"from the run\n"`)
+	waitIn(t, window, `document.querySelector(".run")?.dataset.state`, `"passed"`)
 }

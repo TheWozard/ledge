@@ -109,10 +109,11 @@ type report struct {
 	made  int // how many buttons it has made, for each to have its own id
 }
 
-// blocks is the report's blocks as components.
+// blocks is the report's blocks as components. A run block, only ever at the top
+// level, is a Block, so its output can be shown as it comes.
 func (r *report) blocks(blocks []store.Block) []templ.Component {
 	var out []templ.Component
-	for _, block := range blocks {
+	for i, block := range blocks {
 		switch block.Type {
 		case "heading":
 			level := block.Level
@@ -154,6 +155,9 @@ func (r *report) blocks(blocks []store.Block) []templ.Component {
 			out = append(out, components.Details(r.inline(block.Summary), r.blocks(block.Blocks)...))
 		case "rule":
 			out = append(out, components.Rule())
+		case "run":
+			run := components.RunBlock(r.bar.runView(r.event, block))
+			out = append(out, components.Block{ID: runID(i, block.Command), Content: run})
 		}
 	}
 	return out

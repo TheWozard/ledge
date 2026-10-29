@@ -2,10 +2,10 @@
 # Example cards with reports, for trying each part of the report window.
 #
 #   - a CI report with one of each block: heading, text, fields, table, list, code,
-#     notes in each colour, quote, link, buttons, image, details and rule; with
+#     notes in each colour, quote, link, buttons, image, details, rule and run; with
 #     strong, em, mono and linked text, links and buttons in table cells, and a
-#     nested list. Links open in your browser; Retry runs only with commands on,
-#     and Done dismisses the card.
+#     nested list. Links open in your browser; Retry and the run's Re-run lint run
+#     only with commands on, and Done dismisses the card.
 #   - a long report, to scroll, whose text looks like HTML but must show as text
 #
 #   report.sh         send the cards
@@ -58,6 +58,9 @@ send '{"id": "report-ci", "source": "example-report", "priority": "high", "title
          {"type": "note", "text": "A note in a hex colour.", "color": "#9b59b6"},
          {"type": "link", "text": "Build logs", "url": "https://example.com/build/logs"},
          {"type": "image", "alt": "A red dot", "src": "data:image/svg+xml;base64,'"$(printf '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><circle cx="12" cy="12" r="10" fill="#ff3b30"/></svg>' | base64)"'"},
+         {"type": "heading", "text": "Lint again"},
+         {"type": "run", "title": "Re-run lint",
+          "command": "for i in $(seq 1 30); do echo \"checking file $i\"; sleep 0.1; done; echo \"store.go:42: undefined: Refuse\" >&2; exit 1"},
          {"type": "buttons", "items": [
            {"title": "Open the run", "color": "blue", "url": "https://example.com/run/1234"},
            {"title": "Done", "color": "green", "dismiss": true}, {"title": "Does nothing"}]}]}'

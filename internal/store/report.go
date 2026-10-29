@@ -11,6 +11,8 @@ type Block struct {
 	Text    Inline     `json:"text,omitzero"`     // heading, text, code, note, quote, link
 	Level   int        `json:"level,omitempty"`   // heading
 	Color   string     `json:"color,omitempty"`   // note
+	Command string     `json:"command,omitempty"` // run
+	Title   string     `json:"title,omitempty"`   // run
 	URL     string     `json:"url,omitempty"`     // link
 	Fields  []Field    `json:"-"`                 // fields, sent as "items"
 	Items   []Item     `json:"-"`                 // list, sent as "items"
