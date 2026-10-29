@@ -2,6 +2,9 @@ package bar
 
 import (
 	"context"
+	"io"
+	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -12,16 +15,25 @@ import (
 	"github.com/TheWozard/ledge/internal/store"
 )
 
-// reportJSON is a report with one of each block, its text partly HTML-looking.
+// reportJSON is a report with one of each block, its text partly HTML-looking, and
+// text, links and buttons nested in them.
 const reportJSON = `[
 	{"type": "heading", "text": "Summary"},
-	{"type": "text", "text": "<b>not bold</b>\nsecond line"},
+	{"type": "text", "text": ["<b>not bold</b>\nsecond line, ", {"type": "strong", "text": ["really ", {"type": "em", "text": "bold"}]},
+		" and ", {"type": "mono", "text": "go test"}]},
 	{"type": "fields", "items": [{"label": "Branch", "value": "main"}, {"label": "Failures", "value": 2}]},
-	{"type": "table", "columns": ["Job", "Result"], "rows": [["lint", "ok"], ["test"], ["build", 3]]},
-	{"type": "list", "items": ["one", "two"], "ordered": true},
+	{"type": "table", "columns": ["Job", "Result", "Logs", "Do"], "rows": [["lint", "ok"], ["test"],
+		["build", 3, {"type": "link", "text": "logs", "url": "https://example.com/build"},
+		 {"type": "buttons", "items": [{"title": "Retry", "color": "red", "command": "retry build"}, {"title": "Open", "url": "https://example.com/open"}]}]]},
+	{"type": "list", "items": ["one", {"text": "two", "ordered": true, "items": ["two.a"]}], "ordered": true},
 	{"type": "code", "text": "$ go test\nFAIL"},
 	{"type": "note", "text": "Flaky", "color": "yellow"},
-	{"type": "link", "text": "The run", "url": "https://example.com/from-report"}
+	{"type": "quote", "text": "said so"},
+	{"type": "link", "text": "The run", "url": "https://example.com/from-report"},
+	{"type": "buttons", "items": [{"title": "Done", "color": "green", "dismiss": true}, {"title": "Nothing"}]},
+	{"type": "image", "src": "data:image/png;base64,AA==", "alt": "a dot"},
+	{"type": "details", "summary": "More", "blocks": [{"type": "text", "text": "hidden"}]},
+	{"type": "rule"}
 ]`
 
 var now = time.Date(2026, 10, 15, 12, 0, 0, 0, time.UTC)
@@ -111,22 +123,63 @@ func TestView(t *testing.T) {
 func TestBlocks(t *testing.T) {
 	event := normalize(t, `{"title": "x", "report": `+reportJSON+`}`)
 	var html strings.Builder
-	for _, block := range blocks(event.Report) {
+	blocks := (&report{bar: &Bar{}, event: event}).blocks(event.Report)
+	for _, block := range blocks {
 		block.Render(context.Background(), &html)
 	}
 	for _, want := range []string{
-		"<h2>Summary</h2>", "<p>&lt;b&gt;not bold&lt;/b&gt;\nsecond line</p>",
+		"<h2>Summary</h2>",
+		"<p>&lt;b&gt;not bold&lt;/b&gt;\nsecond line, <strong>really <em>bold</em></strong> and <code>go test</code></p>",
 		"<dt>Failures</dt><dd>2</dd>",
-		"<tr><td>test</td><td></td></tr>", "<tr><td>build</td><td>3</td></tr>",
-		"<ol><li>one</li><li>two</li></ol>", "<pre><code>$ go test\nFAIL</code></pre>",
-		`data-color="yellow"`, `<a href="https://example.com/from-report"`,
+		"<tr><td>test</td><td></td><td></td><td></td></tr>", "<td>build</td><td>3</td>",
+		`<a href="https://example.com/build" title="https://example.com/build">logs</a>`,
+		"<ol><li>one</li><li>two<ol><li>two.a</li></ol></li></ol>", "<pre><code>$ go test\nFAIL</code></pre>",
+		`data-color="yellow"`, "<blockquote>said so</blockquote>", `<a href="https://example.com/from-report"`,
+		"Retry</button>", "Done</button>", `alt="a dot"`, "<summary>More</summary> <p>hidden</p></details>", "<hr>",
 	} {
 		if !strings.Contains(html.String(), want) {
 			t.Errorf("missing %q in:\n%s", want, html.String())
 		}
 	}
 	// Every block is one the frontend renders.
-	if got, want := strings.Count(reportJSON, `"type"`), len(blocks(event.Report)); got != want {
-		t.Errorf("%d blocks became %d components", got, want)
+	if len(blocks) != len(event.Report) || len(event.Report) != 13 {
+		t.Errorf("%d blocks became %d components", len(event.Report), len(blocks))
+	}
+}
+
+// A report's buttons open their url, run their command if commands are allowed, or
+// dismiss their event.
+func TestReportButtons(t *testing.T) {
+	event := normalize(t, `{"id": "ci", "title": "CI", "report": `+reportJSON+`}`)
+	for _, commands := range []bool{false, true} {
+		var started []string
+		b := &Bar{commands: commands, stateDir: t.TempDir(), start: func(cmd *exec.Cmd) error {
+			started = append(started, strings.Join(cmd.Args, " "))
+			return nil
+		}}
+		clicks := &components.Clicks{}
+		ctx := components.WithClicks(context.Background(), clicks)
+		for _, block := range (&report{bar: b, event: event}).blocks(event.Report) {
+			block.Render(ctx, io.Discard)
+		}
+		// Retry, Open, Done and Nothing, in order; Retry only with commands, and Nothing never.
+		want := []string{"button-2", "button-3"}
+		if commands {
+			want = []string{"button-1", "button-2", "button-3"}
+		}
+		if got := clicks.IDs(); !slices.Equal(got, want) {
+			t.Fatalf("with commands %v, clickable buttons = %v, want %v", commands, got, want)
+		}
+		clicks.Click("button-2")(components.ClickEvent{})
+		if commands {
+			clicks.Click("button-1")(components.ClickEvent{})
+		}
+		want = []string{"open https://example.com/open"}
+		if commands {
+			want = append(want, "/bin/bash -lc retry build")
+		}
+		if !slices.Equal(started, want) {
+			t.Errorf("with commands %v, started %q, want %q", commands, started, want)
+		}
 	}
 }

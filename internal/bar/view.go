@@ -1,6 +1,8 @@
 package bar
 
 import (
+	"fmt"
+	"log"
 	"time"
 
 	"github.com/TheWozard/ledge-frontend/components"
@@ -100,42 +102,118 @@ func (r recolored) Frame() components.Frame {
 	return f
 }
 
-// blocks is a report's blocks as components.
-func blocks(report []store.Block) []templ.Component {
+// report is an event's report as components, with what its buttons do.
+type report struct {
+	bar   *Bar
+	event store.Event
+	made  int // how many buttons it has made, for each to have its own id
+}
+
+// blocks is the report's blocks as components.
+func (r *report) blocks(blocks []store.Block) []templ.Component {
 	var out []templ.Component
-	for _, block := range report {
+	for _, block := range blocks {
 		switch block.Type {
 		case "heading":
-			out = append(out, components.Heading(2, components.Text(block.Text)))
+			level := block.Level
+			if level == 0 {
+				level = 2
+			}
+			out = append(out, components.Heading(level, r.inline(block.Text)))
 		case "text":
-			out = append(out, components.Paragraph(components.Text(block.Text)))
+			out = append(out, components.Paragraph(r.inline(block.Text)))
 		case "fields":
 			fields := make([]components.Field, len(block.Fields))
 			for i, field := range block.Fields {
-				fields[i] = components.Field{Label: field.Label, Value: components.Text(field.Value.Text)}
+				fields[i] = components.Field{Label: field.Label, Value: r.inline(field.Value)}
 			}
 			out = append(out, components.Fields(fields))
 		case "table":
 			rows := make([][]components.Inline, len(block.Rows))
 			for i, row := range block.Rows {
 				for _, cell := range row {
-					rows[i] = append(rows[i], components.Text(cell.Text))
+					rows[i] = append(rows[i], r.inline(cell))
 				}
 			}
 			out = append(out, components.Table(block.Columns, rows))
 		case "list":
-			items := make([]components.Item, len(block.Items))
-			for i, item := range block.Items {
-				items[i] = components.Item{Text: components.Text(item)}
-			}
-			out = append(out, components.List(block.Ordered, items...))
+			out = append(out, components.List(block.Ordered, r.items(block.Items)...))
 		case "code":
-			out = append(out, components.Code(block.Text))
+			out = append(out, components.Code(block.Text.Text))
 		case "note":
-			out = append(out, components.Note(block.Color, components.Text(block.Text)))
+			out = append(out, components.Note(block.Color, r.inline(block.Text)))
+		case "quote":
+			out = append(out, components.Quote(r.inline(block.Text)))
 		case "link":
-			out = append(out, components.Paragraph(components.LinkTo(block.URL, components.Text(block.Text))))
+			out = append(out, components.Paragraph(components.LinkTo(block.URL, r.inline(block.Text))))
+		case "buttons":
+			out = append(out, r.buttons(block.Buttons))
+		case "image":
+			out = append(out, components.Image(block.Src, block.Alt))
+		case "details":
+			out = append(out, components.Details(r.inline(block.Summary), r.blocks(block.Blocks)...))
+		case "rule":
+			out = append(out, components.Rule())
 		}
 	}
 	return out
+}
+
+// inline is text as a component: a string or number as it was sent, spans as their
+// styles, and an array run together.
+func (r *report) inline(in store.Inline) components.Inline {
+	switch in.Type {
+	case "strong":
+		return components.Strong(r.inline(*in.Content))
+	case "em":
+		return components.Em(r.inline(*in.Content))
+	case "mono":
+		return components.Mono(in.Content.Text)
+	case "link":
+		return components.LinkTo(in.URL, r.inline(*in.Content))
+	case "buttons":
+		return r.buttons(in.Buttons)
+	}
+	if in.Parts != nil {
+		parts := make([]templ.Component, len(in.Parts))
+		for i, part := range in.Parts {
+			parts[i] = r.inline(part)
+		}
+		return templ.Join(parts...)
+	}
+	return components.Text(in.Text)
+}
+
+// items is a list's items, with the lists under them.
+func (r *report) items(items []store.Item) []components.Item {
+	out := make([]components.Item, len(items))
+	for i, item := range items {
+		out[i] = components.Item{Text: r.inline(item.Text), Ordered: item.Ordered, Items: r.items(item.Items)}
+	}
+	return out
+}
+
+// buttons is a row of buttons, each with its own id in the report. One that would run
+// a command while commands aren't allowed does nothing, so it's disabled.
+func (r *report) buttons(buttons []store.Button) templ.Component {
+	out := make([]components.Button, len(buttons))
+	for i, button := range buttons {
+		r.made++
+		out[i] = components.Button{ID: fmt.Sprintf("button-%d", r.made), Title: button.Title, Color: button.Color}
+		b, event := r.bar, r.event
+		switch {
+		case button.URL != "":
+			out[i].Click = func(components.ClickEvent) { b.openURL(button.URL) }
+		case button.Command != "" && b.commands:
+			event.Command = button.Command
+			out[i].Click = func(components.ClickEvent) {
+				if err := b.runCommand(event); err != nil {
+					log.Printf("running a command of %s: %v", event.ID, err)
+				}
+			}
+		case button.Dismiss:
+			out[i].Click = func(components.ClickEvent) { b.dismiss(event.ID) }
+		}
+	}
+	return components.Buttons(out)
 }

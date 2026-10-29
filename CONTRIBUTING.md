@@ -36,7 +36,7 @@ scripts/bar.sh
 | Script | Shows |
 |---|---|
 | `bar.sh [CARDS]` | cards of every kind: each priority, a description, a clamped long title, a report, a url, a command (with commands on), a colour schedule, and HTML-looking text shown as plain text. Extra CARDS make the row scroll sideways. |
-| `report.sh` | a report with one of each block, notes in every colour and an https link; plus a long report to scroll |
+| `report.sh` | a report with one of each block, notes in every colour, styled and linked text, links and buttons in table cells, a nested list and buttons that open, run and dismiss; plus a long report to scroll |
 | `feed.sh [SECONDS]` | a feed's section, replaced by a smaller one after a pause (default 5s), whose card then expires in 1 minute |
 
 `bar.sh` and `feed.sh` write the pages their cards' `file://` urls open under

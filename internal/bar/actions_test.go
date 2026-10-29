@@ -39,9 +39,13 @@ func TestReportWindow(t *testing.T) {
 	add(t, `{"id": "card-report", "title": "Card with a report", "report": `+reportJSON+`}`)
 	click(t, cardJS("Card with a report"))
 	waitIn(t, window, `document.querySelector(".titlebar span")?.textContent`, `"Card with a report"`)
-	if got := evalIn(t, window, `[...document.querySelectorAll("main > article > *")].map(e => e.tagName).join(" ")`); got != `"H2 P DL DIV OL PRE DIV P"` {
+	if got := evalIn(t, window, `[...document.querySelectorAll("main > article > *")].map(e => e.tagName).join(" ")`); got != `"H2 P DL DIV OL DIV DIV BLOCKQUOTE P DIV IMG DETAILS HR"` {
 		t.Errorf("report blocks = %s", got)
 	}
+
+	// A button in a table cell reaches ledge, which opens its url.
+	evalIn(t, window, `[...document.querySelectorAll("td button")].find(b => b.textContent === "Open").click(), true`)
+	eventually(t, "open https://example.com/open", func() bool { return opened.has("https://example.com/open") })
 
 	// Sending the event again changes its report.
 	add(t, `{"id": "card-report", "title": "Card with a report", "report": [{"type": "text", "text": "Second version"}]}`)

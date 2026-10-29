@@ -76,65 +76,7 @@ type CheckResult struct {
 	State string `json:"state"`
 }
 
-// Block is one part of a report. Type says which, and so which other fields it has.
-type Block struct {
-	Type    string     `json:"type"`
-	Text    string     `json:"text,omitempty"`    // heading, text, code, note, link
-	Color   string     `json:"color,omitempty"`   // note
-	URL     string     `json:"url,omitempty"`     // link
-	Fields  []Field    `json:"-"`                 // fields, sent as "items"
-	Items   []string   `json:"-"`                 // list, sent as "items"
-	Ordered bool       `json:"ordered,omitempty"` // list
-	Columns []string   `json:"columns,omitempty"` // table
-	Rows    [][]Scalar `json:"rows,omitzero"`     // table
-}
-
-// Field is one row of a fields block.
-type Field struct {
-	Label string `json:"label"`
-	Value Scalar `json:"value"`
-}
-
-// block is Block without its JSON methods, for them to use.
-type block Block
-
-// UnmarshalJSON reads "items" as a fields block's Fields, or a list's Items.
-func (b *Block) UnmarshalJSON(data []byte) error {
-	var raw struct {
-		block
-		Items json.RawMessage `json:"items"`
-	}
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	*b = Block(raw.block)
-	switch {
-	case raw.Items == nil:
-		return nil
-	case b.Type == "fields":
-		return json.Unmarshal(raw.Items, &b.Fields)
-	default:
-		return json.Unmarshal(raw.Items, &b.Items)
-	}
-}
-
-// MarshalJSON writes a fields block's Fields, or a list's Items, as "items".
-func (b Block) MarshalJSON() ([]byte, error) {
-	raw := struct {
-		block
-		Items any `json:"items,omitempty"`
-	}{block: block(b)}
-	switch {
-	case b.Fields != nil:
-		raw.Items = b.Fields
-	case b.Items != nil:
-		raw.Items = b.Items
-	}
-	return marshal(raw)
-}
-
-// Scalar is a JSON string or number, kept as it was sent: a stat's value, a field's
-// value or a table cell.
+// Scalar is a JSON string or number, kept as it was sent, such as a stat's value.
 type Scalar struct {
 	Text   string // the string, or the number as it was written
 	Number bool

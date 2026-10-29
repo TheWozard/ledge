@@ -105,15 +105,32 @@ never as HTML. Each card's report has its own window, where Cmd-C, Cmd-A and Cmd
   {"type": "note", "text": "Two jobs failed after the last merge.", "color": "red"},
   {"type": "fields", "items": [{"label": "Branch", "value": "main"}, {"label": "Failed", "value": 2}]},
   {"type": "heading", "text": "Jobs"},
-  {"type": "table", "columns": ["Job", "State"], "rows": [["build", "failed"], ["test", "passed"]]},
-  {"type": "code", "text": "internal/store/store.go:42: undefined: Refuse"},
-  {"type": "list", "items": ["Fix the build", "Merge again"], "ordered": true},
-  {"type": "link", "text": "Build logs", "url": "https://example.com/build/logs"}
+  {"type": "table", "columns": ["Job", "State", ""], "rows": [
+    ["build", {"type": "strong", "text": "failed"}, {"type": "buttons", "items": [
+      {"title": "Logs", "url": "https://example.com/build/logs"},
+      {"title": "Retry", "color": "red", "command": "gh run rerun 1234 --failed"}]}],
+    ["test", "passed"]]},
+  {"type": "details", "summary": "build output", "blocks": [
+    {"type": "code", "text": "internal/store/store.go:42: undefined: Refuse"}]},
+  {"type": "list", "items": ["Fix the build", {"text": "Merge again", "items": ["after review"]}], "ordered": true},
+  {"type": "buttons", "items": [{"title": "Done", "color": "green", "dismiss": true}]}
 ]}
 ```
 
-The blocks are `heading`, `text`, `fields`, `table`, `list`, `code`, `note` and `link`
-(http(s) only); `ledge schema event` describes each.
+The blocks are `heading` (`level` 1 to 6, default 2), `text`, `fields`, `table`, `list`
+(an item can have a list under it), `code`, `note`, `quote`, `link` (http(s) only),
+`buttons`, `image` (a base64 `data:` url), `details` (blocks hidden until clicked) and
+`rule`.
+
+Text in a block can be a string, a span, or an array of strings and spans run together:
+`strong`, `em`, `mono` and `link` spans, as in `["Run ", {"type": "mono", "text": "make"},
+" or see ", {"type": "link", "text": "the docs", "url": "https://example.com"}]`. Strong,
+em and link spans can hold spans of their own. A table cell or a field's value can also be
+a number, or a row of buttons.
+
+A button opens its `url` (with `open`, as a card's does), runs its `command` (only with
+`commands` on, as a card's does; otherwise it's disabled), or dismisses its event with
+`"dismiss": true`. `ledge schema event` describes it all.
 
 ## Config
 
