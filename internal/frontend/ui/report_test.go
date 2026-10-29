@@ -286,8 +286,11 @@ func TestReportFrame(t *testing.T) {
 	eventually(t, "the report window to come back", func() bool { return shim.WindowVisible(w) })
 }
 
-// Each id has its own report window, opened down and to the right of the last;
-// closing one leaves the others.
+// Each id has its own report window, cascaded from the last, so not on top of it;
+// closing one leaves the others. A cascade goes down and to the right, but AppKit
+// starts it again at the top of the screen when there's no room below, which
+// depends on the screen and how many windows the tests before this opened, so only
+// that it moved is checked.
 func TestReportWindowPerID(t *testing.T) {
 	gui(t)
 	a := showReport(t, "card-a", "Report A", []templ.Component{components.Paragraph(components.Text("A"))})
@@ -297,8 +300,8 @@ func TestReportWindowPerID(t *testing.T) {
 	}
 	waitIn(t, a, `document.querySelector("p")?.textContent`, `"A"`)
 	waitIn(t, b, `document.querySelector("p")?.textContent`, `"B"`)
-	if fa, fb := shim.WindowFrame(a), shim.WindowFrame(b); !(fb.X > fa.X && fb.Y < fa.Y) {
-		t.Errorf("card-a's window is at %+v and card-b's at %+v, want b down and to the right", fa, fb)
+	if fa, fb := shim.WindowFrame(a), shim.WindowFrame(b); fb.X == fa.X || fb.Y == fa.Y {
+		t.Errorf("card-a's window is at %+v and card-b's at %+v, want b cascaded from a", fa, fb)
 	}
 
 	evalIn(t, a, `window.webkit.messageHandlers.frame.postMessage("close"), true`)
