@@ -106,31 +106,35 @@ func blocks(report []store.Block) []templ.Component {
 	for _, block := range report {
 		switch block.Type {
 		case "heading":
-			out = append(out, components.Heading(block.Text))
+			out = append(out, components.Heading(2, components.Text(block.Text)))
 		case "text":
-			out = append(out, components.Paragraph(block.Text))
+			out = append(out, components.Paragraph(components.Text(block.Text)))
 		case "fields":
 			fields := make([]components.Field, len(block.Fields))
 			for i, field := range block.Fields {
-				fields[i] = components.Field{Label: field.Label, Value: field.Value.Text}
+				fields[i] = components.Field{Label: field.Label, Value: components.Text(field.Value.Text)}
 			}
 			out = append(out, components.Fields(fields))
 		case "table":
-			rows := make([][]string, len(block.Rows))
+			rows := make([][]components.Inline, len(block.Rows))
 			for i, row := range block.Rows {
 				for _, cell := range row {
-					rows[i] = append(rows[i], cell.Text)
+					rows[i] = append(rows[i], components.Text(cell.Text))
 				}
 			}
 			out = append(out, components.Table(block.Columns, rows))
 		case "list":
-			out = append(out, components.List(block.Items, block.Ordered))
+			items := make([]components.Item, len(block.Items))
+			for i, item := range block.Items {
+				items[i] = components.Item{Text: components.Text(item)}
+			}
+			out = append(out, components.List(block.Ordered, items...))
 		case "code":
 			out = append(out, components.Code(block.Text))
 		case "note":
-			out = append(out, components.Note(block.Text, block.Color))
+			out = append(out, components.Note(block.Color, components.Text(block.Text)))
 		case "link":
-			out = append(out, components.Link(block.Text, block.URL))
+			out = append(out, components.Paragraph(components.LinkTo(block.URL, components.Text(block.Text))))
 		}
 	}
 	return out
