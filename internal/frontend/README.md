@@ -170,19 +170,8 @@ clickable things in none. A theme styles what can be clicked by `[data-click]`. 
 | `Note(text, color)` | a callout in a colour |
 | `Link(text, url)` | a link; clicking it opens it in the browser if it's http(s) |
 | `Buttons([]Button)` | a row of buttons, each with a dot in its colour, calling its `Click`; one without is disabled |
-| `HTML(src, actions)` | HTML, such as rendered from Markdown, with only what a theme styles kept (see below) |
 
-`HTML` keeps only headings, inline text (`strong`, `em`, `code` and the like), `p`,
-`br`, `hr`, lists, `dl`, tables, `pre`, `blockquote`, `details` and `summary`, links
-(http(s), or to an action), images with a `data:` `src`, `aside` and `button`, with
-none of their classes, ids, styles or scripts, so a theme styles plain elements. An
-`<aside data-color="red">` is a `Note`, a table scrolls sideways as a `Table`'s does,
-and runs of white space are one space but in a `<pre>`. A
-`<button data-action="rerun">`, or a link to `action:rerun`, calls `actions["rerun"]`
-as a `Buttons`' button calls its `Click`, `rerun` being its id; one with no `Click`
-is disabled (a link, `aria-disabled`).
-
-Every other string is escaped by templ, so text can't add markup. Colours are a theme's named
+Every string is escaped by templ, so text can't add markup. Colours are a theme's named
 colours (`green`, `yellow`, `red`, `blue`, `gray`) or `#rrggbb`; anything else is gray,
 and can't add CSS.
 
@@ -204,8 +193,7 @@ bar; a double-click zooms), `close`, `minimise` and `zoom`.
 Neither window can navigate: a report's clicked http(s) link opens in the browser.
 Every page has a Content-Security-Policy that runs only its own scripts, by their
 hashes, and loads only `data:` images and fonts, so a script that got past templ's
-escaping or `HTML`'s policy wouldn't run; the app's calls into the page aren't
-stopped by it.
+escaping wouldn't run; the app's calls into the page aren't stopped by it.
 
 ## Themes
 

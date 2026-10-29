@@ -141,10 +141,9 @@ func newSample(now time.Time) *sample {
 	return s
 }
 
-// longReport is one of every block, an HTML one among them, with a log and a run
-// history long enough to scroll, the log sideways too, and buttons: some that run,
-// one that can't, and one that replaces the triage block it's in. Call it with s's
-// lock held.
+// longReport is one of every block, with a log and a run history long enough to
+// scroll, the log sideways too, and buttons: some that run, one that can't, and one
+// that replaces the triage block it's in. Call it with s's lock held.
 func (s *sample) longReport() []templ.Component {
 	now := s.started
 	var failureLog []string
@@ -195,19 +194,6 @@ func (s *sample) longReport() []templ.Component {
 			{Label: "Started", Value: now.Add(-3 * time.Minute).Format(time.Kitchen)}, {Label: "Duration", Value: "4m 21s"},
 			{Label: "Trigger", Value: "push to main"},
 		}),
-
-		components.Heading("Written as HTML"),
-		components.HTML(`<p>The <strong>lint</strong> job flags <code>Render</code>, and
-<a href="https://example.com/lint">the rule</a> says why. <a href="action:rerun-lint">Rerun it</a>,
-or <a href="action:ignore">ignore it</a> (which can't be done).</p>
-<aside data-color="blue">A note written as an &lt;aside&gt;.</aside>
-<h3>Jobs</h3>
-<table><thead><tr><th>Job</th><th>Result</th></tr></thead><tbody><tr><td>lint</td><td>failed</td></tr></tbody></table>
-<blockquote>exported function Render should have a comment</blockquote>
-<details><summary>What the rule checks</summary><ul><li>exported functions</li><li>exported types</li></ul></details>
-<hr>
-<p><button data-action="rerun-lint">Rerun lint</button> <button data-action="ignore">Ignore</button></p>`,
-			map[string]components.Click{"rerun-lint": s.slowly("rerun-lint")}),
 		components.Paragraph(strings.Repeat("A longer paragraph that wraps across several lines, so the report runs well past the bottom of its window. ", 6)),
 		components.Link("All runs", "https://example.com/runs"),
 	}

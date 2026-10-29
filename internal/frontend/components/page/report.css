@@ -6,11 +6,6 @@
    a .button-dot; one with a Click has data-click, and data-busy while it runs, and
    one without is disabled.
 
-   An HTML block can have any of the elements components.HTML keeps (headings h1 to
-   h6, inline text, lists, dl, tables, pre, blockquote, hr, details and summary,
-   img), but no classes of its own: an <aside> is a .note, a <button> a .button
-   without a dot, and a link to an action an <a data-click>, or aria-disabled.
-
    The page fills the window, title bar included: macOS draws only the close,
    minimise and zoom buttons, at the top left. .titlebar is the page's own title
    bar under them, --titlebar high and kept clear of them, with the title in a
@@ -93,20 +88,11 @@ article > * {
 article > * + * {
   margin-top: 12px;
 }
-h1 {
-  font-size: 1.3em;
-}
 h2 {
   font-size: 1.15em;
 }
-h3,
-h4,
-h5,
-h6 {
-  font-size: 1em;
-}
 /* A heading has more room above it, unless it's first. */
-article > * + :is(h1, h2, h3, h4, h5, h6) {
+article > * + h2 {
   margin-top: 20px;
 }
 p {
@@ -139,15 +125,6 @@ td {
 ul,
 ol {
   padding-left: 1.5em;
-}
-img {
-  max-width: 100%;
-}
-blockquote {
-  margin-inline: 0;
-}
-summary {
-  cursor: default;
 }
 pre {
   overflow-x: auto;

@@ -54,7 +54,7 @@ var (
 
 // csp is a page's Content-Security-Policy, first in its <head>: it runs only scripts,
 // each by its hash, so nothing else can, not a <script> nor an onclick in what it's
-// shown, should any get past templ or HTML's policy. Styles are inline, and only
+// shown, should any get past templ's escaping. Styles are inline, and only
 // data: images and fonts load; the page fetches nothing else. The app's own calls,
 // such as update, aren't the page's scripts, and aren't stopped by it.
 func csp(scripts []string) templ.Component {
