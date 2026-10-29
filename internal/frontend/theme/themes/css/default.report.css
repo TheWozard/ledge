@@ -174,8 +174,28 @@ a {
     opacity: 0.4;
   }
 }
+/* A run's button's dot, or its icon, is in its state's colour, pulsing while it
+   runs; with its icon, 18px, the button's left side is narrower, and the stop
+   button's, the icon alone, both sides. Its status word
+   and when it started are muted. */
+.run[data-state="running"] .run-bar > .buttons:first-child :is(.button-dot, .icon) {
+  animation: blink 1.2s ease-in-out infinite;
+}
+.run .button:has(.icon) {
+  --icon-size: 18px;
+  padding-left: 9px;
+}
+.run-stop .button:has(.icon) {
+  padding-right: 9px;
+}
+.run-status,
+.run time {
+  font-size: 12px;
+  color: var(--muted);
+}
 @media (prefers-reduced-motion: reduce) {
-  .button[data-busy] {
+  .button[data-busy],
+  .run[data-state="running"] .run-bar > .buttons:first-child :is(.button-dot, .icon) {
     animation: none;
   }
 }

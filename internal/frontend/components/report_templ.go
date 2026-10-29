@@ -88,8 +88,8 @@ func ReportPage(themeCSS string, icons Icons) templ.Component {
 
 // ReportContent is what a report shows in its page's <article>: blocks, top to
 // bottom. A block is any component; the ones in blocks.templ are Heading, Paragraph,
-// Fields, Table, List, Code, Note, Quote, Rule, Details, Image and Buttons, and any
-// of them can be given an id with Block.
+// Fields, Table, List, Code, Note, Quote, Rule, Details, Image and Buttons, with
+// RunBlock in run.templ, and any of them can be given an id with Block.
 func ReportContent(blocks []templ.Component) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context

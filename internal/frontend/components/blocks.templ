@@ -257,16 +257,37 @@ type Button struct {
 templ Buttons(buttons []Button) {
 	<div class="buttons">
 		for _, button := range buttons {
-			<button
-				type="button"
-				data-color={ colorName(button.Color) }
-				style={ templ.SafeCSS("--button: " + cssColor(button.Color)) }
-				class="button"
-				{ Clickable(ctx, button.ID, button.Click)... }
-				if button.Click == nil {
-					disabled
-				}
-			><span class="button-dot"></span>{ button.Title }</button>
+			@buttonWith(button, "", "")
 		}
 	</div>
+}
+
+// buttonWith is a Buttons' button, with icon, an .icon in its colour, in place of its
+// dot, if it has one; "" is the dot. tooltip is its title attribute, if it's not "".
+templ buttonWith(button Button, icon string, tooltip string) {
+	<button
+		type="button"
+		data-color={ colorName(button.Color) }
+		style={ templ.SafeCSS("--button: " + cssColor(button.Color)) }
+		class="button"
+		if tooltip != "" {
+			title={ tooltip }
+		}
+		{ Clickable(ctx, button.ID, button.Click)... }
+		if button.Click == nil {
+			disabled
+		}
+	>
+		@buttonLabel(icon, button.Title)
+	</button>
+}
+
+// buttonLabel is a button's .icon, drawn with icon, or its .button-dot for "", then
+// its title.
+templ buttonLabel(icon string, title string) {
+	if icon != "" {
+		<span class="icon" aria-hidden="true"></span>{ title }
+	} else {
+		<span class="button-dot"></span>{ title }
+	}
 }

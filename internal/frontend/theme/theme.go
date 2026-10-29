@@ -17,6 +17,7 @@ import (
 	"path"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -65,6 +66,8 @@ type Icons struct {
 	Menu    string `json:"menu,omitempty"`    // a card's ⋯, for its menu
 	Dismiss string `json:"dismiss,omitempty"` // a card's ×
 	Copy    string `json:"copy,omitempty"`    // a report's Code block's Copy
+	Run     string `json:"run,omitempty"`     // a report's RunBlock's button
+	Stop    string `json:"stop,omitempty"`    // a report's RunBlock's stop button
 }
 
 // Frame is how a theme's report window frame looks. Its page draws the title bar.
@@ -149,7 +152,9 @@ func load(fsys fs.FS, file string, manifest Manifest) (Theme, error) {
 }
 
 // all is each of the icons.
-func (icons *Icons) all() []*string { return []*string{&icons.Menu, &icons.Dismiss, &icons.Copy} }
+func (icons *Icons) all() []*string {
+	return []*string{&icons.Menu, &icons.Dismiss, &icons.Copy, &icons.Run, &icons.Stop}
+}
 
 // loadIcon is the SVG file in fsys as a data: url.
 func loadIcon(fsys fs.FS, file string) (string, error) {
@@ -163,9 +168,46 @@ func loadIcon(fsys fs.FS, file string) (string, error) {
 	return iconDataURL(data), nil
 }
 
-// iconDataURL is an SVG as a data: url.
+// iconDataURL is an SVG as a data: url, withViewBox.
 func iconDataURL(svg []byte) string {
-	return "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString(svg)
+	return "data:image/svg+xml;base64," + base64.StdEncoding.EncodeToString(withViewBox(svg))
+}
+
+// withViewBox is svg with a viewBox from its width and height, such as "0 0 24 24",
+// if its <svg> has none, so it scales to the size it's drawn at rather than being
+// cut off, as Boxicons 3's are. One with a viewBox, or without a width and height
+// in px, is as it is.
+func withViewBox(svg []byte) []byte {
+	decoder := xml.NewDecoder(bytes.NewReader(svg))
+	for {
+		at := decoder.InputOffset()
+		token, err := decoder.Token()
+		if err != nil {
+			return svg
+		}
+		start, ok := token.(xml.StartElement)
+		if !ok {
+			continue
+		}
+		var width, height string
+		for _, attr := range start.Attr {
+			switch attr.Name.Local {
+			case "viewBox":
+				return svg
+			case "width":
+				width = strings.TrimSuffix(attr.Value, "px")
+			case "height":
+				height = strings.TrimSuffix(attr.Value, "px")
+			}
+		}
+		_, werr := strconv.ParseFloat(width, 64)
+		_, herr := strconv.ParseFloat(height, 64)
+		tag := int(at) + len("<svg")
+		if werr != nil || herr != nil || !bytes.HasPrefix(svg[at:], []byte("<svg")) {
+			return svg
+		}
+		return slices.Concat(svg[:tag], []byte(` viewBox="0 0 `+width+" "+height+`"`), svg[tag:])
+	}
 }
 
 // isSVG is whether data is XML whose first element is an <svg>.

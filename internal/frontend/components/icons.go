@@ -15,6 +15,8 @@ type Icons struct {
 	Menu    string // a card's ⋯
 	Dismiss string // a card's ×
 	Copy    string // a Code block's Copy, in a report
+	Run     string // a RunBlock's button
+	Stop    string // a RunBlock's stop button
 }
 
 // named is each of the icons, by the name of its CSS variable, --icon-<name>.
@@ -25,7 +27,7 @@ func (icons *Icons) named() []struct {
 	return []struct {
 		name string
 		url  *string
-	}{{"menu", &icons.Menu}, {"dismiss", &icons.Dismiss}, {"copy", &icons.Copy}}
+	}{{"menu", &icons.Menu}, {"dismiss", &icons.Dismiss}, {"copy", &icons.Copy}, {"run", &icons.Run}, {"stop", &icons.Stop}}
 }
 
 // iconURL is what an icon must be: an SVG as a base64 data: url, safe as it is in CSS.

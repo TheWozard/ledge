@@ -15,6 +15,14 @@
    Details a <details> with its <summary>, then its blocks. An Image is an <img>, or,
    for a src the page can't show, its alt in a <p class="image-alt">.
 
+   A RunBlock is a .run, its State in data-state ("" for none): a .run-bar row of
+   its button (in a .buttons, its colour the State's), its .run-status (a word),
+   then, on the right, the <time> it started and its stop button, in a
+   .buttons.run-stop, then its output in a .code, whose <pre> scrolls, at most
+   --run-height high (320px). A theme with a run or stop icon has it drawn as an
+   .icon in the button in place of its .button-dot, the icon's shape in --button, before
+   its title, if it has one.
+
    The page fills the window, title bar included: macOS draws only the close,
    minimise and zoom buttons, at the top left. .titlebar is the page's own title
    bar under them, --titlebar high and kept clear of them, with the title in a
@@ -166,7 +174,8 @@ ol {
   right: 6px;
   font: inherit;
 }
-.copy .icon {
+.copy .icon,
+.button .icon {
   display: block;
   width: var(--icon-size, 12px);
   height: var(--icon-size, 12px);
@@ -176,6 +185,18 @@ ol {
   mask-repeat: no-repeat;
   mask-size: contain;
 }
+.button .icon {
+  background: var(--button);
+}
+.run .button .icon {
+  mask-image: var(--icon-run);
+}
+.run-status {
+  margin-right: auto;
+}
+.run .run-stop .icon {
+  mask-image: var(--icon-stop);
+}
 pre {
   overflow-x: auto;
   overflow-wrap: normal;
@@ -183,6 +204,20 @@ pre {
 }
 .note {
   white-space: pre-wrap;
+}
+.run-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.run .code {
+  margin-top: 8px;
+}
+.run pre {
+  min-height: 3em;
+  max-height: var(--run-height, 320px);
+  overflow-y: auto;
 }
 .buttons {
   display: flex;

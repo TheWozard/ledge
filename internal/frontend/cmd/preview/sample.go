@@ -17,7 +17,7 @@ import (
 // sample is what the preview shows: basic cards, timers, progress, stat, checks and
 // message cards, whose Clicks open a report, run nothing but a log line, or dismiss
 // the card, and the long report, whose buttons do the same, or replace its triage
-// block. Opening, dismissing, replacing and advance go through open, replace and
+// block, or run its test command, its output coming a line at a time. Opening, dismissing, replacing and advance go through open, replace and
 // changed, which the windows or the browser set before showing it.
 type sample struct {
 	mu       sync.Mutex
@@ -27,8 +27,11 @@ type sample struct {
 	stats    []components.Stat
 	checks   []components.Checks
 	messages []components.Message
-	started  time.Time // when the long report's run started
-	assigned bool      // whether the long report's failures are assigned, as its triage block shows
+	started  time.Time      // when the long report's run started
+	assigned bool           // whether the long report's failures are assigned, as its triage block shows
+	run      components.Run // the long report's test command, and its last run
+	ran      int            // how many times the long report's command has run; every other one fails
+	stopped  bool           // whether the long report's run's been stopped
 
 	open    func(id string)                         // shows id's report
 	replace func(id string, block components.Block) // replaces a block in id's report
@@ -138,6 +141,7 @@ func newSample(now time.Time) *sample {
 		s.messages[i].Dismiss = s.dismisses(m.ID)
 	}
 	s.started = now
+	s.run = components.Run{ID: "go-test", Title: "Run tests", Click: s.runCommand}
 	return s
 }
 
@@ -181,6 +185,9 @@ func (s *sample) longReport() []templ.Component {
 
 		components.Heading(2, components.Text("Triage")),
 		components.Block{ID: "triage", Content: s.triage()},
+
+		components.Heading(2, components.Text("Test")),
+		components.Block{ID: "run", Content: components.RunBlock(s.run)},
 
 		components.Heading(2, components.Text("Failures")),
 		components.Note("yellow", components.Text("TestRender failed on 3 of the last 5 runs; it may be flaky.")),
@@ -233,6 +240,61 @@ func (s *sample) triage() templ.Component {
 	}
 	return templ.Join(components.Note("yellow", components.Text("Nobody has these failures yet.")),
 		components.Buttons([]components.Button{{ID: "assign", Title: "Assign to me", Color: "blue", Click: assign}}))
+}
+
+// runCommand is the long report's run's Click: it shows the run going, adds a line
+// of output to it every so often, enough that it scrolls, then shows it passed or,
+// every other time, failed, or that it was stopped, its button ready to run it again.
+func (s *sample) runCommand(e components.ClickEvent) {
+	log.Printf("run go-test%s", how(e))
+	started := time.Now()
+	s.mu.Lock()
+	s.ran++
+	fails := s.ran%2 == 1
+	s.stopped = false
+	s.run.State, s.run.Status, s.run.Started, s.run.Output, s.run.Click, s.run.Stop = "running", "", started, "$ go test ./...\n", nil, s.stopCommand
+	s.showRun()
+	for i := range 40 {
+		time.Sleep(150 * time.Millisecond)
+		s.mu.Lock()
+		if s.stopped {
+			s.mu.Unlock()
+			break
+		}
+		s.run.Output += fmt.Sprintf("=== RUN   TestStep%02d\n--- PASS: TestStep%02d (0.%02ds)\n", i, i, (i*7)%100)
+		s.showRun()
+	}
+	took := time.Since(started).Round(time.Second)
+	s.mu.Lock()
+	s.run.Click, s.run.Stop = s.runCommand, nil
+	switch {
+	case s.stopped:
+		s.run.State, s.run.Status = "failed", fmt.Sprintf("Stopped after %s", took)
+		s.run.Output += "^C\n"
+	case fails:
+		s.run.State, s.run.Status = "failed", fmt.Sprintf("exit status 1 after %s", took)
+		s.run.Output += "--- FAIL: TestRender (0.21s)\n    ui_test.go:218: got \"rgba(0, 0, 0, 0)\", want \"rgb(192, 192, 192)\"\nFAIL\n"
+	default:
+		s.run.State, s.run.Status = "passed", fmt.Sprintf("ok after %s", took)
+		s.run.Output += "PASS\nok  \tgithub.com/TheWozard/ledge-frontend/ui\t" + took.String() + "\n"
+	}
+	s.showRun()
+}
+
+// stopCommand is the long report's run's Stop: the run stops after the line it's on.
+func (s *sample) stopCommand(e components.ClickEvent) {
+	log.Printf("stop go-test%s", how(e))
+	s.mu.Lock()
+	s.stopped = true
+	s.mu.Unlock()
+}
+
+// showRun replaces the long report's run block with how the run is now. Call it with
+// s's lock held; it unlocks it.
+func (s *sample) showRun() {
+	block := components.Block{ID: "run", Content: components.RunBlock(s.run)}
+	s.mu.Unlock()
+	s.replace(longID, block)
 }
 
 // sparkPNG is a small picture for the long report's Image: an 8 by 8 green PNG.

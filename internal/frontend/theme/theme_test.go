@@ -24,7 +24,7 @@ func TestBuiltin(t *testing.T) {
 		used[file] = true
 		data, _ := fs.ReadFile(Files, file)
 		manifest, _ := readManifest(data)
-		for _, icon := range []string{manifest.Icons.Menu, manifest.Icons.Dismiss, manifest.Icons.Copy} {
+		for _, icon := range []string{manifest.Icons.Menu, manifest.Icons.Dismiss, manifest.Icons.Copy, manifest.Icons.Run, manifest.Icons.Stop} {
 			if icon != "" {
 				used[path.Join(path.Dir(file), icon)] = true
 			}
@@ -181,5 +181,22 @@ func TestInlineFonts(t *testing.T) {
 	}
 	if _, err := InlineFonts(`url(fonts/missing.woff2)`, fonts); err == nil {
 		t.Error("a missing font should be an error")
+	}
+}
+
+// An icon without a viewBox, as Boxicons 3's are, gets one from its width and height,
+// so it scales; one with a viewBox, or without both sizes in px, is as it is.
+func TestWithViewBox(t *testing.T) {
+	for in, want := range map[string]string{
+		`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><path/></svg>`: `<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="24" height="24"><path/></svg>`,
+		`<?xml version="1.0"?><!-- <svg --><svg width="16px" height="12px"></svg>`:     `<?xml version="1.0"?><!-- <svg --><svg viewBox="0 0 16 12" width="16px" height="12px"></svg>`,
+		`<svg width="24" height="24" viewBox="0 0 12 12"></svg>`:                       `<svg width="24" height="24" viewBox="0 0 12 12"></svg>`,
+		`<svg width="100%" height="24"></svg>`:                                         `<svg width="100%" height="24"></svg>`,
+		`<svg width="24"></svg>`:                                                       `<svg width="24"></svg>`,
+		`<svg width="24" height="24" onload="x" a="&quot;"></svg>`:                     `<svg viewBox="0 0 24 24" width="24" height="24" onload="x" a="&quot;"></svg>`,
+	} {
+		if got := string(withViewBox([]byte(in))); got != want {
+			t.Errorf("withViewBox(%s) = %s, want %s", in, got, want)
+		}
 	}
 }

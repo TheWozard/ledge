@@ -5,8 +5,10 @@
   "report": ["css/default.report.css"],
   "menu": ["css/default.colors.css", "css/default.menu.css"],
   "icons": {
-    "menu": "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-dots-horizontal-rounded.svg",
-    "dismiss": "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-x.svg",
-    "copy": "https://cdn.jsdelivr.net/npm/boxicons@2.1.4/svg/regular/bx-copy.svg"
+    "menu": "https://cdn.jsdelivr.net/npm/@boxicons/core@1.0.6/svg/basic/bx-dots-horizontal-rounded.svg",
+    "dismiss": "https://cdn.jsdelivr.net/npm/@boxicons/core@1.0.6/svg/basic/bx-x.svg",
+    "copy": "https://cdn.jsdelivr.net/npm/@boxicons/core@1.0.6/svg/basic/bx-copy.svg",
+    "run": "https://cdn.jsdelivr.net/npm/@boxicons/core@1.0.6/svg/basic/bx-play.svg",
+    "stop": "https://cdn.jsdelivr.net/npm/@boxicons/core@1.0.6/svg/basic/bx-stop.svg"
   }
 }
