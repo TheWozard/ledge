@@ -2,6 +2,8 @@ package components
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
 	"io"
 	"maps"
 	"net/url"
@@ -86,6 +88,33 @@ type (
 // it in.
 func WithClicks(ctx context.Context, clicks *Clicks) context.Context {
 	return context.WithValue(ctx, clicksKey{}, clicks)
+}
+
+// copyKey is the context key of what a page's Code blocks copy their text with.
+type copyKey struct{}
+
+// WithCopy is ctx with put, which puts text on the pasteboard, for a Code block
+// rendered with it to have a button that copies its text. Rendered without one, a
+// Code has no button.
+func WithCopy(ctx context.Context, put func(text string)) context.Context {
+	return context.WithValue(ctx, copyKey{}, put)
+}
+
+// copyClick is a Click that copies text with what ctx has to copy with, or nil if it
+// has nothing.
+func copyClick(ctx context.Context, text string) Click {
+	put, _ := ctx.Value(copyKey{}).(func(string))
+	if put == nil {
+		return nil
+	}
+	return func(ClickEvent) { put(text) }
+}
+
+// copyID is the id of the button that copies text: the same for the same text, so
+// two Codes that show it can share it, as they do the same.
+func copyID(text string) string {
+	sum := sha256.Sum256([]byte(text))
+	return fmt.Sprintf("copy-%x", sum[:6])
 }
 
 // ClickID puts click in the Clicks ctx has, as id, unique in what it's rendered in: a

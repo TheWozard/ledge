@@ -6,7 +6,9 @@
    a .button-dot; one with a Click has data-click, and data-busy while it runs, and
    one without is disabled.
 
-   A Heading is an <h1> to <h6> by its level. Inline text is <strong>, <em>,
+   A Code block is a .code holding its <pre>, and, in a report, a <button
+   class="copy"> that copies its text, with data-click, put over the <pre>'s top
+   right corner here. A Heading is an <h1> to <h6> by its level. Inline text is <strong>, <em>,
    <code> (Mono) and <a> (LinkTo). A Quote is a <blockquote>, a Rule an <hr>, and
    Details a <details> with its <summary>, then its blocks. An Image is an <img>, or,
    for a src the page can't show, its alt in a <p class="image-alt">.
@@ -152,6 +154,15 @@ td {
 ul,
 ol {
   padding-left: 1.5em;
+}
+.code {
+  position: relative;
+}
+.copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font: inherit;
 }
 pre {
   overflow-x: auto;

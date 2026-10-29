@@ -181,9 +181,14 @@ templ listItems(items []Item) {
 }
 
 // Code is preformatted text, such as a log, in a fixed-width font. Long lines scroll
-// sideways.
+// sideways. Rendered WithCopy, as a report is, it has a button that copies its text.
 templ Code(text string) {
-	<pre><code>{ text }</code></pre>
+	<div class="code">
+		<pre><code>{ text }</code></pre>
+		if click := copyClick(ctx, text); click != nil {
+			<button type="button" class="copy" title="Copy" { Clickable(ctx, copyID(text), click)... }>Copy</button>
+		}
+	</div>
 }
 
 // Note is a callout in a colour; "" is gray. Line breaks in its text are kept.

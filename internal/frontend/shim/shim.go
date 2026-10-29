@@ -186,6 +186,13 @@ func OpenURL(url string) {
 	C.ledgeOpenURL(text)
 }
 
+// Copy puts text on the pasteboard, in place of what was there, as ⌘C would.
+func Copy(text string) {
+	cText := cString(text)
+	defer C.free(unsafe.Pointer(cText))
+	C.ledgeCopy(cText)
+}
+
 type evalResult struct {
 	value json.RawMessage
 	err   error

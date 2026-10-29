@@ -56,7 +56,7 @@ func must[T any](v T, err error) T {
 | `ui` | the bar and report windows: `Open` places the bar and loads its page, `Render` shows cards and `RenderCard` replaces one by its ID, `ShowReport` shows a report in its id's own window and `ShowReportBlock` replaces one block in it; clicks call the cards' `Click`s, a card's right-click menu its actions', and a report's buttons theirs |
 | `components` | the templ components: the pages (`BarPage`, `ReportPage`), the bar's contents (`BarContent`, from `Card`s of any kind, such as the built-in `Basic`, and their `Action`s), and the report blocks |
 | `theme` | a `Theme`: the bar's and report window's stylesheets, fonts inlined, and how the report window's frame looks; `ReadSet` finds the themes in any files, `Load` reads one, `Builtin` is one of the built-in themes |
-| `shim` | the native layer (cgo + Objective-C): windows and WKWebView, and nothing else |
+| `shim` | the native layer (cgo + Objective-C): windows and WKWebView, opening links and copying to the pasteboard, and nothing else |
 
 ### Components
 
@@ -167,7 +167,7 @@ clickable things in none. A theme styles what can be clicked by `[data-click]`. 
 | `Fields([]Field)` | label and value rows |
 | `Table(columns, rows)` | a table; short rows are padded, long ones cut |
 | `List(ordered, ...Item)` | bullets, or numbers; an `Item` can have a list of its own |
-| `Code(text)` | fixed-width text that scrolls sideways |
+| `Code(text)` | fixed-width text that scrolls sideways, with a button that copies it to the pasteboard |
 | `Note(color, ...)` | a callout in a colour |
 | `Quote(...)` | quoted text |
 | `Rule()` | a line between parts of the report |

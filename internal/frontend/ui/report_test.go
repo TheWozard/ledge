@@ -32,7 +32,7 @@ func TestReportWindow(t *testing.T) {
 	w := showReport(t, "report", "A report", reportBlocks)
 	waitIn(t, w, `document.querySelector(".titlebar span")?.textContent`, `"A report"`)
 	for js, want := range map[string]string{
-		`[...document.querySelectorAll("main > article > *")].map(e => e.tagName).join(" ")`: `"H2 P DL DIV OL PRE DIV P"`,
+		`[...document.querySelectorAll("main > article > *")].map(e => e.tagName).join(" ")`: `"H2 P DL DIV OL DIV DIV P"`,
 		`document.querySelector("p").textContent`:                                            `"<b>not bold</b>\nsecond line"`,
 		`document.querySelector("p b") === null`:                                             "true",
 		`[...document.querySelectorAll("dd")].map(e => e.textContent).join()`:                `"main,2"`,
@@ -51,6 +51,9 @@ func TestReportWindow(t *testing.T) {
 	if got := evalIn(t, w, `location.href`); got != `"about:blank"` {
 		t.Errorf("the link moved the report to %s", got)
 	}
+	// The code block's button copies its text.
+	evalIn(t, w, `document.querySelector(".code .copy").click(), true`)
+	eventually(t, "the code to be copied", func() bool { return calls.has("copy $ go test\nFAIL") })
 	// Showing its id again replaces it, in the same window, and the same page.
 	evalIn(t, w, `window.kept = true`)
 	if again := showReport(t, "report", "Another", []templ.Component{components.Paragraph(components.Text("Second version"))}); again != w {

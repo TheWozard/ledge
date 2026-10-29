@@ -108,6 +108,28 @@ pre {
   background: var(--code);
   border-radius: 8px;
 }
+/* A code block's copy button shows while the block's under the mouse. */
+.copy {
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--page);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.code:hover .copy,
+.copy:focus-visible {
+  opacity: 1;
+}
+.copy:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.copy:active {
+  background: var(--code);
+}
 .note {
   padding: 8px 12px;
   background: color-mix(in srgb, var(--note) 12%, var(--page));

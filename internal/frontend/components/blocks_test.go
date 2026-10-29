@@ -1,6 +1,7 @@
 package components
 
 import (
+	"context"
 	"slices"
 	"strings"
 	"testing"
@@ -36,7 +37,7 @@ func TestBlocks(t *testing.T) {
 		`<div class="field"><dt>Branch</dt><dd>main</dd></div><div class="field"><dt>Empty</dt><dd></dd></div>`,
 		"<th>Job</th><th>Result</th>", "<tr><td>lint</td><td><strong>ok</strong></td></tr>",
 		"<tr><td>test</td><td></td></tr>", "<tr><td>build</td><td>ok</td></tr>",
-		"<ol><li>one<ul><li>one a</li></ul></li><li>two</li></ol>", "<pre><code>$ go test\nFAIL</code></pre>",
+		"<ol><li>one<ul><li>one a</li></ul></li><li>two</li></ol>", "<div class=\"code\"><pre><code>$ go test\nFAIL</code></pre></div>",
 		`data-color="yellow" style="--note: var(--c-yellow);">Flaky`, `data-color="gray" style="--note: var(--c-gray);">Plain`,
 		`data-color="gray" style="--note: var(--c-gray);">Purple`,
 		"<blockquote>&lt;i&gt;quoted&lt;/i&gt;</blockquote>", "<hr>",
@@ -116,4 +117,31 @@ func TestButtons(t *testing.T) {
 
 	// Rendered without Clicks, a button has its id, and nothing takes its Click.
 	contains(t, render(t, Buttons([]Button{{ID: "x", Title: "X", Click: click("x")}})), `data-click="x"`)
+}
+
+// A Code block rendered WithCopy has a button that copies its text, with an id from
+// the text, in its Block's scope; without, it has none.
+func TestCode(t *testing.T) {
+	if html := render(t, Code("<b>log</b>")); html != `<div class="code"><pre><code>&lt;b&gt;log&lt;/b&gt;</code></pre></div>` {
+		t.Errorf("without WithCopy, the block is %s", html)
+	}
+	var got []string
+	clicks := &Clicks{}
+	ctx := WithCopy(WithClicks(context.Background(), clicks), func(text string) { got = append(got, text) })
+	var html strings.Builder
+	blocks := ReportContent([]templ.Component{Code("<b>log</b>"), Block{ID: "x", Content: Code("other")}, Code("<b>log</b>")})
+	if err := blocks.Render(ctx, &html); err != nil {
+		t.Fatal(err)
+	}
+	id := copyID("<b>log</b>")
+	contains(t, html.String(), `<pre><code>&lt;b&gt;log&lt;/b&gt;</code></pre><button type="button" class="copy" title="Copy" data-click="`+id+`">Copy</button></div>`,
+		`data-click="block/x/`+copyID("other")+`"`)
+	if ids := clicks.IDs(); !slices.Equal(ids, []string{"block/x/" + copyID("other"), id}) {
+		t.Fatalf("the Clicks have %q", ids)
+	}
+	clicks.Click(id)(ClickEvent{})
+	clicks.Click("block/x/" + copyID("other"))(ClickEvent{})
+	if !slices.Equal(got, []string{"<b>log</b>", "other"}) {
+		t.Errorf("the buttons copied %q", got)
+	}
 }

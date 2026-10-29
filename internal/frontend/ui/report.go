@@ -26,7 +26,7 @@ func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	blocks = slices.Clone(blocks)
 	b.mu.Lock()
 	t := b.options.Theme
-	html, clicks, err := renderReport(blocks)
+	html, clicks, err := renderReport(blocks, b.windows.Copy)
 	if err != nil {
 		b.mu.Unlock()
 		return err
@@ -70,7 +70,7 @@ func (b *Bar) ShowReportBlock(id string, block components.Block) (bool, error) {
 	if !ok {
 		return false, nil
 	}
-	html, clicks, err := renderReport(blocks)
+	html, clicks, err := renderReport(blocks, b.windows.Copy)
 	if err != nil {
 		return true, err
 	}
@@ -79,11 +79,13 @@ func (b *Bar) ShowReportBlock(id string, block components.Block) (bool, error) {
 	return true, nil
 }
 
-// renderReport renders blocks as a report shows them, and the Clicks in them.
-func renderReport(blocks []templ.Component) (string, *components.Clicks, error) {
+// renderReport renders blocks as a report shows them, and the Clicks in them, with
+// put to copy a Code block's text.
+func renderReport(blocks []templ.Component, put func(text string)) (string, *components.Clicks, error) {
 	var html strings.Builder
 	clicks := &components.Clicks{}
-	err := components.ReportContent(blocks).Render(components.WithClicks(context.Background(), clicks), &html)
+	ctx := components.WithCopy(components.WithClicks(context.Background(), clicks), put)
+	err := components.ReportContent(blocks).Render(ctx, &html)
 	return html.String(), clicks, err
 }
 

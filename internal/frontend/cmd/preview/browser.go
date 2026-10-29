@@ -419,3 +419,7 @@ func (w *browserWindows) ShowMenu([]shim.MenuItem) shim.Chosen {
 
 // OpenURL is never asked: a report's links open in a new tab themselves.
 func (w *browserWindows) OpenURL(url string) { log.Printf("open %s", url) }
+
+// Copy logs what a Code block's button would copy: the server can't reach the
+// browser's clipboard, and the pasteboard is the machine's, not the browser's.
+func (w *browserWindows) Copy(text string) { log.Printf("copy %q", text) }

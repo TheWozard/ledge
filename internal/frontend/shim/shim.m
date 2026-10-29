@@ -528,6 +528,15 @@ void ledgeOpenURL(const char *url) {
     }
 }
 
+void ledgeCopy(const char *text) {
+    NSString *string = [NSString stringWithUTF8String:text];
+    onMain(^{
+        NSPasteboard *pasteboard = [NSPasteboard generalPasteboard];
+        [pasteboard clearContents];
+        [pasteboard setString:string forType:NSPasteboardTypeString];
+    });
+}
+
 void ledgeEvalResult(int window, const char *js, uintptr_t handle) {
     NSString *text = [NSString stringWithUTF8String:js];
     onMain(^{

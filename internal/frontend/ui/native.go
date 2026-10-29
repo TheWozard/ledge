@@ -8,10 +8,10 @@ import (
 
 // Windows is what a bar asks of its windows once it's open: loading pages in them,
 // each by its window id, and running JS in them; opening and showing reports' windows
-// and the menu's pop-up; the native menu; and opening a link in the browser. Open's
-// are the screen's, through the shim; OpenIn's can be anything that shows the pages,
-// such as a browser's frames. Opening and placing the bar, and the shim's handlers, are
-// Open's alone.
+// and the menu's pop-up; the native menu; opening a link in the browser; and copying
+// a Code block's text to the pasteboard. Open's are the screen's, through the shim;
+// OpenIn's can be anything that shows the pages, such as a browser's frames. Opening
+// and placing the bar, and the shim's handlers, are Open's alone.
 //
 // The bar evaluates JS in a page only once the page has posted "ready", but for
 // EvalResult, which it asks of the menu's page once that has. The calls but EvalResult
@@ -34,6 +34,7 @@ type Windows interface {
 	ShowMenu(items []shim.MenuItem) shim.Chosen
 
 	OpenURL(url string)
+	Copy(text string)
 }
 
 // shimNative is the screen's Windows, through the shim.
@@ -63,3 +64,4 @@ func (shimNative) HidePopup(window int)                       { shim.HidePopup(w
 func (shimNative) ShowMenu(items []shim.MenuItem) shim.Chosen { return shim.ShowMenu(items) }
 
 func (shimNative) OpenURL(url string) { shim.OpenURL(url) }
+func (shimNative) Copy(text string)   { shim.Copy(text) }

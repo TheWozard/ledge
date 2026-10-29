@@ -13,7 +13,7 @@ import (
 
 // fakeNative stands in for the windows in the tests that don't open any: it records
 // what each window is loaded with and what's run in it, which windows are showing,
-// the native menus popped up and the links opened. It measures a theme's menu as
+// the native menus popped up, the links opened and the text copied. It measures a theme's menu as
 // 120 by 40, and chooses from a native menu what choose says, or nothing.
 type fakeNative struct {
 	mu      sync.Mutex
@@ -24,6 +24,7 @@ type fakeNative struct {
 	menus   [][]shim.MenuItem
 	choose  func(items []shim.MenuItem) shim.Chosen
 	urls    []string
+	copied  []string
 }
 
 func (f *fakeNative) LoadHTML(window int, html string) {
@@ -86,6 +87,12 @@ func (f *fakeNative) OpenURL(url string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.urls = append(f.urls, url)
+}
+
+func (f *fakeNative) Copy(text string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.copied = append(f.copied, text)
 }
 
 // page is what window was last loaded with, or "".

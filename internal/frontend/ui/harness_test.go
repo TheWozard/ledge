@@ -142,6 +142,7 @@ var standIn struct {
 }
 
 func (guiNative) OpenURL(url string) { calls.add("url " + url) }
+func (guiNative) Copy(text string)   { calls.add("copy " + text) }
 
 func (n guiNative) ShowMenu(items []shim.MenuItem) shim.Chosen {
 	standIn.mu.Lock()
