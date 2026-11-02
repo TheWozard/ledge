@@ -174,6 +174,7 @@ clickable things in none. A theme styles what can be clicked by `[data-click]`. 
 | `Details(summary, ...blocks)` | blocks hidden under a summary until it's clicked |
 | `Image(src, alt)` | a picture from a `data:` URL of an image; any other src shows only `alt` |
 | `Buttons([]Button)` | a row of buttons, each with a dot in its colour, calling its `Click`; one without is disabled |
+| `Checkbox(Toggle)` | a box, ticked if `Checked`, with its `Label` after it, that calls `Set` with the opposite when clicked; one without is disabled. It goes on showing `Checked`, so to show it changed, show the report, or its block, again with that as `Checked` |
 | `Dropdown(Select)` | a drop-down showing `Value`, whose options pop up in the theme's menu, as a card's actions do, at the mouse or under it as the theme has it, calling `Choose` with the one chosen; one without is disabled. It goes on showing `Value`, so to show what was chosen, show the report, or its block, again with that as `Value` |
 
 Text in a block, the `...` above, a field's value and a table's cells, is `Inline`:

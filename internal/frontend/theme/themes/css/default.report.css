@@ -197,6 +197,51 @@ a {
 .select[data-busy] {
   animation: blink 1.2s ease-in-out infinite;
 }
+/* A checkbox is its box and label, plain: the box a rounded square, filled in the
+   accent with a white tick when checked. One whose Set is running blinks; one
+   without a Set is faded. */
+.checkbox {
+  gap: 6px;
+  padding: 0;
+  color: var(--text);
+  background: none;
+  border: none;
+}
+.checkbox-box {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  background: var(--page);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.checkbox[aria-checked="true"] .checkbox-box {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+/* The tick: an L of two borders, turned, in the middle of the box, and nudged up a
+   little, as the turned L's corner hangs below its middle. */
+.checkbox[aria-checked="true"] .checkbox-box::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  box-sizing: border-box;
+  width: 5px;
+  height: 9px;
+  content: "";
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: translate(-50%, -60%) rotate(45deg);
+}
+.checkbox:enabled:hover .checkbox-box {
+  border-color: var(--accent);
+}
+.checkbox:disabled {
+  opacity: 0.5;
+}
+.checkbox[data-busy] {
+  animation: blink 1.2s ease-in-out infinite;
+}
 /* A run's button's dot, or its icon, is in its state's colour, pulsing while it
    runs; with its icon, 18px, the button's left side is narrower, and the stop
    button's, the icon alone, both sides. Its status word
@@ -219,6 +264,7 @@ a {
 @media (prefers-reduced-motion: reduce) {
   .button[data-busy],
   .select[data-busy],
+  .checkbox[data-busy],
   .run[data-state="running"] .run-bar > .buttons:first-child :is(.button-dot, .icon) {
     animation: none;
   }

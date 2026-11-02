@@ -2,7 +2,8 @@
 // the pages (BarPage, ReportPage), what goes in them (BarContent, and the report
 // blocks: Heading, Paragraph, Fields, Table, List, Code, Note, Quote, Rule, Details,
 // Image, Buttons, RunBlock, and the Inline text in them: Text, Strong, Em, Mono, LinkTo,
-// and a Dropdown), and the data they show (Card, Action, Button, Select, Run).
+// and a Dropdown and Checkbox), and the data they show (Card, Action, Button, Select,
+// Toggle, Run).
 //
 // Each kind of card has a file of its own (basic.templ, timer.templ), with its type
 // and its body. The pages' layout styles and scripts are in page/.

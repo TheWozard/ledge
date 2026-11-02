@@ -298,6 +298,43 @@ func TestReportDropdown(t *testing.T) {
 	eventually(t, "the report window to close", func() bool { return !shim.WindowVisible(w) })
 }
 
+// Clicking a report's checkbox calls its Set with the opposite of its state, and it
+// goes on showing its state; it's busy until Set has run, and a click meanwhile is
+// dropped. A disabled one is disabled.
+func TestReportCheckbox(t *testing.T) {
+	gui(t)
+	release := make(chan bool)
+	t.Cleanup(func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	})
+	w := showReport(t, "checkbox", "Checkbox", []templ.Component{
+		components.Paragraph(components.Checkbox(components.Toggle{ID: "muted", Label: "Muted",
+			Set: func(checked bool) { calls.add(fmt.Sprint("muted ", checked)); <-release }})),
+		components.Paragraph(components.Checkbox(components.Toggle{ID: "off", Label: "Off", Checked: true})),
+	})
+	waitIn(t, w, `document.querySelectorAll(".checkbox").length`, "2")
+	box := `document.querySelector(".checkbox")`
+	evalIn(t, w, box+`.click(), true`)
+	eventually(t, "muted true", func() bool { return calls.has("muted true") })
+	waitIn(t, w, box+`.hasAttribute("data-busy")`, "true")
+	evalIn(t, w, box+`.click(), true`) // dropped: still running
+	close(release)
+	waitIn(t, w, box+`.hasAttribute("data-busy")`, "false")
+	if calls.count("muted true") != 1 || calls.has("muted false") {
+		t.Errorf("clicking it twice, the second while Set ran, set it %d times", calls.count("muted true"))
+	}
+	if got := evalIn(t, w, box+`.getAttribute("aria-checked")`); got != `"false"` {
+		t.Errorf("once Set had run, it showed aria-checked %s, want false until it's shown again", got)
+	}
+	waitIn(t, w, `document.querySelectorAll(".checkbox")[1].disabled`, "true")
+	evalIn(t, w, `window.webkit.messageHandlers.frame.postMessage("close"), true`)
+	eventually(t, "the report window to close", func() bool { return !shim.WindowVisible(w) })
+}
+
 // In a theme without a menu of its own, a report's drop-down pops its options up in
 // the native menu, the one it shows checked and none with a dot, and calls its Choose
 // with the one chosen; with none chosen, it doesn't. The menu opens at the mouse, or,

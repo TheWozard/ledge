@@ -11,6 +11,7 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"context"
 	"slices"
+	"strconv"
 )
 
 // The blocks a report is made of, drawn top to bottom in ReportPage, and the Inline
@@ -47,7 +48,7 @@ func Text(text string) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(text)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 19, Col: 7}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 20, Col: 7}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -193,7 +194,7 @@ func Mono(text string) templ.Component {
 		var templ_7745c5c3_Var7 string
 		templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(text)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 44, Col: 13}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 45, Col: 13}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 		if templ_7745c5c3_Err != nil {
@@ -238,7 +239,7 @@ func LinkTo(url string, parts ...Inline) templ.Component {
 		var templ_7745c5c3_Var9 templ.SafeURL
 		templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinURLErrs(templ.URL(url))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 51, Col: 25}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 52, Col: 25}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 		if templ_7745c5c3_Err != nil {
@@ -251,7 +252,7 @@ func LinkTo(url string, parts ...Inline) templ.Component {
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.ResolveAttributeValue(url)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 51, Col: 39}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 52, Col: 39}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var10)
 		if templ_7745c5c3_Err != nil {
@@ -459,7 +460,7 @@ func Fields(items []Field) templ.Component {
 			var templ_7745c5c3_Var14 string
 			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(item.Label)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 106, Col: 20}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 107, Col: 20}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 			if templ_7745c5c3_Err != nil {
@@ -523,7 +524,7 @@ func Table(columns []string, rows [][]Inline) templ.Component {
 			var templ_7745c5c3_Var16 string
 			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(column)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 125, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 126, Col: 18}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 			if templ_7745c5c3_Err != nil {
@@ -719,7 +720,7 @@ func Code(text string) templ.Component {
 		var templ_7745c5c3_Var20 string
 		templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(text)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 193, Col: 19}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 194, Col: 19}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 		if templ_7745c5c3_Err != nil {
@@ -788,7 +789,7 @@ func Note(color string, parts ...Inline) templ.Component {
 		var templ_7745c5c3_Var22 string
 		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.ResolveAttributeValue(colorName(color))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 204, Col: 48}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 205, Col: 48}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var22)
 		if templ_7745c5c3_Err != nil {
@@ -801,7 +802,7 @@ func Note(color string, parts ...Inline) templ.Component {
 		var templ_7745c5c3_Var23 string
 		templ_7745c5c3_Var23, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(templ.SafeCSS("--note: " + cssColor(color)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 204, Col: 102}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 205, Col: 102}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var23))
 		if templ_7745c5c3_Err != nil {
@@ -974,7 +975,7 @@ func Image(src string, alt string) templ.Component {
 			var templ_7745c5c3_Var28 string
 			templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.ResolveAttributeValue(templ.SafeURL(src))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 241, Col: 31}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 242, Col: 31}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var28)
 			if templ_7745c5c3_Err != nil {
@@ -987,7 +988,7 @@ func Image(src string, alt string) templ.Component {
 			var templ_7745c5c3_Var29 string
 			templ_7745c5c3_Var29, templ_7745c5c3_Err = templ.ResolveAttributeValue(alt)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 241, Col: 43}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 242, Col: 43}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var29)
 			if templ_7745c5c3_Err != nil {
@@ -1005,7 +1006,7 @@ func Image(src string, alt string) templ.Component {
 			var templ_7745c5c3_Var30 string
 			templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.JoinStringErrs(alt)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 243, Col: 28}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 244, Col: 28}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var30))
 			if templ_7745c5c3_Err != nil {
@@ -1022,7 +1023,7 @@ func Image(src string, alt string) templ.Component {
 
 // Button is a button in a report's Buttons: its title, with a dot in its colour (a
 // theme's named colour or #rrggbb; anything else is gray). Its ID is the app's,
-// unique in its Block, or among the report's buttons in none.
+// unique in its Block, or among the report's buttons, selects and checkboxes in none.
 type Button struct {
 	ID    string
 	Title string
@@ -1104,7 +1105,7 @@ func buttonWith(button Button, icon string, tooltip string) templ.Component {
 		var templ_7745c5c3_Var33 string
 		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.ResolveAttributeValue(colorName(button.Color))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 275, Col: 38}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 276, Col: 38}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var33)
 		if templ_7745c5c3_Err != nil {
@@ -1117,7 +1118,7 @@ func buttonWith(button Button, icon string, tooltip string) templ.Component {
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(templ.SafeCSS("--button: " + cssColor(button.Color)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 276, Col: 62}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 277, Col: 62}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var34))
 		if templ_7745c5c3_Err != nil {
@@ -1135,7 +1136,7 @@ func buttonWith(button Button, icon string, tooltip string) templ.Component {
 			var templ_7745c5c3_Var35 string
 			templ_7745c5c3_Var35, templ_7745c5c3_Err = templ.ResolveAttributeValue(tooltip)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 279, Col: 18}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 280, Col: 18}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var35)
 			if templ_7745c5c3_Err != nil {
@@ -1203,7 +1204,7 @@ func buttonLabel(icon string, title string) templ.Component {
 			var templ_7745c5c3_Var37 string
 			templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 294, Col: 54}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 295, Col: 54}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 			if templ_7745c5c3_Err != nil {
@@ -1217,7 +1218,7 @@ func buttonLabel(icon string, title string) templ.Component {
 			var templ_7745c5c3_Var38 string
 			templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 296, Col: 41}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 297, Col: 41}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
 			if templ_7745c5c3_Err != nil {
@@ -1230,8 +1231,8 @@ func buttonLabel(icon string, title string) templ.Component {
 
 // Select is a drop-down, such as in a table's cell, for choosing one of its Options:
 // an outcome's state, say. It shows Value, or the first option if Value isn't one.
-// Its ID is the app's, unique in its Block, or among the report's buttons and selects
-// in none.
+// Its ID is the app's, unique in its Block, or among the report's buttons, selects
+// and checkboxes in none.
 type Select struct {
 	ID      string
 	Options []string
@@ -1290,7 +1291,7 @@ func Dropdown(s Select) templ.Component {
 		var templ_7745c5c3_Var40 string
 		templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.JoinStringErrs(s.shown())
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 328, Col: 13}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 329, Col: 13}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var40))
 		if templ_7745c5c3_Err != nil {
@@ -1332,6 +1333,107 @@ func (s Select) open(ctx context.Context) Click {
 		}
 		if i := choose(items, at); i >= 0 && i < len(s.Options) {
 			s.Choose(s.Options[i])
+		}
+	}
+}
+
+// Toggle is a box to tick, such as in a table's cell, for something that's on or off:
+// a failure's being assigned, say. It's ticked if Checked, with its Label, if any,
+// after it. Its ID is the app's, unique in its Block, or among the report's buttons,
+// selects and checkboxes in none.
+type Toggle struct {
+	ID      string
+	Label   string
+	Checked bool
+	// Set is clicking the box, with what it's to be: not Checked. Without one, it's
+	// disabled. The box goes on showing Checked, so to show it changed, show the
+	// report, or its Block, again with it as Checked.
+	Set func(checked bool)
+}
+
+// Checkbox is a <button class="checkbox" role="checkbox"> for t, its state in
+// aria-checked: a .checkbox-box, then its label. Clicking it calls its Set with the
+// opposite of Checked, on a goroutine of the app's; while that runs, it has
+// data-busy, and clicking it again does nothing.
+func Checkbox(t Toggle) templ.Component {
+	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+			return templ_7745c5c3_CtxErr
+		}
+		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+		if !templ_7745c5c3_IsBuffer {
+			defer func() {
+				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err == nil {
+					templ_7745c5c3_Err = templ_7745c5c3_BufErr
+				}
+			}()
+		}
+		ctx = templ.InitializeContext(ctx)
+		templ_7745c5c3_Var41 := templ.GetChildren(ctx)
+		if templ_7745c5c3_Var41 == nil {
+			templ_7745c5c3_Var41 = templ.NopComponent
+		}
+		ctx = templ.ClearChildren(ctx)
+		click := t.click()
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "<button type=\"button\" class=\"checkbox\" role=\"checkbox\" aria-checked=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var42 string
+		templ_7745c5c3_Var42, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.FormatBool(t.Checked))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 388, Col: 46}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var42)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templ.RenderAttributes(ctx, templ_7745c5c3_Buffer, Clickable(ctx, t.ID, click))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if click == nil {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, " disabled")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "><span class=\"checkbox-box\"></span>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var43 string
+		templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(t.Label)
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `components/blocks.templ`, Line: 393, Col: 45}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "</button>")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		return nil
+	})
+}
+
+// click is the Click of t's box: its Set with the opposite of Checked, or nil without
+// one. A middle click does nothing.
+func (t Toggle) click() Click {
+	if t.Set == nil {
+		return nil
+	}
+	return func(e ClickEvent) {
+		if !e.Middle {
+			t.Set(!t.Checked)
 		}
 	}
 }

@@ -3,6 +3,7 @@ package components
 import (
 	"context"
 	"slices"
+	"strconv"
 )
 
 // The blocks a report is made of, drawn top to bottom in ReportPage, and the Inline
@@ -246,7 +247,7 @@ templ Image(src string, alt string) {
 
 // Button is a button in a report's Buttons: its title, with a dot in its colour (a
 // theme's named colour or #rrggbb; anything else is gray). Its ID is the app's,
-// unique in its Block, or among the report's buttons in none.
+// unique in its Block, or among the report's buttons, selects and checkboxes in none.
 type Button struct {
 	ID    string
 	Title string
@@ -299,8 +300,8 @@ templ buttonLabel(icon string, title string) {
 
 // Select is a drop-down, such as in a table's cell, for choosing one of its Options:
 // an outcome's state, say. It shows Value, or the first option if Value isn't one.
-// Its ID is the app's, unique in its Block, or among the report's buttons and selects
-// in none.
+// Its ID is the app's, unique in its Block, or among the report's buttons, selects
+// and checkboxes in none.
 type Select struct {
 	ID      string
 	Options []string
@@ -356,6 +357,51 @@ func (s Select) open(ctx context.Context) Click {
 		}
 		if i := choose(items, at); i >= 0 && i < len(s.Options) {
 			s.Choose(s.Options[i])
+		}
+	}
+}
+
+// Toggle is a box to tick, such as in a table's cell, for something that's on or off:
+// a failure's being assigned, say. It's ticked if Checked, with its Label, if any,
+// after it. Its ID is the app's, unique in its Block, or among the report's buttons,
+// selects and checkboxes in none.
+type Toggle struct {
+	ID      string
+	Label   string
+	Checked bool
+	// Set is clicking the box, with what it's to be: not Checked. Without one, it's
+	// disabled. The box goes on showing Checked, so to show it changed, show the
+	// report, or its Block, again with it as Checked.
+	Set func(checked bool)
+}
+
+// Checkbox is a <button class="checkbox" role="checkbox"> for t, its state in
+// aria-checked: a .checkbox-box, then its label. Clicking it calls its Set with the
+// opposite of Checked, on a goroutine of the app's; while that runs, it has
+// data-busy, and clicking it again does nothing.
+templ Checkbox(t Toggle) {
+	{{ click := t.click() }}
+	<button
+		type="button"
+		class="checkbox"
+		role="checkbox"
+		aria-checked={ strconv.FormatBool(t.Checked) }
+		{ Clickable(ctx, t.ID, click)... }
+		if click == nil {
+			disabled
+		}
+	><span class="checkbox-box"></span>{ t.Label }</button>
+}
+
+// click is the Click of t's box: its Set with the opposite of Checked, or nil without
+// one. A middle click does nothing.
+func (t Toggle) click() Click {
+	if t.Set == nil {
+		return nil
+	}
+	return func(e ClickEvent) {
+		if !e.Middle {
+			t.Set(!t.Checked)
 		}
 	}
 }

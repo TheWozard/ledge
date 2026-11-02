@@ -6,7 +6,11 @@
    a .button-dot; one with a Click has data-click, and data-busy while it runs, and
    one without is disabled. A Dropdown is a <button class="select"> showing its
    value, with data-click, and data-busy while its menu's open and choosing from it
-   runs; one without a Choose is disabled. Its options pop up in the theme's menu.
+   runs; one without a Choose is disabled. Its options pop up in the theme's menu. A
+   Checkbox is a <button class="checkbox" role="checkbox">, aria-checked "true" or
+   "false": a .checkbox-box, for the theme to draw the box and its tick in, then its
+   label. It has data-click, and data-busy while its Set runs; one without a Set is
+   disabled.
 
    A Code block is a .code holding its <pre>, and, in a report, a <button
    class="copy"> that copies its text, with data-click, put over the <pre>'s top
@@ -226,10 +230,14 @@ pre {
   flex-wrap: wrap;
   gap: 8px;
 }
-.button {
+.button,
+.checkbox {
   display: inline-flex;
   align-items: center;
   font: inherit;
+}
+.checkbox-box {
+  flex: none;
 }
 [data-click] {
   cursor: pointer;
@@ -237,6 +245,7 @@ pre {
 [data-click][data-busy] {
   cursor: progress;
 }
-.button:disabled {
+.button:disabled,
+.checkbox:disabled {
   cursor: default;
 }

@@ -225,3 +225,29 @@ func TestDropdown(t *testing.T) {
 		t.Errorf("without WithMenu, the drop-down is %s", html)
 	}
 }
+
+// A Checkbox is a button with its state in aria-checked, its box, then its label,
+// escaped, with an id whose Click calls its Set with the opposite of its state; a
+// middle click doesn't. One without a Set is disabled.
+func TestCheckbox(t *testing.T) {
+	var got []bool
+	set := func(checked bool) { got = append(got, checked) }
+	html, clicks := renderClicks(t, ReportContent([]templ.Component{
+		Checkbox(Toggle{ID: "muted", Label: "<Muted>", Set: set}),
+		Block{ID: "row", Content: Checkbox(Toggle{ID: "muted", Checked: true, Set: set})},
+		Checkbox(Toggle{ID: "off", Label: "Off", Checked: true}),
+	}))
+	contains(t, html,
+		`<button type="button" class="checkbox" role="checkbox" aria-checked="false" data-click="muted"><span class="checkbox-box"></span>&lt;Muted&gt;</button>`,
+		`<button type="button" class="checkbox" role="checkbox" aria-checked="true" data-click="block/row/muted"><span class="checkbox-box"></span></button>`,
+		`<button type="button" class="checkbox" role="checkbox" aria-checked="true" disabled><span class="checkbox-box"></span>Off</button>`)
+	if ids := []string{"block/row/muted", "muted"}; !slices.Equal(clicks.IDs(), ids) {
+		t.Fatalf("Clicks have %q, want %q", clicks.IDs(), ids)
+	}
+	clicks.Click("muted")(ClickEvent{})
+	clicks.Click("block/row/muted")(ClickEvent{Shift: true})
+	clicks.Click("muted")(ClickEvent{Middle: true})
+	if !slices.Equal(got, []bool{true, false}) {
+		t.Errorf("the Clicks set %v, want the unchecked one checked, then the checked one unchecked", got)
+	}
+}

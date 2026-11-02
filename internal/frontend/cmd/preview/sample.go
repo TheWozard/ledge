@@ -30,6 +30,7 @@ type sample struct {
 	started  time.Time         // when the long report's run started
 	assigned bool              // whether the long report's failures are assigned, as its triage block shows
 	outcomes map[string]string // the outcome chosen for each of the long report's jobs, by its name
+	muted    map[string]bool   // which of the long report's jobs are muted, by name
 	run      components.Run    // the long report's test command, and its last run
 	ran      int               // how many times the long report's command has run; every other one fails
 	stopped  bool              // whether the long report's run's been stopped
@@ -243,8 +244,8 @@ func (s *sample) triage() templ.Component {
 		components.Buttons([]components.Button{{ID: "assign", Title: "Assign to me", Color: "blue", Click: assign}}))
 }
 
-// jobs is the long report's jobs table, each job with a drop-down of its outcome,
-// choosing which replaces the block with the outcome chosen. Call it with s's lock
+// jobs is the long report's jobs table, each job with a drop-down of its outcome and
+// a checkbox muting it, choosing or ticking which replaces the block as it is then. Call it with s's lock
 // held.
 func (s *sample) jobs() templ.Component {
 	var rows [][]components.Inline
@@ -261,11 +262,23 @@ func (s *sample) jobs() templ.Component {
 			s.mu.Unlock()
 			s.replace(longID, components.Block{ID: "jobs", Content: block})
 		}
+		mute := func(muted bool) {
+			s.mu.Lock()
+			if s.muted == nil {
+				s.muted = map[string]bool{}
+			}
+			s.muted[name] = muted
+			log.Printf("%s muted: %v", name, muted)
+			block := s.jobs()
+			s.mu.Unlock()
+			s.replace(longID, components.Block{ID: "jobs", Content: block})
+		}
 		outcome := components.Dropdown(components.Select{ID: name, Options: []string{"untriaged", "flaky", "fixed", "won't fix"},
 			Value: s.outcomes[name], Choose: choose})
-		rows = append(rows, append(cells([][]string{job})[0], outcome))
+		muted := components.Checkbox(components.Toggle{ID: name + "-muted", Label: "Muted", Checked: s.muted[name], Set: mute})
+		rows = append(rows, append(cells([][]string{job})[0], outcome, muted))
 	}
-	return components.Table([]string{"Job", "Result", "Time", "Outcome"}, rows)
+	return components.Table([]string{"Job", "Result", "Time", "Outcome", ""}, rows)
 }
 
 // runCommand is the long report's run's Click: it shows the run going, adds a line
