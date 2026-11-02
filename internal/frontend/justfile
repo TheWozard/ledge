@@ -21,15 +21,25 @@ check-generated:
         exit 1
     fi
 
-# Lint the CSS with Biome (brew install biome); see biome.json. Warnings fail it too.
+# Lint the CSS with Biome (brew install biome), see biome.json, warnings failing it too;
+# then fail if any Go file isn't gofmt'd.
 lint:
-    biome lint --error-on-warnings
+    #!/usr/bin/env sh
+    biome lint --error-on-warnings || exit 1
+    unformatted=$(gofmt -l .)
+    if [ -n "$unformatted" ]; then
+        echo "not gofmt'd (just fmt fixes them):" >&2
+        echo "$unformatted" >&2
+        exit 1
+    fi
 
-# Clean up the CSS with Biome: format it, sort each rule's properties, apply safe fixes.
+# Clean up the CSS with Biome: format it, sort each rule's properties, apply safe fixes;
+# then gofmt the Go files.
 fmt:
     biome check --write
+    gofmt -w .
 
-# The CSS lint, then the tests that don't open windows.
+# The lint, then the tests that don't open windows.
 test: generate lint
     go test ./...
 

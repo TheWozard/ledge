@@ -282,8 +282,8 @@ go install github.com/a-h/templ/cmd/templ@v0.3.1070
 brew install biome
 just generate      # templ generate
 just check-generated # fail if the committed *_templ.go are stale
-just lint          # biome lint, failing on warnings too
-just fmt           # format the CSS and sort each rule's properties, writing the changes
+just lint          # biome lint, failing on warnings too, then gofmt -l
+just fmt           # format the CSS and sort each rule's properties, and gofmt the Go, writing the changes
 just test          # just lint, then go test ./...
 just gui           # the tests that open windows, those for each theme in only the default
 just gui-themes default # only the tests for each theme, in those themes
@@ -292,8 +292,8 @@ just preview default # a bar and a report window in a theme (or a .json), until 
 just inspect default # the same pages in the browser, to inspect (a card's menu opens in the report frame); theme edits show on a reload
 ```
 
-On GitHub, [ci.yml](.github/workflows/ci.yml) runs the lint, `check-generated`,
-`gofmt`, `go vet` and the tests that don't open windows on every push to `main` and
+On GitHub, [ci.yml](.github/workflows/ci.yml) runs the lint (Biome and
+`gofmt`), `check-generated`, `go vet` and the tests that don't open windows on every push to `main` and
 every pull request, on macOS (the shim is Cocoa, so nothing builds elsewhere). The
 tests that open windows run only locally, with `just gui`.
 
