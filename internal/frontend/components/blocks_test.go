@@ -182,7 +182,10 @@ func TestDropdown(t *testing.T) {
 	var ats []string
 	chosen := 1
 	choose := func(value string) { got = append(got, value) }
-	menu := func(items []MenuItem, at string) int { menus, ats = append(menus, items), append(ats, at); return chosen }
+	menu := func(items []MenuItem, at string) int {
+		menus, ats = append(menus, items), append(ats, at)
+		return chosen
+	}
 	blocks := ReportContent([]templ.Component{
 		Dropdown(Select{ID: "outcome", Options: []string{"pending", "<passed>"}, Value: "<passed>", Choose: choose}),
 		Block{ID: "row", Content: Dropdown(Select{ID: "outcome", Options: []string{"a", "b"}, Value: "c", Choose: choose})},

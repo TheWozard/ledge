@@ -266,9 +266,9 @@ func TestReportDropdown(t *testing.T) {
 
 	open()
 	for js, want := range map[string]string{
-		`[...document.querySelectorAll(".menu-title")].map(e => e.textContent).join("|")`: `"pending|passed|failed"`,
+		`[...document.querySelectorAll(".menu-title")].map(e => e.textContent).join("|")`:   `"pending|passed|failed"`,
 		`[...document.querySelectorAll("[aria-checked]")].map(e => e.dataset.index).join()`: `"1"`,
-		`document.querySelectorAll(".menu-dot, [aria-disabled]").length`:                  "0",
+		`document.querySelectorAll(".menu-dot, [aria-disabled]").length`:                    "0",
 	} {
 		if got := evalIn(t, MenuWindow, js); got != want {
 			t.Errorf("%s = %s, want %s", js, got, want)
