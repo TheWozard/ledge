@@ -46,11 +46,13 @@ type Theme struct {
 	Name   string // for errors and logs
 	Bar    string // the bar's stylesheet
 	Report string // the report window's stylesheet
-	// Menu is the stylesheet of a card's menu of actions, drawn as a page in a pop-up
-	// of its own; "" for the native macOS menu instead.
-	Menu  string
-	Frame Frame
-	Icons Icons
+	// Menu is the stylesheet of the menus, a card's of actions and a report's
+	// drop-down's of options, drawn as a page in a pop-up of their own; "" for the
+	// native macOS menu instead.
+	Menu     string
+	Frame    Frame
+	Dropdown Dropdown
+	Icons    Icons
 }
 
 // Icons is a theme's pictures for the bar's and report's buttons, in place of their
@@ -81,9 +83,18 @@ type Frame struct {
 	Frameless bool `json:"frameless,omitempty"`
 }
 
+// Dropdown is how a theme opens a report's drop-down's menu.
+type Dropdown struct {
+	// Menu is where the menu of options opens: "below" the drop-down, lined up with
+	// its left edge (above it if there's no room below), or "mouse", or "", at the
+	// mouse, as a card's menu does.
+	Menu string `json:"menu,omitempty"`
+}
+
 // Manifest is a theme's json file: its name, the stylesheets for each page, joined
-// in order, and its Frame. A stylesheet's path is relative to the manifest, so files
-// such as a font's @font-face rules can be shared between pages and themes:
+// in order, its Frame and its Dropdown. A stylesheet's path is relative to the
+// manifest, so files such as a font's @font-face rules can be shared between pages
+// and themes:
 //
 //	{
 //	  "name": "neon",
@@ -91,20 +102,22 @@ type Frame struct {
 //	  "report": ["css/neon-font.css", "css/neon.report.css"],
 //	  "menu": ["css/neon-font.css", "css/neon.menu.css"],
 //	  "frame": {"appearance": "dark"},
+//	  "dropdown": {"menu": "below"},
 //	  "icons": {"menu": "icons/ellipsis.svg", "dismiss": "icons/xmark.svg", "copy": "icons/copy.svg"}
 //	}
 //
-// "menu" is optional: without it, a card's menu is the native one. So are "icons",
-// and each of them; see Icons. One theme in a Set can say it's the Default, the one
-// to use when none is chosen.
+// "menu" is optional: without it, the menus are the native ones. So are "dropdown"
+// (see Dropdown) and "icons", and each of them; see Icons. One theme in a Set can
+// say it's the Default, the one to use when none is chosen.
 type Manifest struct {
-	Name    string   `json:"name"`
-	Default bool     `json:"default,omitempty"`
-	Bar     []string `json:"bar"`
-	Report  []string `json:"report"`
-	Menu    []string `json:"menu,omitempty"`
-	Frame   Frame    `json:"frame"`
-	Icons   Icons    `json:"icons"`
+	Name     string   `json:"name"`
+	Default  bool     `json:"default,omitempty"`
+	Bar      []string `json:"bar"`
+	Report   []string `json:"report"`
+	Menu     []string `json:"menu,omitempty"`
+	Frame    Frame    `json:"frame"`
+	Dropdown Dropdown `json:"dropdown"`
+	Icons    Icons    `json:"icons"`
 }
 
 // Load reads the theme whose manifest is file in fsys: each page's stylesheets, joined
@@ -124,7 +137,7 @@ func Load(fsys fs.FS, file string) (Theme, error) {
 
 // load is the theme manifest describes, read from file in fsys.
 func load(fsys fs.FS, file string, manifest Manifest) (Theme, error) {
-	t := Theme{Name: manifest.Name, Frame: manifest.Frame}
+	t := Theme{Name: manifest.Name, Frame: manifest.Frame, Dropdown: manifest.Dropdown}
 	dir := path.Dir(file)
 	var err error
 	if t.Bar, err = joinStylesheets(fsys, dir, manifest.Bar); err != nil {
@@ -266,6 +279,8 @@ func readManifest(data []byte) (Manifest, error) {
 		return manifest, errors.New("no name")
 	case !slices.Contains([]string{"", "light", "dark"}, manifest.Frame.Appearance):
 		return manifest, fmt.Errorf("appearance %q isn't light, dark or unset", manifest.Frame.Appearance)
+	case !slices.Contains([]string{"", "mouse", "below"}, manifest.Dropdown.Menu):
+		return manifest, fmt.Errorf("dropdown menu %q isn't below, mouse or unset", manifest.Dropdown.Menu)
 	}
 	for _, icon := range manifest.Icons.all() {
 		if strings.Contains(*icon, ":") && !isRemote(*icon) {

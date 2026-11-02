@@ -103,12 +103,14 @@ type Action struct {
 	Click Click
 }
 
-// MenuItem is an action as an item in its card's menu.
+// MenuItem is an item in a menu: an action in its card's menu, or an option of a
+// Dropdown.
 type MenuItem struct {
 	Title   string
-	Color   string // a named colour or #rrggbb, as colorName has it
-	Enabled bool   // whether it can be chosen: it has a Click
-	ID      string // its action's, with its card's, so it's unique on the bar
+	Color   string // a named colour or #rrggbb, as colorName has it, or "" for no dot
+	Enabled bool   // whether it can be chosen: an action's has a Click
+	Checked bool   // whether it's what's chosen now: a Dropdown's value
+	ID      string // an action's, with its card's, so it's unique on the bar
 }
 
 // Menu is the card's menu: an item for each of its actions, in order.

@@ -144,12 +144,12 @@ var standIn struct {
 func (guiNative) OpenURL(url string) { calls.add("url " + url) }
 func (guiNative) Copy(text string)   { calls.add("copy " + text) }
 
-func (n guiNative) ShowMenu(items []shim.MenuItem) shim.Chosen {
+func (n guiNative) ShowMenu(items []shim.MenuItem, at *shim.Anchor) shim.Chosen {
 	standIn.mu.Lock()
 	menu := standIn.menu
 	standIn.mu.Unlock()
 	if menu == nil {
-		return n.shimNative.ShowMenu(items)
+		return n.shimNative.ShowMenu(items, at)
 	}
 	return menu(items)
 }

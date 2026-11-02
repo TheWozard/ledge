@@ -174,6 +174,7 @@ clickable things in none. A theme styles what can be clicked by `[data-click]`. 
 | `Details(summary, ...blocks)` | blocks hidden under a summary until it's clicked |
 | `Image(src, alt)` | a picture from a `data:` URL of an image; any other src shows only `alt` |
 | `Buttons([]Button)` | a row of buttons, each with a dot in its colour, calling its `Click`; one without is disabled |
+| `Dropdown(Select)` | a drop-down showing `Value`, whose options pop up in the theme's menu, as a card's actions do, at the mouse or under it as the theme has it, calling `Choose` with the one chosen; one without is disabled. It goes on showing `Value`, so to show what was chosen, show the report, or its block, again with that as `Value` |
 
 Text in a block, the `...` above, a field's value and a table's cells, is `Inline`:
 `Text(s)`, `Strong(...)`, `Em(...)`, `Mono(s)` (code), `LinkTo(url, ...)`, which opens in
@@ -207,8 +208,8 @@ escaping wouldn't run; the app's calls into the page aren't stopped by it.
 ## Themes
 
 `ui.Options.Theme` is a `theme.Theme`: the bar's stylesheet, the report window's, a
-card menu's (or none, for the native menu), and its `Frame` (whether the report window is light or dark, and whether the theme draws the
-whole window: square corners, its own buttons and border). The zero `Theme` is the
+menus' (a card's, and a report's drop-downs'; or none, for the native menu), and its `Frame` (whether the report window is light or dark, and whether the theme draws the
+whole window: square corners, its own buttons and border), and its `Dropdown` (where a drop-down's menu opens). The zero `Theme` is the
 built-in default. Get one with:
 
 - `theme.ReadSet(fsys)`: every theme in an `fs.FS`, such as `os.DirFS` of a user's
@@ -231,12 +232,16 @@ can be shared between pages and themes (paths are relative to the manifest):
   "bar": ["css/neon-font.css", "css/neon.css"],
   "report": ["css/neon-font.css", "css/neon.report.css"],
   "menu": ["css/neon-font.css", "css/neon.menu.css"],
-  "frame": {"appearance": "dark"}
+  "frame": {"appearance": "dark"},
+  "dropdown": {"menu": "below"}
 }
 ```
 
-`menu` is optional: without it, a card's menu is the native one. `frame` is optional: `appearance` is `"light"`, `"dark"` or unset (follow the system),
-and `frameless` is true for a theme that draws the whole window. A stylesheet names a
+`menu` is optional: without it, a card's menu, and a drop-down's, is the native one. `frame` is optional: `appearance` is `"light"`, `"dark"` or unset (follow the system),
+and `frameless` is true for a theme that draws the whole window. `dropdown` is optional: its `menu` is
+`"below"` to open a report drop-down's menu under it, lined up with its left edge (above it
+if there's no room below), or `"mouse"` or unset to open it at the mouse, as a card's menu
+opens; the default theme opens it below. A stylesheet names a
 font (woff2, woff, ttf or otf) by a url relative to itself, such as
 `url(../fonts/neon.woff2)`, and it can be anywhere in the `fs.FS`.
 
@@ -256,7 +261,8 @@ close up), the report window's `.titlebar` and its buttons, the `main` that scro
 under it, and the `article` in it that holds the blocks (for a background that scrolls
 with them), and a menu's `#menu`, the only thing in its see-through window, and its
 `.menu-item`s (`active` under the mouse or the keys, `aria-disabled` if they can't
-be chosen, each a `.menu-dot` in its `--item-color` and a `.menu-title`).
+be chosen, `aria-checked` for the option a drop-down shows, each a `.menu-dot` in its
+`--item-color`, but for a drop-down's options, and a `.menu-title`).
 
 Adding a built-in theme: add its manifest, `<name>.json`, to
 [theme/themes/](theme/themes/), its stylesheets to [css/](theme/themes/css/), any fonts

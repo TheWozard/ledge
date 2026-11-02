@@ -39,6 +39,16 @@ func TestReportContent(t *testing.T) {
 	}
 }
 
+// A menu's page has an item for each, by its index: one with a colour has a dot in
+// it, one without none; one that can't be chosen has aria-disabled, and the one
+// that's chosen now aria-checked.
+func TestMenuPage(t *testing.T) {
+	html := render(t, MenuPage("", []MenuItem{{Title: "Run", Color: "green", Enabled: true}, {Title: "<b>", Checked: true}}))
+	contains(t, html,
+		`<div class="menu-item" role="menuitem" data-index="0" data-color="green" style="--item-color: var(--c-green);"><span class="menu-dot"></span><span class="menu-title">Run</span></div>`,
+		`<div class="menu-item" role="menuitem" data-index="1" aria-disabled="true" aria-checked="true"><span class="menu-title">&lt;b&gt;</span></div>`)
+}
+
 // Each page's Content-Security-Policy comes first in its <head>, and lets run exactly
 // the scripts the page has, by their hashes, and nothing else.
 func TestCSP(t *testing.T) {

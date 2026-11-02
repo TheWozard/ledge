@@ -75,7 +75,7 @@ func TestLoad(t *testing.T) {
 		"common/fonts.css":   file(`@font-face { src: url("../fonts/neon.ttf") }`),
 		"common/base.css":    file(`:root { --page: #000 }`),
 		"fonts/neon.ttf":     file("font"),
-		"neon/theme.json":    file(`{"name": "Neon", "bar": ["../common/fonts.css", "bar.css"], "report": ["../common/base.css"], "frame": {"appearance": "dark", "frameless": true}}`),
+		"neon/theme.json":    file(`{"name": "Neon", "bar": ["../common/fonts.css", "bar.css"], "report": ["../common/base.css"], "frame": {"appearance": "dark", "frameless": true}, "dropdown": {"menu": "below"}}`),
 		"neon/bar.css":       file(`:root { --bar: #000 }`),
 		"plain.json":         file(`{"name": "plain", "bar": ["a.css"], "report": []}`),
 		"a.css":              file(`a {}`),
@@ -86,6 +86,7 @@ func TestLoad(t *testing.T) {
 		"outside.json":       file(`{"name": "x", "bar": ["outside.css"]}`),
 		"outside.css":        file(`src: url(../fonts/neon.ttf)`),
 		"badappearance.json": file(`{"name": "x", "frame": {"appearance": "sepia"}}`),
+		"baddropdown.json":   file(`{"name": "x", "dropdown": {"menu": "above"}}`),
 		"unknown.json":       file(`{"name": "x", "frameless": true}`),
 		"two.json":           file(`{"name": "x"} {"name": "y"}`),
 		"icons/x.svg":        file(svg),
@@ -99,7 +100,7 @@ func TestLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := Theme{Name: "Neon", Bar: "@font-face { src: url(data:font/ttf;base64,Zm9udA==) }\n:root { --bar: #000 }",
-		Report: ":root { --page: #000 }", Frame: Frame{Appearance: "dark", Frameless: true}}
+		Report: ":root { --page: #000 }", Frame: Frame{Appearance: "dark", Frameless: true}, Dropdown: Dropdown{Menu: "below"}}
 	if theme != want {
 		t.Errorf("Load(neon) = %+v, want %+v", theme, want)
 	}
@@ -111,7 +112,7 @@ func TestLoad(t *testing.T) {
 	if theme, err := Load(fsys, "icons/icons.json"); err != nil || theme != want {
 		t.Errorf("Load(icons) = %+v, %v; want %+v", theme, err, want)
 	}
-	for _, name := range []string{"noname", "nofile", "nofont", "outside", "badappearance", "unknown", "two", "missing", "noicon", "notsvg", "unknownicon"} {
+	for _, name := range []string{"noname", "nofile", "nofont", "outside", "badappearance", "baddropdown", "unknown", "two", "missing", "noicon", "notsvg", "unknownicon"} {
 		if _, err := Load(fsys, name+".json"); err == nil {
 			t.Errorf("Load(%s.json) should be an error", name)
 		}

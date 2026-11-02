@@ -27,11 +27,12 @@ type sample struct {
 	stats    []components.Stat
 	checks   []components.Checks
 	messages []components.Message
-	started  time.Time      // when the long report's run started
-	assigned bool           // whether the long report's failures are assigned, as its triage block shows
-	run      components.Run // the long report's test command, and its last run
-	ran      int            // how many times the long report's command has run; every other one fails
-	stopped  bool           // whether the long report's run's been stopped
+	started  time.Time         // when the long report's run started
+	assigned bool              // whether the long report's failures are assigned, as its triage block shows
+	outcomes map[string]string // the outcome chosen for each of the long report's jobs, by its name
+	run      components.Run    // the long report's test command, and its last run
+	ran      int               // how many times the long report's command has run; every other one fails
+	stopped  bool              // whether the long report's run's been stopped
 
 	open    func(id string)                         // shows id's report
 	replace func(id string, block components.Block) // replaces a block in id's report
@@ -173,7 +174,7 @@ func (s *sample) longReport() []templ.Component {
 		components.Note("red", components.Text("Two jobs failed.")),
 		components.Paragraph(components.Text("The run on main failed after a merge.\nThe second line keeps its break.")),
 		components.Fields([]components.Field{{Label: "Branch", Value: components.Text("main")}, {Label: "Commit", Value: components.Text("465882e")}}),
-		components.Table([]string{"Job", "Result", "Time"}, cells([][]string{{"build", "ok", "1m"}, {"test", "failed", "3m"}, {"lint", "failed", "20s"}})),
+		components.Block{ID: "jobs", Content: s.jobs()},
 		components.List(true, items("Fix the test", "Fix the lint", "Run it again")...),
 		components.Code("$ go test ./...\n--- FAIL: TestRender (0.21s)\n    ui_test.go:218: a very long line that scrolls sideways rather than wrapping in the report window"),
 		components.Paragraph(components.LinkTo("https://example.com/runs/1", components.Text("The run"))),
@@ -240,6 +241,31 @@ func (s *sample) triage() templ.Component {
 	}
 	return templ.Join(components.Note("yellow", components.Text("Nobody has these failures yet.")),
 		components.Buttons([]components.Button{{ID: "assign", Title: "Assign to me", Color: "blue", Click: assign}}))
+}
+
+// jobs is the long report's jobs table, each job with a drop-down of its outcome,
+// choosing which replaces the block with the outcome chosen. Call it with s's lock
+// held.
+func (s *sample) jobs() templ.Component {
+	var rows [][]components.Inline
+	for _, job := range [][]string{{"build", "ok", "1m"}, {"test", "failed", "3m"}, {"lint", "failed", "20s"}} {
+		name := job[0]
+		choose := func(value string) {
+			s.mu.Lock()
+			if s.outcomes == nil {
+				s.outcomes = map[string]string{}
+			}
+			s.outcomes[name] = value
+			log.Printf("outcome of %s: %s", name, value)
+			block := s.jobs()
+			s.mu.Unlock()
+			s.replace(longID, components.Block{ID: "jobs", Content: block})
+		}
+		outcome := components.Dropdown(components.Select{ID: name, Options: []string{"untriaged", "flaky", "fixed", "won't fix"},
+			Value: s.outcomes[name], Choose: choose})
+		rows = append(rows, append(cells([][]string{job})[0], outcome))
+	}
+	return components.Table([]string{"Job", "Result", "Time", "Outcome"}, rows)
 }
 
 // runCommand is the long report's run's Click: it shows the run going, adds a line

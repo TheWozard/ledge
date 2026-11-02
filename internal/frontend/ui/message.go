@@ -69,19 +69,19 @@ type choice struct {
 var noChoice = choice{index: -1}
 
 // chooseFrom pops up a menu of items, in the theme's menu if it has one, or the
-// native one, and returns what was chosen from it.
-func (b *Bar) chooseFrom(items []components.MenuItem) choice {
+// native one, at the mouse, or under at, and returns what was chosen from it.
+func (b *Bar) chooseFrom(items []components.MenuItem, at *shim.Anchor) choice {
 	b.mu.Lock()
 	css := b.options.Theme.Menu
 	b.mu.Unlock()
 	if css != "" {
-		return b.popupMenu(css, items)
+		return b.popupMenu(css, items, at)
 	}
 	shown := make([]shim.MenuItem, len(items))
 	for i, item := range items {
-		shown[i] = shim.MenuItem{Title: item.Title, Color: item.Color, Enabled: item.Enabled}
+		shown[i] = shim.MenuItem{Title: item.Title, Color: item.Color, Enabled: item.Enabled, Checked: item.Checked}
 	}
-	chosen := b.windows.ShowMenu(shown)
+	chosen := b.windows.ShowMenu(shown, at)
 	m := chosen.Modifiers
 	return choice{chosen.Index, components.ClickEvent{Alt: m.Alt, Cmd: m.Cmd, Shift: m.Shift, Ctrl: m.Ctrl}}
 }
@@ -100,7 +100,7 @@ func (b *Bar) menu(f components.Frame) components.Click {
 		if e.Middle {
 			return
 		}
-		chosen := b.chooseFrom(items)
+		chosen := b.chooseFrom(items, nil)
 		if chosen.index < 0 || chosen.index >= len(items) || !items[chosen.index].Enabled {
 			return // nothing chosen, or nothing that can be: the page never posts that
 		}

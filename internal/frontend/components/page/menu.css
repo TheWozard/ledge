@@ -1,12 +1,14 @@
-/* Layout only. How a card's menu looks comes from its theme's menu stylesheet,
-   added after this. The page is see-through: the theme draws the menu, #menu, and
-   whatever it draws is all that shows, its window sized to it. A theme sets
-   --c-green, --c-yellow, --c-red, --c-blue and --c-gray for the items' dots.
+/* Layout only. How a menu, a card's or a report's Dropdown's, looks comes from its
+   theme's menu stylesheet, added after this. The page is see-through: the theme
+   draws the menu, #menu, and whatever it draws is all that shows, its window sized
+   to it. A theme sets --c-green, --c-yellow, --c-red, --c-blue and --c-gray for
+   the items' dots.
 
    Each item is a .menu-item: a .menu-dot in its colour, --item-color (and
-   data-color, as the colour's name or #rrggbb), then its .menu-title. The one the
-   mouse is over, or the arrow keys are on, has the class active. One that can't be
-   chosen has aria-disabled. */
+   data-color, as the colour's name or #rrggbb), then its .menu-title. A Dropdown's
+   options have no colour, so no dot, and the one it shows has aria-checked. The one
+   the mouse is over, or the arrow keys are on, has the class active. One that can't
+   be chosen has aria-disabled. */
 * {
   box-sizing: border-box;
 }

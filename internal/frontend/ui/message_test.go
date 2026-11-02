@@ -372,22 +372,29 @@ func TestMenus(t *testing.T) {
 	}
 }
 
-// One menu is open at a time: opening another closes the first without a choice.
-// What's chosen goes to the open menu, with the keys held as it was; with none open,
-// nothing's chosen.
+// One menu is open at a time: opening another closes the first without a choice, and
+// it opens where the second does. What's chosen goes to the open menu, with the keys
+// held as it was; with none open, nothing's chosen.
 func TestPopup(t *testing.T) {
 	var p popup
-	if p.isOpen() || p.finish(noChoice) {
+	if open, _ := p.opened(); open || p.finish(noChoice) {
 		t.Fatal("a menu is open before any's opened")
 	}
-	first := p.open()
-	second := p.open()
+	under := &shim.Anchor{Window: 3, Left: 10, Top: 20, Bottom: 40}
+	first := p.open(nil)
+	second := p.open(under)
 	if got := <-first; got != noChoice {
 		t.Errorf("the first menu, closed by the second, chose %+v", got)
 	}
+	if open, at := p.opened(); !open || at != under {
+		t.Errorf("the second menu is open %v, under %+v, want under %+v", open, at, under)
+	}
 	shifted := choice{1, components.ClickEvent{Shift: true}}
-	if !p.finish(shifted) || <-second != shifted || p.isOpen() {
+	if !p.finish(shifted) || <-second != shifted {
 		t.Error("choosing an item didn't close the menu with it")
+	}
+	if open, _ := p.opened(); open {
+		t.Error("choosing an item left the menu open")
 	}
 	if p.finish(choice{index: 1}) {
 		t.Error("a closed menu was chosen from")

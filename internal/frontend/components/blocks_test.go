@@ -171,3 +171,57 @@ func TestTableLinks(t *testing.T) {
 		"<tr><td>cut</td><td>kept</td></tr>")
 	lacks(t, html, `href="javascript:`, "<#2>", "gone", "example.com/cut")
 }
+
+// A Dropdown is a button showing its value, escaped, or its first option if its
+// value isn't one, with an id whose Click pops its options up for it, its value
+// checked, and calls its Choose with the one chosen; with none chosen, or a middle click, it
+// doesn't. One without a Choose, options or a menu to pop them up in is disabled.
+func TestDropdown(t *testing.T) {
+	var got []string
+	var menus [][]MenuItem
+	var ats []string
+	chosen := 1
+	choose := func(value string) { got = append(got, value) }
+	menu := func(items []MenuItem, at string) int { menus, ats = append(menus, items), append(ats, at); return chosen }
+	blocks := ReportContent([]templ.Component{
+		Dropdown(Select{ID: "outcome", Options: []string{"pending", "<passed>"}, Value: "<passed>", Choose: choose}),
+		Block{ID: "row", Content: Dropdown(Select{ID: "outcome", Options: []string{"a", "b"}, Value: "c", Choose: choose})},
+		Dropdown(Select{ID: "off", Options: []string{"x"}, Value: "x"}),
+		Dropdown(Select{ID: "empty", Value: "none", Choose: choose}),
+	})
+	var out strings.Builder
+	clicks := &Clicks{}
+	if err := blocks.Render(WithMenu(WithClicks(context.Background(), clicks), menu), &out); err != nil {
+		t.Fatal(err)
+	}
+	contains(t, out.String(),
+		`<button type="button" class="select" data-click="outcome">&lt;passed&gt;</button>`,
+		`<button type="button" class="select" data-click="block/row/outcome">a</button>`,
+		`<button type="button" class="select" disabled>x</button>`,
+		`<button type="button" class="select" disabled>none</button>`)
+	if ids := []string{"block/row/outcome", "outcome"}; !slices.Equal(clicks.IDs(), ids) {
+		t.Fatalf("Clicks have %q, want %q", clicks.IDs(), ids)
+	}
+	clicks.Click("outcome")(ClickEvent{})
+	clicks.Click("block/row/outcome")(ClickEvent{Cmd: true})
+	clicks.Click("outcome")(ClickEvent{Middle: true})
+	chosen = -1
+	clicks.Click("outcome")(ClickEvent{})
+	if strings.Join(got, ",") != "<passed>,b" {
+		t.Errorf("the Clicks chose %q, want <passed> then b", got)
+	}
+	want := [][]MenuItem{
+		{{Title: "pending", Enabled: true}, {Title: "<passed>", Enabled: true, Checked: true}},
+		{{Title: "a", Enabled: true, Checked: true}, {Title: "b", Enabled: true}},
+		{{Title: "pending", Enabled: true}, {Title: "<passed>", Enabled: true, Checked: true}},
+	}
+	if !slices.EqualFunc(menus, want, slices.Equal) {
+		t.Errorf("the menus popped up were %+v, want %+v", menus, want)
+	}
+	if want := []string{"outcome", "block/row/outcome", "outcome"}; !slices.Equal(ats, want) {
+		t.Errorf("the menus popped up for %q, want %q", ats, want)
+	}
+	if html := render(t, Dropdown(Select{ID: "x", Options: []string{"x"}, Choose: choose})); html != `<button type="button" class="select" disabled>x</button>` {
+		t.Errorf("without WithMenu, the drop-down is %s", html)
+	}
+}

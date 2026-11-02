@@ -4,7 +4,9 @@
    note has its colour in --note and data-color. A Buttons block is a .buttons row
    of <button class="button">s, each with its colour in --button and data-color, and
    a .button-dot; one with a Click has data-click, and data-busy while it runs, and
-   one without is disabled.
+   one without is disabled. A Dropdown is a <button class="select"> showing its
+   value, with data-click, and data-busy while its menu's open and choosing from it
+   runs; one without a Choose is disabled. Its options pop up in the theme's menu.
 
    A Code block is a .code holding its <pre>, and, in a report, a <button
    class="copy"> that copies its text, with data-click, put over the <pre>'s top

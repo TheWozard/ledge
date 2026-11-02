@@ -322,28 +322,50 @@ void ledgeCreatePopup(int window) {
     });
 }
 
-void ledgeShowPopup(int window, double width, double height) {
+// anchorView is the view of the anchor's window, its web view, or nil for the mouse
+// or a window that isn't open. Call it on the main thread.
+static NSView *anchorView(LedgeAnchor at) {
+    return at.window == 0 ? nil : windows[@(at.window)].contentView;
+}
+
+// inView is the point x, y in view's page, from its top left, in view's own
+// coordinates.
+static NSPoint inView(NSView *view, double x, double y) {
+    return NSMakePoint(x, view.isFlipped ? y : NSHeight(view.bounds) - y);
+}
+
+// onScreen is the point x, y in view's page on the screen.
+static NSPoint onScreen(NSView *view, double x, double y) {
+    return [view.window convertPointToScreen:[view convertPoint:inView(view, x, y) toView:nil]];
+}
+
+void ledgeShowPopup(int window, double width, double height, LedgeAnchor at) {
     onMain(^{
         NSWindow *panel = windows[@(window)];
         if (panel == nil) {
             return;
         }
-        NSPoint at = [NSEvent mouseLocation];
+        // Where its top left goes, and where its bottom left goes should there be no
+        // room below: the mouse, or the anchor's bottom and top left corners.
+        NSView *view = anchorView(at);
+        NSPoint below = view ? onScreen(view, at.left, at.bottom) : [NSEvent mouseLocation];
+        NSPoint above = view ? onScreen(view, at.left, at.top) : below;
         NSScreen *screen = NSScreen.mainScreen;
         for (NSScreen *s in NSScreen.screens) {
-            if (NSPointInRect(at, s.frame)) {
+            if (NSPointInRect(below, s.frame)) {
                 screen = s;
             }
         }
-        // Down and to the right of the mouse, as a menu opens; up, or left, if that
-        // would leave its screen, as from a bar along the bottom.
+        // Down and to the right, as a menu opens; up, or left, if that would leave its
+        // screen, as from a bar along the bottom. Under an anchor, it's lined up with
+        // its left edge, or as far left as it has to be.
         NSRect area = screen.visibleFrame;
-        CGFloat x = at.x, y = at.y - height;
+        CGFloat x = below.x, y = below.y - height;
         if (y < NSMinY(area)) {
-            y = MIN(at.y, NSMaxY(area) - height);
+            y = MIN(above.y, NSMaxY(area) - height);
         }
         if (x + width > NSMaxX(area)) {
-            x = at.x - width;
+            x = view ? NSMaxX(area) - width : below.x - width;
         }
         x = MAX(x, NSMinX(area));
         y = MAX(y, NSMinY(area));
@@ -616,7 +638,7 @@ static NSImage *dot(NSColor *color) {
 }
 @end
 
-void ledgeShowMenu(const LedgeMenuItem *items, int count, uintptr_t handle) {
+void ledgeShowMenu(const LedgeMenuItem *items, int count, LedgeAnchor at, uintptr_t handle) {
     NSMutableArray<NSMenuItem *> *made = [NSMutableArray array];
     for (int i = 0; i < count; i++) {
         NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:[NSString stringWithUTF8String:items[i].title]
@@ -624,6 +646,7 @@ void ledgeShowMenu(const LedgeMenuItem *items, int count, uintptr_t handle) {
                                                keyEquivalent:@""];
         item.tag = i;
         item.enabled = items[i].enabled != 0;
+        item.state = items[i].checked != 0 ? NSControlStateValueOn : NSControlStateValueOff;
         NSColor *color = dotColor([NSString stringWithUTF8String:items[i].color]);
         if (color != nil) {
             item.image = dot(color);
@@ -644,7 +667,10 @@ void ledgeShowMenu(const LedgeMenuItem *items, int count, uintptr_t handle) {
         // An item's action is sent as the menu closes; without one, nothing was chosen.
         // Should a chosen item's action not come, nothing is reported as chosen a
         // moment later, so Go isn't left waiting.
-        if (![menu popUpMenuPositioningItem:nil atLocation:[NSEvent mouseLocation] inView:nil]) {
+        // Its top left at the mouse, or the anchor's bottom left corner.
+        NSView *view = anchorView(at);
+        NSPoint where = view ? inView(view, at.left, at.bottom) : [NSEvent mouseLocation];
+        if (![menu popUpMenuPositioningItem:nil atLocation:where inView:view]) {
             [target report:-1];
             return;
         }

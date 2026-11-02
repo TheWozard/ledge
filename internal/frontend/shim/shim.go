@@ -102,11 +102,28 @@ func PlaceBar(id, screen int, top bool, height float64) Rect {
 // as the bar's can. It's hidden until ShowPopup.
 func CreatePopup(id int) { C.ledgeCreatePopup(C.int(id)) }
 
-// ShowPopup shows the pop-up width by height at the mouse, down and to the right of
-// it, or up or left to stay on its screen, and gives it the keys. A click anywhere
-// but on it dismisses it (see OnPopupDismissed).
-func ShowPopup(id int, width, height float64) {
-	C.ledgeShowPopup(C.int(id), C.double(width), C.double(height))
+// Anchor is what a pop-up or menu opens under: a rectangle in Window's page, such as a
+// button's, its Left edge and its Top and Bottom in CSS pixels from the page's top
+// left, as getBoundingClientRect has them.
+type Anchor struct {
+	Window            int
+	Left, Top, Bottom float64
+}
+
+// cAnchor is at for the native side: window 0, the mouse, for nil.
+func cAnchor(at *Anchor) C.LedgeAnchor {
+	if at == nil {
+		return C.LedgeAnchor{}
+	}
+	return C.LedgeAnchor{window: C.int(at.Window), left: C.double(at.Left), top: C.double(at.Top), bottom: C.double(at.Bottom)}
+}
+
+// ShowPopup shows the pop-up width by height down and to the right of the mouse, or,
+// with an Anchor, under it, lined up with its left edge; or up or left to stay on its
+// screen. It gives it the keys. A click anywhere but on it dismisses it (see
+// OnPopupDismissed). An anchor in a window that isn't open is the mouse.
+func ShowPopup(id int, width, height float64, at *Anchor) {
+	C.ledgeShowPopup(C.int(id), C.double(width), C.double(height), cAnchor(at))
 }
 
 // HidePopup hides the pop-up, without it being dismissed.
@@ -217,6 +234,7 @@ type MenuItem struct {
 	// as the system's, or #rrggbb; "" for none.
 	Color   string
 	Enabled bool // whether it can be chosen
+	Checked bool // whether it has a checkmark, as what's chosen now
 }
 
 // Modifiers is the modifier keys held as a menu item was chosen.
@@ -231,10 +249,11 @@ type Chosen struct {
 	Modifiers Modifiers
 }
 
-// ShowMenu pops up a menu of items at the mouse, and returns what was chosen from it.
+// ShowMenu pops up a menu of items at the mouse, or under at, lined up with its left
+// edge, as ShowPopup does, and returns what was chosen from it.
 // Not from the main goroutine: it waits for the menu to close. While it's open,
 // everything else still runs.
-func ShowMenu(items []MenuItem) Chosen {
+func ShowMenu(items []MenuItem, at *Anchor) Chosen {
 	if len(items) == 0 {
 		return Chosen{Index: -1}
 	}
@@ -244,10 +263,10 @@ func ShowMenu(items []MenuItem) Chosen {
 		title, color := cString(item.Title), cString(item.Color)
 		defer C.free(unsafe.Pointer(title))
 		defer C.free(unsafe.Pointer(color))
-		array[i] = C.LedgeMenuItem{title: title, color: color, enabled: cBool(item.Enabled)}
+		array[i] = C.LedgeMenuItem{title: title, color: color, enabled: cBool(item.Enabled), checked: cBool(item.Checked)}
 	}
 	done := make(chan Chosen, 1)
-	C.ledgeShowMenu(&array[0], C.int(len(items)), C.uintptr_t(cgo.NewHandle(done)))
+	C.ledgeShowMenu(&array[0], C.int(len(items)), cAnchor(at), C.uintptr_t(cgo.NewHandle(done)))
 	return <-done
 }
 

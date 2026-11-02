@@ -399,7 +399,8 @@ func (w *browserWindows) ShowWindow(window int) {
 
 func (w *browserWindows) CreatePopup(int) {}
 
-func (w *browserWindows) ShowPopup(window int, width, height float64) {
+// ShowPopup shows the menu's frame, beside the report rather than where it's anchored.
+func (w *browserWindows) ShowPopup(window int, width, height float64, _ *shim.Anchor) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.add(event{Window: window, Show: true, Width: width, Height: height})
@@ -412,7 +413,7 @@ func (w *browserWindows) HidePopup(window int) {
 }
 
 // ShowMenu is never asked: the server gives every theme a menu of its own.
-func (w *browserWindows) ShowMenu([]shim.MenuItem) shim.Chosen {
+func (w *browserWindows) ShowMenu([]shim.MenuItem, *shim.Anchor) shim.Chosen {
 	log.Print("the browser has no native menu")
 	return shim.Chosen{Index: -1}
 }

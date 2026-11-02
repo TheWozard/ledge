@@ -29,9 +29,9 @@ type Windows interface {
 	ShowWindow(window int)
 
 	CreatePopup(window int)
-	ShowPopup(window int, width, height float64)
+	ShowPopup(window int, width, height float64, at *shim.Anchor)
 	HidePopup(window int)
-	ShowMenu(items []shim.MenuItem) shim.Chosen
+	ShowMenu(items []shim.MenuItem, at *shim.Anchor) shim.Chosen
 
 	OpenURL(url string)
 	Copy(text string)
@@ -57,11 +57,13 @@ func (shimNative) SetFrameless(window int, frameless bool) { shim.SetFrameless(w
 func (shimNative) ShowWindow(window int)                   { shim.ShowWindow(window) }
 
 func (shimNative) CreatePopup(window int) { shim.CreatePopup(window) }
-func (shimNative) ShowPopup(window int, width, height float64) {
-	shim.ShowPopup(window, width, height)
+func (shimNative) ShowPopup(window int, width, height float64, at *shim.Anchor) {
+	shim.ShowPopup(window, width, height, at)
 }
-func (shimNative) HidePopup(window int)                       { shim.HidePopup(window) }
-func (shimNative) ShowMenu(items []shim.MenuItem) shim.Chosen { return shim.ShowMenu(items) }
+func (shimNative) HidePopup(window int) { shim.HidePopup(window) }
+func (shimNative) ShowMenu(items []shim.MenuItem, at *shim.Anchor) shim.Chosen {
+	return shim.ShowMenu(items, at)
+}
 
 func (shimNative) OpenURL(url string) { shim.OpenURL(url) }
 func (shimNative) Copy(text string)   { shim.Copy(text) }

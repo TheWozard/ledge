@@ -31,10 +31,15 @@ LedgeRect ledgePlaceBar(int window, int screen, int top, double height);
 // see-through where its page is, above other windows, and taking keys without
 // taking focus from the app that has it. Its page can post to Go, as the bar's can.
 void ledgeCreatePopup(int window);
-// ledgeShowPopup shows the pop-up `width` by `height` at the mouse, down and to the
-// right of it, or up or left to stay on its screen, and gives it the keys. A click
-// anywhere but on it dismisses it: it's hidden, and goLedgePopupDismissed is told.
-void ledgeShowPopup(int window, double width, double height);
+// Where a pop-up or menu opens: under a rectangle in `window`'s page, its left edge
+// and its top and bottom in CSS pixels from the page's top left, such as a button's;
+// or, with `window` 0, at the mouse.
+typedef struct { int window; double left, top, bottom; } LedgeAnchor;
+// ledgeShowPopup shows the pop-up `width` by `height` at `at`: down and to the right
+// of the mouse, or under the anchor's rectangle, lined up with its left edge; or up
+// or left to stay on its screen. It gives it the keys. A click anywhere but on it
+// dismisses it: it's hidden, and goLedgePopupDismissed is told.
+void ledgeShowPopup(int window, double width, double height, LedgeAnchor at);
 // ledgeHidePopup hides the pop-up, without it being dismissed.
 void ledgeHidePopup(int window);
 
@@ -75,14 +80,14 @@ void ledgeCopy(const char *text);
 void ledgeEvalResult(int window, const char *js, uintptr_t handle);
 
 // An item in a menu ledgeShowMenu pops up: its title, the colour of a dot before it
-// (green, yellow, red, blue or gray as the system's, or #rrggbb; "" for none), and
-// whether it can be chosen.
-typedef struct { const char *title; const char *color; int enabled; } LedgeMenuItem;
+// (green, yellow, red, blue or gray as the system's, or #rrggbb; "" for none),
+// whether it can be chosen, and whether it has a checkmark.
+typedef struct { const char *title; const char *color; int enabled; int checked; } LedgeMenuItem;
 // The modifier keys held as a menu item is chosen, or'd together.
 enum { LedgeAlt = 1, LedgeCmd = 2, LedgeShift = 4, LedgeCtrl = 8 };
-// ledgeShowMenu pops up a menu of `count` items at the mouse, and reports the index
+// ledgeShowMenu pops up a menu of `count` items at `at`, and reports the index
 // of the one chosen, or -1 if none was, to goLedgeMenuChosen with `handle`, with the
 // modifier keys held as it was chosen (none with none chosen). It copies
 // the items before it returns. The menu is run from the main run loop, not the main
 // queue, so what's queued for the main thread still runs while it's open.
-void ledgeShowMenu(const LedgeMenuItem *items, int count, uintptr_t handle);
+void ledgeShowMenu(const LedgeMenuItem *items, int count, LedgeAnchor at, uintptr_t handle);

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 	"slices"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/a-h/templ"
 
 	"github.com/TheWozard/ledge-frontend/components"
+	"github.com/TheWozard/ledge-frontend/shim"
 )
 
 // ShowReport shows title and blocks in id's report window, in the bar's theme, and
@@ -27,7 +29,7 @@ func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	b.mu.Lock()
 	t := b.options.Theme
 	icons := components.Icons(t.Icons)
-	html, clicks, err := renderReport(blocks, b.windows.Copy, icons)
+	html, clicks, err := b.renderReport(id, blocks, icons)
 	if err != nil {
 		b.mu.Unlock()
 		return err
@@ -71,7 +73,7 @@ func (b *Bar) ShowReportBlock(id string, block components.Block) (bool, error) {
 	if !ok {
 		return false, nil
 	}
-	html, clicks, err := renderReport(blocks, b.windows.Copy, p.icons)
+	html, clicks, err := b.renderReport(id, blocks, p.icons)
 	if err != nil {
 		return true, err
 	}
@@ -80,15 +82,46 @@ func (b *Bar) ShowReportBlock(id string, block components.Block) (bool, error) {
 	return true, nil
 }
 
-// renderReport renders blocks as a report shows them, and the Clicks in them, with
-// put to copy a Code block's text, and icons for its button.
-func renderReport(blocks []templ.Component, put func(text string), icons components.Icons) (string, *components.Clicks, error) {
+// renderReport renders blocks as id's report shows them, and the Clicks in them, with
+// icons for a Code block's button, which copies its text to the pasteboard, and a
+// Dropdown's options popped up as a card's menu is, where the theme opens them.
+func (b *Bar) renderReport(id string, blocks []templ.Component, icons components.Icons) (string, *components.Clicks, error) {
 	var html strings.Builder
 	clicks := &components.Clicks{}
-	ctx := components.WithCopy(components.WithClicks(context.Background(), clicks), put)
-	ctx = components.WithIcons(ctx, icons)
+	ctx := components.WithCopy(components.WithClicks(context.Background(), clicks), b.windows.Copy)
+	ctx = components.WithMenu(components.WithIcons(ctx, icons), func(items []components.MenuItem, at string) int {
+		return b.chooseFrom(items, b.dropdownAnchor(id, at)).index
+	})
 	err := components.ReportContent(blocks).Render(ctx, &html)
 	return html.String(), clicks, err
+}
+
+// measureDropdown, with the data-click of an element in a report as a JS string, is
+// its rectangle, as [left, top, bottom], or null if it's not there.
+const measureDropdown = `(e => e && (r => [r.left, r.top, r.bottom])(e.getBoundingClientRect()))(document.querySelector('[data-click="' + CSS.escape(%s) + '"]'))`
+
+// dropdownAnchor is what the menu of the drop-down whose data-click is at, in id's
+// report, opens under: the drop-down, in a theme that opens it below, or nil, for the
+// mouse, in one that doesn't, or if the report's closed or the drop-down's gone.
+func (b *Bar) dropdownAnchor(id, at string) *shim.Anchor {
+	b.mu.Lock()
+	below := b.options.Theme.Dropdown.Menu == "below"
+	p := b.reports[id]
+	b.mu.Unlock()
+	if !below || p == nil {
+		return nil
+	}
+	atJS, _ := json.Marshal(at)
+	value, err := b.windows.EvalResult(p.window, fmt.Sprintf(measureDropdown, atJS))
+	var rect []float64
+	if err == nil {
+		err = json.Unmarshal(value, &rect)
+	}
+	if err != nil || len(rect) != 3 {
+		log.Printf("ui: finding drop-down %q to open its menu under: %s, %v", at, value, err)
+		return nil
+	}
+	return &shim.Anchor{Window: p.window, Left: rect[0], Top: rect[1], Bottom: rect[2]}
 }
 
 // loadReport loads p, a report's page, afresh, in css, the theme's stylesheet for it,

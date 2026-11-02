@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -227,6 +228,128 @@ func TestReportClicks(t *testing.T) {
 	}
 	evalIn(t, w, `window.webkit.messageHandlers.frame.postMessage("close"), true`)
 	eventually(t, "the report window to close", func() bool { return !shim.WindowVisible(w) })
+}
+
+// Clicking a report's drop-down shows its options in the theme's menu, under it in
+// the default theme, the one it shows checked and none with a dot, and choosing one calls its Choose with it and
+// hides the menu; the drop-down is busy until Choose has run, and clicking it
+// meanwhile shows nothing. Escape hides the menu without choosing. A disabled one is
+// disabled.
+func TestReportDropdown(t *testing.T) {
+	gui(t)
+	release := make(chan bool)
+	t.Cleanup(func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	})
+	w := showReport(t, "dropdown", "Dropdown", []templ.Component{
+		components.Table([]string{"Job", "Outcome"}, [][]components.Inline{
+			{components.Text("build"), components.Dropdown(components.Select{ID: "build", Options: []string{"pending", "passed", "failed"},
+				Value: "passed", Choose: func(value string) { calls.add("build " + value); <-release }})},
+			{components.Text("test"), components.Dropdown(components.Select{ID: "test", Options: []string{"pending"}})},
+		}),
+	})
+	waitIn(t, w, `document.querySelectorAll(".select").length`, "2")
+	open := func() {
+		t.Helper()
+		evalIn(t, w, `document.querySelector(".select").click(), true`)
+		eventually(t, "the menu to show", func() bool { return shim.WindowVisible(MenuWindow) })
+		waitIn(t, MenuWindow, `document.querySelectorAll(".menu-item").length`, "3")
+	}
+	busy := `document.querySelector(".select").hasAttribute("data-busy")`
+	if at := testBar.dropdownAnchor("dropdown", "build"); at == nil || at.Window != w {
+		t.Errorf("the menu opens under %+v, want the drop-down in window %d", at, w)
+	}
+
+	open()
+	for js, want := range map[string]string{
+		`[...document.querySelectorAll(".menu-title")].map(e => e.textContent).join("|")`: `"pending|passed|failed"`,
+		`[...document.querySelectorAll("[aria-checked]")].map(e => e.dataset.index).join()`: `"1"`,
+		`document.querySelectorAll(".menu-dot, [aria-disabled]").length`:                  "0",
+	} {
+		if got := evalIn(t, MenuWindow, js); got != want {
+			t.Errorf("%s = %s, want %s", js, got, want)
+		}
+	}
+	waitIn(t, w, busy, "true")
+	evalIn(t, MenuWindow, `document.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape"})), true`)
+	eventually(t, "the menu to hide", func() bool { return !shim.WindowVisible(MenuWindow) })
+	waitIn(t, w, busy, "false")
+
+	open()
+	evalIn(t, MenuWindow, `document.querySelectorAll(".menu-item")[2].click(), true`)
+	eventually(t, "build failed", func() bool { return calls.has("build failed") })
+	eventually(t, "the menu to hide", func() bool { return !shim.WindowVisible(MenuWindow) })
+	waitIn(t, w, busy, "true")
+	evalIn(t, w, `document.querySelector(".select").click(), true`) // dropped: still running
+	if time.Sleep(200 * time.Millisecond); shim.WindowVisible(MenuWindow) {
+		t.Error("clicking the drop-down while its Choose ran showed its menu")
+	}
+	close(release)
+	waitIn(t, w, busy, "false")
+	if calls.has("build pending") || calls.has("build passed") {
+		t.Error("closing the menu without choosing chose something")
+	}
+	waitIn(t, w, `document.querySelectorAll(".select")[1].disabled`, "true")
+	evalIn(t, w, `window.webkit.messageHandlers.frame.postMessage("close"), true`)
+	eventually(t, "the report window to close", func() bool { return !shim.WindowVisible(w) })
+}
+
+// In a theme without a menu of its own, a report's drop-down pops its options up in
+// the native menu, the one it shows checked and none with a dot, and calls its Choose
+// with the one chosen; with none chosen, it doesn't. The menu opens at the mouse, or,
+// in a theme that opens it below, under the drop-down, as its page measures it; one
+// the page can't find opens at the mouse.
+func TestReportDropdownNative(t *testing.T) {
+	for _, c := range []struct {
+		name   string
+		menu   string
+		answer string
+		want   *shim.Anchor
+	}{
+		{"mouse", "", "[10, 20, 44]", nil},
+		{"below", "below", "[10, 20, 44]", &shim.Anchor{Left: 10, Top: 20, Bottom: 44}},
+		{"gone", "below", "null", nil},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			b, f := fakeBar(t, theme.Theme{Dropdown: theme.Dropdown{Menu: c.menu}})
+			chosen := 2
+			f.choose = func([]shim.MenuItem) shim.Chosen { return shim.Chosen{Index: chosen} }
+			done := "fake " + c.name + " "
+			if err := b.ShowReport("fdrop-"+c.name, "Drop", []templ.Component{components.Dropdown(components.Select{ID: "build",
+				Options: []string{"pending", "passed", "failed"}, Value: "passed", Choose: func(value string) { calls.add(done + value) }})}); err != nil {
+				t.Fatal(err)
+			}
+			b.mu.Lock()
+			w := b.reports["fdrop-"+c.name].window
+			b.mu.Unlock()
+			f.answers = map[string]json.RawMessage{fmt.Sprintf(measureDropdown, `"build"`): json.RawMessage(c.answer)}
+			if c.want != nil {
+				c.want.Window = w
+			}
+			post(b, w, `{"action": "ready"}`)
+			post(b, w, `{"action": "click", "id": "build"}`)
+			chosen = -1
+			post(b, w, `{"action": "click", "id": "build"}`)
+			if calls.count(done+"failed") != 1 || calls.has(done+"pending") || calls.has(done+"passed") {
+				t.Error("the drop-down didn't choose failed, once, and only that")
+			}
+			items := []shim.MenuItem{{Title: "pending", Enabled: true}, {Title: "passed", Enabled: true, Checked: true}, {Title: "failed", Enabled: true}}
+			f.mu.Lock()
+			defer f.mu.Unlock()
+			if !slices.EqualFunc(f.menus, [][]shim.MenuItem{items, items}, slices.Equal) {
+				t.Errorf("the menus were %+v, want its options twice", f.menus)
+			}
+			for _, at := range f.anchors {
+				if (at == nil) != (c.want == nil) || at != nil && *at != *c.want {
+					t.Errorf("the menu opened under %+v, want %+v", at, c.want)
+				}
+			}
+		})
+	}
 }
 
 // Each theme loads in a report.

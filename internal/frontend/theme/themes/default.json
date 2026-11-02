@@ -4,6 +4,7 @@
   "bar": ["css/default.colors.css", "css/default.css"],
   "report": ["css/default.report.css"],
   "menu": ["css/default.colors.css", "css/default.menu.css"],
+  "dropdown": {"menu": "below"},
   "icons": {
     "menu": "https://cdn.jsdelivr.net/npm/@boxicons/core@1.0.6/svg/basic/bx-dots-horizontal-rounded.svg",
     "dismiss": "https://cdn.jsdelivr.net/npm/@boxicons/core@1.0.6/svg/basic/bx-x.svg",

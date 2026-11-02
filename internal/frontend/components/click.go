@@ -110,6 +110,17 @@ func copyClick(ctx context.Context, text string) Click {
 	return func(ClickEvent) { put(text) }
 }
 
+// menuKey is the context key of what a page's Dropdowns pop their options up with.
+type menuKey struct{}
+
+// WithMenu is ctx with choose, which pops up a menu of items for the element whose
+// data-click is at, such as to open under it, and returns the index of the one
+// chosen, or -1 for none, for a Dropdown rendered with it to choose from. Rendered
+// without one, a Dropdown is disabled.
+func WithMenu(ctx context.Context, choose func(items []MenuItem, at string) int) context.Context {
+	return context.WithValue(ctx, menuKey{}, choose)
+}
+
 // copyID is the id of the button that copies text: the same for the same text, so
 // two Codes that show it can share it, as they do the same.
 func copyID(text string) string {
@@ -123,12 +134,17 @@ func copyID(text string) string {
 // with the scope it's in, so two cards, or two blocks, can use the same ids.
 // Rendered without any Clicks, the click goes nowhere.
 func ClickID(ctx context.Context, id string, click Click) string {
-	s, _ := ctx.Value(scopeKey{}).(scope)
-	full := pageID(s, id)
+	full := scopedID(ctx, id)
 	if clicks, ok := ctx.Value(clicksKey{}).(*Clicks); ok && click != nil {
 		clicks.add(full, click)
 	}
 	return full
+}
+
+// scopedID is the page's id for id in what ctx renders in, as ClickID gives it out.
+func scopedID(ctx context.Context, id string) string {
+	s, _ := ctx.Value(scopeKey{}).(scope)
+	return pageID(s, id)
 }
 
 // Clickable is the attributes that make an element clicked on its own, for a kind of

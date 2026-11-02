@@ -1,5 +1,10 @@
 package components
 
+import (
+	"context"
+	"slices"
+)
+
 // The blocks a report is made of, drawn top to bottom in ReportPage, and the Inline
 // text in them. Each is an HTML element, and every string is shown as text.
 
@@ -289,5 +294,68 @@ templ buttonLabel(icon string, title string) {
 		<span class="icon" aria-hidden="true"></span>{ title }
 	} else {
 		<span class="button-dot"></span>{ title }
+	}
+}
+
+// Select is a drop-down, such as in a table's cell, for choosing one of its Options:
+// an outcome's state, say. It shows Value, or the first option if Value isn't one.
+// Its ID is the app's, unique in its Block, or among the report's buttons and selects
+// in none.
+type Select struct {
+	ID      string
+	Options []string
+	Value   string
+	// Choose is choosing an option, with its value. Without one, it's disabled. The
+	// drop-down goes on showing Value, so to show the one chosen, show the report, or
+	// its Block, again with it as Value.
+	Choose func(value string)
+}
+
+// Dropdown is a <button class="select"> showing s's value. Clicking it pops up a menu
+// of its options, in the theme's menu, as a card's is, with its value checked, at the
+// mouse or under the button, as the theme has it, and choosing one calls its Choose,
+// on a goroutine of the app's. While the menu's open and Choose runs, the button has
+// data-busy, and clicking it again does nothing.
+templ Dropdown(s Select) {
+	{{ click := s.open(ctx) }}
+	<button
+		type="button"
+		class="select"
+		{ Clickable(ctx, s.ID, click)... }
+		if click == nil {
+			disabled
+		}
+	>{ s.shown() }</button>
+}
+
+// shown is the option s shows: its Value, if that's one, or the first.
+func (s Select) shown() string {
+	if slices.Contains(s.Options, s.Value) || len(s.Options) == 0 {
+		return s.Value
+	}
+	return s.Options[0]
+}
+
+// open is the Click of s's button: it pops up s's options for the button with what
+// ctx has to pop up a menu with, and calls Choose with the one chosen. It's nil, so
+// the button's disabled, without a Choose, any options or anything to pop them up
+// with. A middle click does nothing.
+func (s Select) open(ctx context.Context) Click {
+	choose, _ := ctx.Value(menuKey{}).(func([]MenuItem, string) int)
+	if s.Choose == nil || len(s.Options) == 0 || choose == nil {
+		return nil
+	}
+	shown, at := s.shown(), scopedID(ctx, s.ID)
+	items := make([]MenuItem, len(s.Options))
+	for i, option := range s.Options {
+		items[i] = MenuItem{Title: option, Enabled: true, Checked: option == shown}
+	}
+	return func(e ClickEvent) {
+		if e.Middle {
+			return
+		}
+		if i := choose(items, at); i >= 0 && i < len(s.Options) {
+			s.Choose(s.Options[i])
+		}
 	}
 }

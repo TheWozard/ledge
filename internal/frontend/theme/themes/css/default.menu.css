@@ -1,4 +1,4 @@
-/* default: a card's menu, like a native one: rounded, light or dark to match the
+/* default: a menu, like a native one: rounded, light or dark to match the
    system, the item under the mouse or the keys in the accent, and one that can't be
    chosen greyed out. */
 body {
@@ -34,4 +34,16 @@ body {
 
 .menu-item.active .menu-dot {
   box-shadow: 0 0 0 1px #ffffff;
+}
+
+/* A drop-down's menu has a ✓ before the option it shows, and room for one before
+   the rest. */
+#menu:has([aria-checked]) .menu-item::before {
+  content: "";
+  flex: none;
+  width: 12px;
+}
+
+.menu-item[aria-checked]::before {
+  content: "✓";
 }

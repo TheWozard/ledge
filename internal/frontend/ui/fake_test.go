@@ -13,8 +13,9 @@ import (
 
 // fakeNative stands in for the windows in the tests that don't open any: it records
 // what each window is loaded with and what's run in it, which windows are showing,
-// the native menus popped up, the links opened and the text copied. It measures a theme's menu as
-// 120 by 40, and chooses from a native menu what choose says, or nothing.
+// the native menus popped up and what each opened under, the links opened and the text
+// copied. It measures a theme's menu as 120 by 40, answers the JS answers has, and
+// chooses from a native menu what choose says, or nothing.
 type fakeNative struct {
 	mu      sync.Mutex
 	loaded  map[int]string   // the page each window was last loaded with
@@ -22,7 +23,9 @@ type fakeNative struct {
 	evals   map[int][]string // what's been run in each window since it was loaded
 	visible map[int]bool
 	menus   [][]shim.MenuItem
+	anchors []*shim.Anchor // what each menu opened under, nil for the mouse
 	choose  func(items []shim.MenuItem) shim.Chosen
+	answers map[string]json.RawMessage // what's answered to JS run in a page, by the JS
 	urls    []string
 	copied  []string
 }
@@ -51,17 +54,22 @@ func (f *fakeNative) EvalResult(window int, js string) (json.RawMessage, error) 
 	if window == MenuWindow && js == measureMenu {
 		return json.RawMessage(`[120, 40]`), nil
 	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if answer, ok := f.answers[js]; ok {
+		return answer, nil
+	}
 	return nil, errors.New("the fake runs no JS")
 }
 
-func (f *fakeNative) CreateWindow(int, string, float64, float64) {}
-func (f *fakeNative) SetTitle(int, string)                       {}
-func (f *fakeNative) SetAppearance(int, string)                  {}
-func (f *fakeNative) SetFrameless(int, bool)                     {}
-func (f *fakeNative) ShowWindow(window int)                      { f.show(window, true) }
-func (f *fakeNative) CreatePopup(int)                            {}
-func (f *fakeNative) ShowPopup(window int, _, _ float64)         { f.show(window, true) }
-func (f *fakeNative) HidePopup(window int)                       { f.show(window, false) }
+func (f *fakeNative) CreateWindow(int, string, float64, float64)         {}
+func (f *fakeNative) SetTitle(int, string)                               {}
+func (f *fakeNative) SetAppearance(int, string)                          {}
+func (f *fakeNative) SetFrameless(int, bool)                             {}
+func (f *fakeNative) ShowWindow(window int)                              { f.show(window, true) }
+func (f *fakeNative) CreatePopup(int)                                    {}
+func (f *fakeNative) ShowPopup(window int, _, _ float64, _ *shim.Anchor) { f.show(window, true) }
+func (f *fakeNative) HidePopup(window int)                               { f.show(window, false) }
 
 func (f *fakeNative) show(window int, visible bool) {
 	f.mu.Lock()
@@ -72,9 +80,9 @@ func (f *fakeNative) show(window int, visible bool) {
 	f.visible[window] = visible
 }
 
-func (f *fakeNative) ShowMenu(items []shim.MenuItem) shim.Chosen {
+func (f *fakeNative) ShowMenu(items []shim.MenuItem, at *shim.Anchor) shim.Chosen {
 	f.mu.Lock()
-	f.menus = append(f.menus, items)
+	f.menus, f.anchors = append(f.menus, items), append(f.anchors, at)
 	choose := f.choose
 	f.mu.Unlock()
 	if choose == nil {
