@@ -3,9 +3,10 @@
 #
 #   - a CI report with one of each block: heading, text, fields, table, list, code,
 #     notes in each colour, quote, link, buttons, image, details, rule and run; with
-#     strong, em, mono and linked text, links and buttons in table cells, and a
-#     nested list. Links open in your browser; Retry and the run's Re-run lint run
-#     only with commands on, and Done dismisses the card.
+#     strong, em, mono and linked text, links, buttons, drop-downs and checkboxes in
+#     table cells, and a nested list. Links open in your browser; Retry and the run's
+#     Re-run lint run only with commands on; an outcome chosen in a drop-down, and a
+#     ticked Muted, are kept, and show in `ledge list`; and Done dismisses the card.
 #   - a long report, to scroll, whose text looks like HTML but must show as text
 #
 #   report.sh         send the cards
@@ -36,12 +37,14 @@ send '{"id": "report-ci", "source": "example-report", "priority": "high", "title
            {"label": "Branch", "value": "main"}, {"label": "Commit", "value": {"type": "link", "text": "c81d1a5", "url": "https://example.com/commit/c81d1a5"}},
            {"label": "Failed", "value": 2}, {"label": "Sent at", "value": "'"$(date +%T)"'"}]},
          {"type": "heading", "text": "Jobs"},
-         {"type": "table", "columns": ["Job", "State", "Time", "Logs", ""], "rows": [
-           ["build", {"type": "strong", "text": "failed"}, "1m 12s", {"type": "link", "text": "logs", "url": "https://example.com/build/logs"},
+         {"type": "table", "columns": ["Job", "State", "Outcome", "", "Time", "Logs", ""], "rows": [
+           ["build", {"type": "strong", "text": "failed"}, {"type": "select", "id": "build", "options": ["untriaged", "flaky", "broken", "fixed"]},
+            {"type": "checkbox", "id": "build-muted", "label": "Muted"}, "1m 12s", {"type": "link", "text": "logs", "url": "https://example.com/build/logs"},
             {"type": "buttons", "items": [{"title": "Retry", "color": "red", "command": "echo retrying build"}]}],
-           ["lint", {"type": "strong", "text": "failed"}, "41s", {"type": "link", "text": "logs", "url": "https://example.com/lint/logs"},
+           ["lint", {"type": "strong", "text": "failed"}, {"type": "select", "id": "lint", "options": ["untriaged", "flaky", "broken", "fixed"], "value": "broken"},
+            {"type": "checkbox", "id": "lint-muted", "label": "Muted", "checked": true}, "41s", {"type": "link", "text": "logs", "url": "https://example.com/lint/logs"},
             {"type": "buttons", "items": [{"title": "Retry", "color": "red", "command": "echo retrying lint"}]}],
-           ["test", "passed", "3m 05s"],
+           ["test", "passed", "", "", "3m 05s"],
            ["release", {"type": "em", "text": "skipped"}]]},
          {"type": "heading", "text": "build"},
          {"type": "code", "text": "$ go build ./...\ninternal/store/store.go:42: undefined: Refuse"},

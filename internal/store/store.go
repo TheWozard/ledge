@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -73,6 +74,9 @@ func (s *Store) Add(raw any, now time.Time) (string, error) {
 	if err := s.claim(event); err != nil {
 		return "", err
 	}
+	if old, ok := s.find(event.ID); ok {
+		event.Chosen = kept(old.Chosen, event)
+	}
 	if err := s.save(set(slices.Clone(s.events), event)); err != nil {
 		return "", err
 	}
@@ -100,6 +104,9 @@ func (s *Store) ReplaceSource(source string, items []any, now time.Time) ([]stri
 		if err := s.claim(event); err != nil {
 			return nil, refuse("items/%d: %v", i, err)
 		}
+		if old, ok := s.find(event.ID); ok {
+			added[i].Chosen = kept(old.Chosen, event)
+		}
 	}
 	next := slices.DeleteFunc(slices.Clone(s.events), func(e Event) bool { return e.Source == source })
 	if err := s.save(append(next, added...)); err != nil {
@@ -114,6 +121,55 @@ func (s *Store) claim(event Event) error {
 		return refuse("id %q is source %q's event; give it another id", event.ID, old.Source)
 	}
 	return nil
+}
+
+// kept is what of chosen, an event's choices, event, the event sent again, keeps:
+// each whose select it still has, with that option, or whose checkbox it still has.
+func kept(chosen map[string]any, event Event) map[string]any {
+	var out map[string]any
+	for _, in := range Inputs(event.Report) {
+		if value, ok := chosen[in.ID]; ok && in.Allows(value) {
+			if out == nil {
+				out = map[string]any{}
+			}
+			out[in.ID] = value
+		}
+	}
+	return out
+}
+
+// Choose keeps value as chosen in the select or checkbox with inputID in the event
+// with id's report, and returns the event with it: one of a select's options, or true
+// or false for a checkbox. It says why if there's no such event or input, or it can't
+// be value.
+func (s *Store) Choose(id, inputID string, value any) (Event, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	i := slices.IndexFunc(s.events, func(e Event) bool { return e.ID == id })
+	if i < 0 {
+		return Event{}, fmt.Errorf("no event %q", id)
+	}
+	event := s.events[i]
+	inputs := Inputs(event.Report)
+	j := slices.IndexFunc(inputs, func(in Inline) bool { return in.ID == inputID })
+	if j < 0 {
+		return Event{}, fmt.Errorf("event %q has no select or checkbox %q", id, inputID)
+	}
+	if !inputs[j].Allows(value) {
+		return Event{}, fmt.Errorf("%s %q of event %q can't be %#v", inputs[j].Type, inputID, id, value)
+	}
+	chosen := maps.Clone(event.Chosen)
+	if chosen == nil {
+		chosen = map[string]any{}
+	}
+	chosen[inputID] = value
+	event.Chosen = chosen
+	next := slices.Clone(s.events)
+	next[i] = event
+	if err := s.save(next); err != nil {
+		return Event{}, err
+	}
+	return event, nil
 }
 
 // Get is the event with this id.

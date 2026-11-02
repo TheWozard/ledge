@@ -44,6 +44,9 @@ type Event struct {
 	Source      string    `json:"source"`
 	Received    time.Time `json:"received"`
 	Expires     time.Time `json:"expires,omitzero"`
+	// What was chosen in the report's selects (an option) and checkboxes (true or
+	// false), by their ids: ledge's, not sent.
+	Chosen map[string]any `json:"chosen,omitempty"`
 
 	// A timer's.
 	Start time.Time `json:"start,omitzero"`
@@ -197,6 +200,16 @@ func Normalize(raw any, source string, received time.Time) (Event, error) {
 	}
 	if event.ID == "" {
 		event.ID = newID()
+	}
+	seen := map[string]bool{}
+	for _, in := range Inputs(event.Report) {
+		if seen[in.ID] {
+			return Event{}, refuse("report: id %q is used twice; a select's or checkbox's id is the key of its choice", in.ID)
+		}
+		seen[in.ID] = true
+		if in.Value != "" && !in.Allows(in.Value) {
+			return Event{}, refuse("report: select %q: value %q isn't one of its options", in.ID, in.Value)
+		}
 	}
 	event.Received = received.UTC().Truncate(time.Second)
 	return event, nil

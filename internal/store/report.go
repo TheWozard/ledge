@@ -3,6 +3,7 @@ package store
 import (
 	"bytes"
 	"encoding/json"
+	"slices"
 )
 
 // Block is one part of a report. Type says which, and so which other fields it has.
@@ -78,15 +79,21 @@ func (b Block) MarshalJSON() ([]byte, error) {
 
 // Inline is text in a block, as it was sent: a string; a number, kept as it was
 // written, in a cell or a field's value; a span of strong, em, mono or linked text;
-// an array of those, run together; or, in a cell or a field's value, a row of buttons.
+// an array of those, run together; or, in a cell or a field's value, a row of buttons,
+// a select or a checkbox.
 type Inline struct {
-	Type    string // strong, em, mono, link or buttons; "" for a string, a number or an array
+	Type    string // strong, em, mono, link, buttons, select or checkbox; "" for a string, a number or an array
 	Text    string // the string, or the number as it was written
 	Number  bool
 	Parts   []Inline // an array's
 	Content *Inline  // a span's text
 	URL     string   // a link's
 	Buttons []Button // buttons'
+	ID      string   // a select's or a checkbox's
+	Options []string // a select's
+	Value   string   // a select's, shown until one's chosen
+	Label   string   // a checkbox's
+	Checked bool     // a checkbox's, shown until it's clicked
 }
 
 func (in Inline) IsZero() bool {
@@ -95,16 +102,21 @@ func (in Inline) IsZero() bool {
 
 // span is how an Inline with a Type is sent.
 type span struct {
-	Type  string   `json:"type"`
-	Text  *Inline  `json:"text,omitempty"`
-	URL   string   `json:"url,omitempty"`
-	Items []Button `json:"items,omitempty"`
+	Type    string   `json:"type"`
+	Text    *Inline  `json:"text,omitempty"`
+	URL     string   `json:"url,omitempty"`
+	Items   []Button `json:"items,omitempty"`
+	ID      string   `json:"id,omitempty"`
+	Options []string `json:"options,omitempty"`
+	Value   string   `json:"value,omitempty"`
+	Label   string   `json:"label,omitempty"`
+	Checked bool     `json:"checked,omitempty"`
 }
 
 func (in Inline) MarshalJSON() ([]byte, error) {
 	switch {
 	case in.Type != "":
-		return marshal(span{in.Type, in.Content, in.URL, in.Buttons})
+		return marshal(span{in.Type, in.Content, in.URL, in.Buttons, in.ID, in.Options, in.Value, in.Label, in.Checked})
 	case in.Parts != nil:
 		return marshal(in.Parts)
 	default:
@@ -124,6 +136,7 @@ func (in *Inline) UnmarshalJSON(data []byte) error {
 			return err
 		}
 		in.Type, in.Content, in.URL, in.Buttons = s.Type, s.Text, s.URL, s.Items
+		in.ID, in.Options, in.Value, in.Label, in.Checked = s.ID, s.Options, s.Value, s.Label, s.Checked
 		return nil
 	default:
 		var s Scalar
@@ -175,4 +188,41 @@ type Button struct {
 	URL     string `json:"url,omitempty"`
 	Command string `json:"command,omitempty"`
 	Dismiss bool   `json:"dismiss,omitempty"`
+}
+
+// Inputs is the selects and checkboxes in blocks, in a table's cells or a field's
+// value, in details too, in the order they're drawn.
+func Inputs(blocks []Block) []Inline {
+	var out []Inline
+	for _, block := range blocks {
+		for _, field := range block.Fields {
+			if field.Value.IsInput() {
+				out = append(out, field.Value)
+			}
+		}
+		for _, row := range block.Rows {
+			for _, cell := range row {
+				if cell.IsInput() {
+					out = append(out, cell)
+				}
+			}
+		}
+		out = append(out, Inputs(block.Blocks)...)
+	}
+	return out
+}
+
+// IsInput is whether in is a select or a checkbox, whose choice is kept.
+func (in Inline) IsInput() bool { return in.Type == "select" || in.Type == "checkbox" }
+
+// Allows is whether value can be chosen in in: one of a select's options, or true or
+// false for a checkbox.
+func (in Inline) Allows(value any) bool {
+	switch value := value.(type) {
+	case string:
+		return in.Type == "select" && slices.Contains(in.Options, value)
+	case bool:
+		return in.Type == "checkbox"
+	}
+	return false
 }

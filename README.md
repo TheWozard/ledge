@@ -126,11 +126,30 @@ Text in a block can be a string, a span, or an array of strings and spans run to
 `strong`, `em`, `mono` and `link` spans, as in `["Run ", {"type": "mono", "text": "make"},
 " or see ", {"type": "link", "text": "the docs", "url": "https://example.com"}]`. Strong,
 em and link spans can hold spans of their own. A table cell or a field's value can also be
-a number, or a row of buttons.
+a number, a row of buttons, a drop-down or a checkbox (below).
 
 A button opens its `url` (with `open`, as a card's does), runs its `command` (only with
 `commands` on, as a card's does; otherwise it's disabled), or dismisses its event with
 `"dismiss": true`. `ledge schema event` describes it all.
+
+A table cell or a field's value can also be a drop-down, such as for an outcome you
+pick once you've looked into it, or a checkbox, such as for marking a job muted. A
+drop-down shows its `value` (by default its first option) until you choose one; a
+checkbox is ticked if it's sent `checked`, until you click it. ledge keeps what you
+chose with the event, by the input's `id` (unique among the report's drop-downs and
+checkboxes), so the report shows it when opened again, after a restart too, and
+`ledge list` has it in the event's `chosen`, such as `{"build": "flaky", "build-muted":
+true}`, for a script to read. Sending the event again keeps each choice while it still
+has that drop-down with that option, or that checkbox. Choosing runs nothing, so it
+works with `commands` off.
+
+```json
+{"type": "table", "columns": ["Job", "Outcome", ""], "rows": [
+  ["build", {"type": "select", "id": "build", "options": ["untriaged", "flaky", "fixed"]},
+   {"type": "checkbox", "id": "build-muted", "label": "Muted"}],
+  ["test", {"type": "select", "id": "test", "options": ["untriaged", "flaky", "fixed"], "value": "flaky"},
+   {"type": "checkbox", "id": "test-muted", "label": "Muted", "checked": true}]]}
+```
 
 A `run` block is a command you can run from the report and watch: a button (`title`,
 default "Run") in a colour for how the last run went, when it started, its output,

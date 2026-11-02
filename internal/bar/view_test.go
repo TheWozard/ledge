@@ -183,3 +183,56 @@ func TestReportButtons(t *testing.T) {
 		}
 	}
 }
+
+// A select shows what was chosen in it, or else its value, or else its first option,
+// checked in its menu; a checkbox, as it was last clicked, or else as it was sent.
+// Both can be used whether or not commands are allowed, with ids apart from the
+// buttons'.
+func TestReportInputs(t *testing.T) {
+	event := normalize(t, `{"id": "ci", "title": "CI", "report": [
+		{"type": "fields", "items": [{"label": "Overall", "value": {"type": "select", "id": "overall", "options": ["open", "closed"]}}]},
+		{"type": "table", "columns": ["Job", "Outcome", ""], "rows": [
+			["build", {"type": "select", "id": "build", "options": ["pending", "passed", "failed"], "value": "pending"},
+			 {"type": "checkbox", "id": "build-muted", "label": "Muted"}],
+			["test", {"type": "select", "id": "test", "options": ["pending", "passed"], "value": "pending"},
+			 {"type": "checkbox", "id": "test-muted", "label": "Muted", "checked": true}],
+			["lint", {"type": "buttons", "items": [{"title": "Retry", "url": "https://example.com/retry"}]},
+			 {"type": "checkbox", "id": "button-1"}]]}]}`)
+	event.Chosen = map[string]any{"build": "failed", "build-muted": true}
+	var checked []string
+	menu := func(items []components.MenuItem, at string) int {
+		for _, item := range items {
+			if item.Checked {
+				checked = append(checked, at+" "+item.Title)
+			}
+		}
+		return -1
+	}
+	clicks := &components.Clicks{}
+	var html strings.Builder
+	ctx := components.WithMenu(components.WithClicks(context.Background(), clicks), menu)
+	for _, block := range (&report{bar: &Bar{}, event: event}).blocks(event.Report) {
+		block.Render(ctx, &html)
+	}
+	for _, want := range []string{
+		`<button type="button" class="select" data-click="input-overall">open</button>`,
+		`<button type="button" class="select" data-click="input-build">failed</button>`,
+		`<button type="button" class="select" data-click="input-test">pending</button>`,
+		`aria-checked="true" data-click="input-build-muted"><span class="checkbox-box"></span>Muted</button>`,
+		`aria-checked="true" data-click="input-test-muted">`, `aria-checked="false" data-click="input-button-1">`,
+	} {
+		if !strings.Contains(html.String(), want) {
+			t.Errorf("missing %q in:\n%s", want, html.String())
+		}
+	}
+	ids := []string{"button-1", "input-build", "input-build-muted", "input-button-1", "input-overall", "input-test", "input-test-muted"}
+	if !slices.Equal(clicks.IDs(), ids) {
+		t.Fatalf("without commands, the report has Clicks %q, want %q", clicks.IDs(), ids)
+	}
+	for _, id := range []string{"input-build", "input-overall", "input-test"} {
+		clicks.Click(id)(components.ClickEvent{})
+	}
+	if want := []string{"input-build failed", "input-overall open", "input-test pending"}; !slices.Equal(checked, want) {
+		t.Errorf("the menus had %q checked, want %q", checked, want)
+	}
+}

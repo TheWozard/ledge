@@ -177,6 +177,10 @@ func (r *report) inline(in store.Inline) components.Inline {
 		return components.LinkTo(in.URL, r.inline(*in.Content))
 	case "buttons":
 		return r.buttons(in.Buttons)
+	case "select":
+		return r.dropdown(in)
+	case "checkbox":
+		return r.checkbox(in)
 	}
 	if in.Parts != nil {
 		parts := make([]templ.Component, len(in.Parts))
@@ -196,6 +200,34 @@ func (r *report) items(items []store.Item) []components.Item {
 	}
 	return out
 }
+
+// dropdown is a select, showing what was chosen in it, if anything, or else its
+// value. Choosing an option keeps it with the event.
+func (r *report) dropdown(in store.Inline) templ.Component {
+	value, ok := r.event.Chosen[in.ID].(string)
+	if !ok {
+		value = in.Value
+	}
+	b, id := r.bar, r.event.ID
+	return components.Dropdown(components.Select{ID: inputID(in), Options: in.Options, Value: value,
+		Choose: func(value string) { b.choose(id, in.ID, value) }})
+}
+
+// checkbox is a checkbox, ticked as it was last clicked, if it has been, or else as
+// it was sent. Clicking it keeps its new state with the event.
+func (r *report) checkbox(in store.Inline) templ.Component {
+	checked, ok := r.event.Chosen[in.ID].(bool)
+	if !ok {
+		checked = in.Checked
+	}
+	b, id := r.bar, r.event.ID
+	return components.Checkbox(components.Toggle{ID: inputID(in), Label: in.Label, Checked: checked,
+		Set: func(checked bool) { b.choose(id, in.ID, checked) }})
+}
+
+// inputID is the id in the report of a select or checkbox: its own, kept apart from
+// the buttons' made-up ones.
+func inputID(in store.Inline) string { return "input-" + in.ID }
 
 // buttons is a row of buttons, each with its own id in the report. One that would run
 // a command while commands aren't allowed does nothing, so it's disabled.

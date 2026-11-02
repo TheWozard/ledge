@@ -55,35 +55,41 @@ func TestNormalizeRefuses(t *testing.T) {
 		`{"kind": "stat", "title": "x"}`:                                              "missing property 'value'",
 		`{"kind": "checks", "title": "x", "checks": [{"name": "a", "state": "ok"}]}`:  "checks/0/state: value must be one of",
 		`{"kind": "message", "title": "x", "from": "a", "avatar": "https://a/b.png"}`: "avatar: 'https://a/b.png' does not match pattern",
-		`{"tittle": "x"}`:                                                                                                 "event schema: event: missing property 'title'",
-		`{"title": "x", "expires": "no"}`:                                                                                 `expires "no" isn't an ISO 8601 time`,
-		`{"title": "x", "url": "https://a", "report": []}`:                                                                "only one of `url`, `report` and `command` can be set",
-		`{"title": "x", "report": "notes.html"}`:                                                                          "report: got string, want array",
-		`{"title": "x", "report": []}`:                                                                                    "report: minItems: got 0, want 1",
-		`{"title": "x", "report": [{"text": "t"}]}`:                                                                       "report/0: missing property 'type'",
-		`{"title": "x", "report": [{"type": "chart"}]}`:                                                                   "report/0/type: value must be one of 'heading', 'text'",
-		`{"title": "x", "report": [{"type": "heading"}]}`:                                                                 "report/0: missing property 'text'",
-		`{"title": "x", "report": [{"type": "text", "text": "t", "color": "red"}]}`:                                       "report/0: additional properties 'color' not allowed",
-		`{"title": "x", "report": [{"type": "note", "text": "t", "color": "pink"}]}`:                                      "report/0/color: 'pink' does not match pattern",
-		`{"title": "x", "report": [{"type": "link", "text": "t", "url": "javascript:alert(1)"}]}`:                         "report/0/url: 'javascript:alert(1)' does not match pattern",
-		`{"title": "x", "report": [{"type": "table", "columns": ["a"], "rows": [[{}]]}]}`:                                 "report/0/rows/0/0: missing property 'type'",
-		`{"title": "x", "report": [{"type": "table", "columns": ["a"], "rows": [[true]]}]}`:                               "report/0/rows/0/0: got boolean, want number or string or array or object",
-		`{"title": "x", "report": [{"type": "text", "text": 3}]}`:                                                         "report/0/text: got number, want string or array or object",
-		`{"title": "x", "report": [{"type": "text", "text": []}]}`:                                                        "report/0/text: minItems: got 0, want 1",
-		`{"title": "x", "report": [{"type": "text", "text": [{"type": "bold", "text": "b"}]}]}`:                           "report/0/text/0/type: value must be one of 'strong', 'em', 'mono', 'link'",
-		`{"title": "x", "report": [{"type": "text", "text": {"type": "link", "text": "l"}}]}`:                             "report/0/text: missing property 'url'",
-		`{"title": "x", "report": [{"type": "text", "text": {"type": "buttons", "items": []}}]}`:                          "report/0/text/type: value must be one of",
-		`{"title": "x", "report": [{"type": "heading", "text": "h", "level": 7}]}`:                                        "report/0/level: maximum: got 7, want 6",
-		`{"title": "x", "report": [{"type": "list", "items": [{"text": "t"}]}]}`:                                          "report/0/items/0: missing property 'items'",
-		`{"title": "x", "report": [{"type": "buttons", "items": [{"title": "b", "url": "https://a", "dismiss": true}]}]}`: "only one of `url`, `command` and `dismiss` can be set",
-		`{"title": "x", "report": [{"type": "buttons", "items": [{"title": "b", "dismiss": false}]}]}`:                    "report/0/items/0/dismiss: value must be true",
-		`{"title": "x", "report": [{"type": "image", "src": "https://a/b.png", "alt": "b"}]}`:                             "report/0/src: 'https://a/b.png' does not match pattern",
-		`{"title": "x", "report": [{"type": "details", "summary": "s", "blocks": [{"type": "chart"}]}]}`:                  "report/0/blocks/0/type: value must be one of",
-		`{"title": "x", "report": [{"type": "rule", "text": "r"}]}`:                                                       "report/0: additional properties 'text' not allowed",
-		`{"title": "x", "report": [{"type": "fields", "items": [{"label": "a"}]}]}`:                                       "report/0/items/0: missing property 'value'",
-		`{"title": "x", "report": [{"type": "run"}]}`:                                                                     "report/0: missing property 'command'",
-		`{"title": "x", "report": [{"type": "run", "command": "ls", "color": "red"}]}`:                                    "report/0: additional properties 'color' not allowed",
-		`{"title": "x", "report": [{"type": "details", "summary": "s", "blocks": [{"type": "run", "command": "ls"}]}]}`:   "a run can't be in details",
+		`{"tittle": "x"}`:                                                                                                                            "event schema: event: missing property 'title'",
+		`{"title": "x", "expires": "no"}`:                                                                                                            `expires "no" isn't an ISO 8601 time`,
+		`{"title": "x", "url": "https://a", "report": []}`:                                                                                           "only one of `url`, `report` and `command` can be set",
+		`{"title": "x", "report": "notes.html"}`:                                                                                                     "report: got string, want array",
+		`{"title": "x", "report": []}`:                                                                                                               "report: minItems: got 0, want 1",
+		`{"title": "x", "report": [{"text": "t"}]}`:                                                                                                  "report/0: missing property 'type'",
+		`{"title": "x", "report": [{"type": "chart"}]}`:                                                                                              "report/0/type: value must be one of 'heading', 'text'",
+		`{"title": "x", "report": [{"type": "heading"}]}`:                                                                                            "report/0: missing property 'text'",
+		`{"title": "x", "report": [{"type": "text", "text": "t", "color": "red"}]}`:                                                                  "report/0: additional properties 'color' not allowed",
+		`{"title": "x", "report": [{"type": "note", "text": "t", "color": "pink"}]}`:                                                                 "report/0/color: 'pink' does not match pattern",
+		`{"title": "x", "report": [{"type": "link", "text": "t", "url": "javascript:alert(1)"}]}`:                                                    "report/0/url: 'javascript:alert(1)' does not match pattern",
+		`{"title": "x", "report": [{"type": "table", "columns": ["a"], "rows": [[{}]]}]}`:                                                            "report/0/rows/0/0: missing property 'type'",
+		`{"title": "x", "report": [{"type": "table", "columns": ["a"], "rows": [[true]]}]}`:                                                          "report/0/rows/0/0: got boolean, want number or string or array or object",
+		`{"title": "x", "report": [{"type": "text", "text": 3}]}`:                                                                                    "report/0/text: got number, want string or array or object",
+		`{"title": "x", "report": [{"type": "text", "text": []}]}`:                                                                                   "report/0/text: minItems: got 0, want 1",
+		`{"title": "x", "report": [{"type": "text", "text": [{"type": "bold", "text": "b"}]}]}`:                                                      "report/0/text/0/type: value must be one of 'strong', 'em', 'mono', 'link'",
+		`{"title": "x", "report": [{"type": "text", "text": {"type": "link", "text": "l"}}]}`:                                                        "report/0/text: missing property 'url'",
+		`{"title": "x", "report": [{"type": "text", "text": {"type": "buttons", "items": []}}]}`:                                                     "report/0/text/type: value must be one of",
+		`{"title": "x", "report": [{"type": "heading", "text": "h", "level": 7}]}`:                                                                   "report/0/level: maximum: got 7, want 6",
+		`{"title": "x", "report": [{"type": "list", "items": [{"text": "t"}]}]}`:                                                                     "report/0/items/0: missing property 'items'",
+		`{"title": "x", "report": [{"type": "buttons", "items": [{"title": "b", "url": "https://a", "dismiss": true}]}]}`:                            "only one of `url`, `command` and `dismiss` can be set",
+		`{"title": "x", "report": [{"type": "buttons", "items": [{"title": "b", "dismiss": false}]}]}`:                                               "report/0/items/0/dismiss: value must be true",
+		`{"title": "x", "report": [{"type": "image", "src": "https://a/b.png", "alt": "b"}]}`:                                                        "report/0/src: 'https://a/b.png' does not match pattern",
+		`{"title": "x", "report": [{"type": "details", "summary": "s", "blocks": [{"type": "chart"}]}]}`:                                             "report/0/blocks/0/type: value must be one of",
+		`{"title": "x", "report": [{"type": "rule", "text": "r"}]}`:                                                                                  "report/0: additional properties 'text' not allowed",
+		`{"title": "x", "report": [{"type": "fields", "items": [{"label": "a"}]}]}`:                                                                  "report/0/items/0: missing property 'value'",
+		`{"title": "x", "chosen": {"a": "b"}}`:                                                                                                       "chosen: not a property this object can have",
+		`{"title": "x", "report": [{"type": "fields", "items": [{"label": "a", "value": {"type": "select", "id": "s"}}]}]}`:                          "missing property 'options'",
+		`{"title": "x", "report": [{"type": "table", "columns": ["a"], "rows": [[{"type": "select", "id": "s", "options": ["a", "a"]}]]}]}`:          "items at 0 and 1 are equal",
+		`{"title": "x", "report": [{"type": "table", "columns": ["a"], "rows": [[{"type": "select", "id": "s", "options": ["a"], "value": "b"}]]}]}`: `select "s": value "b" isn't one of its options`,
+		`{"title": "x", "report": [{"type": "table", "columns": ["a"], "rows": [[{"type": "select", "id": "s", "options": ["a"]}]]},
+			{"type": "details", "summary": "d", "blocks": [{"type": "fields", "items": [{"label": "a", "value": {"type": "checkbox", "id": "s"}}]}]}]}`: `id "s" is used twice`,
+		`{"title": "x", "report": [{"type": "run"}]}`:                                                                   "report/0: missing property 'command'",
+		`{"title": "x", "report": [{"type": "run", "command": "ls", "color": "red"}]}`:                                  "report/0: additional properties 'color' not allowed",
+		`{"title": "x", "report": [{"type": "details", "summary": "s", "blocks": [{"type": "run", "command": "ls"}]}]}`: "a run can't be in details",
 	} {
 		_, err := Normalize(decode(t, body), "", received)
 		if _, ok := err.(*Error); !ok || !strings.Contains(err.Error(), want) {
@@ -112,6 +118,9 @@ func TestEventJSON(t *testing.T) {
 			{"type": "quote", "text": "q"}, {"type": "buttons", "items": [{"title": "b"}]},
 			{"type": "image", "src": "data:image/png;base64,AA==", "alt": "i"},
 			{"type": "details", "summary": "s", "blocks": [{"type": "rule"}, {"type": "text", "text": "t"}]}, {"type": "rule"}]}`,
+		`{"kind": "basic", "title": "x", "report": [{"type": "fields", "items": [{"label": "a", "value": {"type": "select", "id": "f", "options": ["a"]}}]},
+			{"type": "table", "columns": ["a"], "rows": [[{"type": "select", "id": "t", "options": ["a", "b"], "value": "b"},
+				{"type": "checkbox", "id": "c"}, {"type": "checkbox", "id": "d", "label": "l", "checked": true}]]}]}`,
 		`{"kind": "progress", "title": "x", "value": 0.25, "label": "1/4"}`,
 		`{"kind": "stat", "title": "x", "value": "2.3%", "change": "↑1", "change_color": "red", "history": [1, 2.5]}`,
 		`{"kind": "stat", "title": "x", "value": 7}`,
@@ -218,6 +227,77 @@ func TestStore(t *testing.T) {
 	}
 	if event, _ := reopened.Get("low"); event.Title != "replaced" {
 		t.Errorf("after reopening, low = %v", event)
+	}
+}
+
+// A choice in a select, or a checkbox's state, is kept with its event, across a
+// reopening, and when it's sent again, alone or in a section, while it still has
+// that select with that option, or that checkbox.
+func TestChoose(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "events.json")
+	s, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const muted = `{"type": "checkbox", "id": "muted", "label": "Muted"}`
+	report := func(id, options, mute string) string {
+		return `{"id": "` + id + `", "title": "x", "report": [{"type": "table", "columns": ["Job", "Outcome", ""], "rows": [
+			["build", {"type": "select", "id": "build", "options": [` + options + `]}, ` + mute + `],
+			["test", {"type": "select", "id": "test", "options": ["pending", "passed"], "value": "pending"}]]}]}`
+	}
+	if _, err := s.Add(decode(t, report("ci", `"pending", "passed", "failed"`, muted)), received); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ReplaceSource("feed", []any{decode(t, report("f1", `"pending", "failed"`, muted))}, received); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		event, input string
+		value        any
+	}{{"ci", "build", "failed"}, {"ci", "test", "passed"}, {"ci", "muted", false}, {"f1", "build", "failed"}, {"f1", "muted", true}} {
+		if _, err := s.Choose(c.event, c.input, c.value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	event, err := s.Choose("ci", "build", "passed")
+	if err != nil || event.Chosen["build"] != "passed" || event.Chosen["test"] != "passed" || event.Chosen["muted"] != false {
+		t.Fatalf("Choose = %v, %v", event.Chosen, err)
+	}
+	for _, c := range []struct {
+		event, input string
+		value        any
+	}{{"nope", "build", "passed"}, {"ci", "deploy", "passed"}, {"ci", "build", "skipped"}, {"ci", "build", true}, {"ci", "muted", "yes"}} {
+		if _, err := s.Choose(c.event, c.input, c.value); err == nil {
+			t.Errorf("Choose%v chose", c)
+		}
+	}
+
+	reopened, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if event, _ := reopened.Get("ci"); event.Chosen["build"] != "passed" || event.Chosen["test"] != "passed" || event.Chosen["muted"] != false {
+		t.Errorf("after reopening, chosen = %v", event.Chosen)
+	}
+	// Sent again: build no longer has passed, and muted is a select now, so only
+	// test's is kept.
+	if _, err := reopened.Add(decode(t, report("ci", `"pending", "failed"`, `{"type": "select", "id": "muted", "options": ["false"]}`)), received); err != nil {
+		t.Fatal(err)
+	}
+	if event, _ := reopened.Get("ci"); len(event.Chosen) != 1 || event.Chosen["test"] != "passed" {
+		t.Errorf("sent again, chosen = %v", event.Chosen)
+	}
+	if _, err := reopened.ReplaceSource("feed", []any{decode(t, report("f1", `"pending", "failed"`, muted))}, received); err != nil {
+		t.Fatal(err)
+	}
+	if event, _ := reopened.Get("f1"); event.Chosen["build"] != "failed" || event.Chosen["muted"] != true {
+		t.Errorf("in a section sent again, chosen = %v", event.Chosen)
+	}
+	// Dismissed and sent again, it starts afresh.
+	reopened.Remove("f1")
+	reopened.ReplaceSource("feed", []any{decode(t, report("f1", `"pending", "failed"`, muted))}, received)
+	if event, _ := reopened.Get("f1"); event.Chosen != nil {
+		t.Errorf("dismissed and sent again, chosen = %v", event.Chosen)
 	}
 }
 

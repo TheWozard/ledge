@@ -59,4 +59,26 @@ func TestReportWindow(t *testing.T) {
 	evalIn(t, window, `document.querySelector(".run [data-click]").click(), true`)
 	waitIn(t, window, `document.querySelector(".run pre")?.textContent`, `"from the run\n"`)
 	waitIn(t, window, `document.querySelector(".run")?.dataset.state`, `"passed"`)
+
+	// Choosing in a select, or clicking a checkbox, keeps it with the event, and the
+	// report shows it.
+	add(t, `{"id": "card-report", "title": "Card with a report", "report": [{"type": "table", "columns": ["Job", "Outcome", ""],
+		"rows": [["build", {"type": "select", "id": "build", "options": ["pending", "passed", "failed"]},
+			{"type": "checkbox", "id": "muted", "label": "Muted"}]]}]}`)
+	click(t, cardJS("Card with a report"))
+	waitIn(t, window, `document.querySelector("td .select")?.textContent`, `"pending"`)
+	evalIn(t, window, `document.querySelector("td .select").click(), true`)
+	waitIn(t, ui.MenuWindow, `document.querySelectorAll(".menu-item").length`, "3")
+	evalIn(t, ui.MenuWindow, `document.querySelectorAll(".menu-item")[2].click(), true`)
+	eventually(t, "build's outcome kept", func() bool {
+		event, _ := testStore.Get("card-report")
+		return event.Chosen["build"] == "failed"
+	})
+	waitIn(t, window, `document.querySelector("td .select")?.textContent`, `"failed"`)
+	evalIn(t, window, `document.querySelector("td .checkbox").click(), true`)
+	eventually(t, "muted kept", func() bool {
+		event, _ := testStore.Get("card-report")
+		return event.Chosen["muted"] == true
+	})
+	waitIn(t, window, `document.querySelector("td .checkbox")?.getAttribute("aria-checked")`, `"true"`)
 }
