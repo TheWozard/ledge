@@ -3,7 +3,7 @@ package ui
 import (
 	"encoding/json"
 
-	"github.com/TheWozard/ledge-frontend/shim"
+	"github.com/TheWozard/ledge/internal/frontend/shim"
 )
 
 // Windows is what a bar asks of its windows once it's open: loading pages in them,

@@ -8,8 +8,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/TheWozard/ledge-frontend/components"
-	"github.com/TheWozard/ledge-frontend/shim"
+	"github.com/TheWozard/ledge/internal/frontend/components"
+	"github.com/TheWozard/ledge/internal/frontend/shim"
 )
 
 // menuMessages is what a theme's menu page can post, each action with whether it

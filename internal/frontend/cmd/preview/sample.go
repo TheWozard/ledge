@@ -11,7 +11,7 @@ import (
 
 	"github.com/a-h/templ"
 
-	"github.com/TheWozard/ledge-frontend/components"
+	"github.com/TheWozard/ledge/internal/frontend/components"
 )
 
 // sample is what the preview shows: basic cards, timers, progress, stat, checks and
@@ -315,7 +315,7 @@ func (s *sample) runCommand(e components.ClickEvent) {
 		s.run.Output += "--- FAIL: TestRender (0.21s)\n    ui_test.go:218: got \"rgba(0, 0, 0, 0)\", want \"rgb(192, 192, 192)\"\nFAIL\n"
 	default:
 		s.run.State, s.run.Status = "passed", fmt.Sprintf("ok after %s", took)
-		s.run.Output += "PASS\nok  \tgithub.com/TheWozard/ledge-frontend/ui\t" + took.String() + "\n"
+		s.run.Output += "PASS\nok  \tgithub.com/TheWozard/ledge/internal/frontend/ui\t" + took.String() + "\n"
 	}
 	s.showRun()
 }

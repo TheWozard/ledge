@@ -10,9 +10,9 @@ import (
 
 	"github.com/a-h/templ"
 
-	"github.com/TheWozard/ledge-frontend/components"
-	"github.com/TheWozard/ledge-frontend/shim"
-	"github.com/TheWozard/ledge-frontend/theme"
+	"github.com/TheWozard/ledge/internal/frontend/components"
+	"github.com/TheWozard/ledge/internal/frontend/shim"
+	"github.com/TheWozard/ledge/internal/frontend/theme"
 )
 
 // reportBlocks is one of each block, its text partly HTML-looking.

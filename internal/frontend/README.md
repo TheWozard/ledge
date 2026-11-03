@@ -1,10 +1,10 @@
-# ledge-frontend
+# ledge's frontend
 
-The windows and UI of [ledge](https://github.com/TheWozard/ledge), a desktop bar for
-macOS: a native shim for borderless and titled windows with web views, the bar and
+The windows and UI of ledge (see the [README](../../README.md) at the repo's root): a native shim for borderless and titled windows with web views, the bar and
 report pages built from [templ](https://templ.guide) components, and the themes that
-style them. ledge uses it for everything on screen; its own code is the API, the
-event store and what clicks do.
+style them. ledge uses it, through `internal/bar`, for everything on screen; the rest
+of its code is the API, the event store and what clicks do. It was its own module,
+ledge-frontend, until it was merged in here, history and all.
 
 ```go
 import (
@@ -12,9 +12,9 @@ import (
 
 	"github.com/a-h/templ"
 
-	"github.com/TheWozard/ledge-frontend/components"
-	"github.com/TheWozard/ledge-frontend/theme"
-	"github.com/TheWozard/ledge-frontend/ui"
+	"github.com/TheWozard/ledge/internal/frontend/components"
+	"github.com/TheWozard/ledge/internal/frontend/theme"
+	"github.com/TheWozard/ledge/internal/frontend/ui"
 )
 
 func main() {
@@ -55,7 +55,7 @@ func must[T any](v T, err error) T {
 |---|---|
 | `ui` | the bar and report windows: `Open` places the bar and loads its page, `Render` shows cards and `RenderCard` replaces one by its ID, `ShowReport` (or `ShowReportSized`) shows a report in its id's own window and `ShowReportBlock` replaces one block in it; clicks call the cards' `Click`s, a card's right-click menu its actions', and a report's buttons theirs |
 | `components` | the templ components: the pages (`BarPage`, `ReportPage`), the bar's contents (`BarContent`, from `Card`s of any kind, such as the built-in `Basic`, and their `Action`s), and the report blocks |
-| `theme` | a `Theme`: the bar's and report window's stylesheets, fonts inlined, its icons for the buttons, and how the report window's frame looks; `ReadSet` finds the themes in any files, `Load` reads one, `Builtin` is one of the built-in themes, `Download` (`just cache-theme`) fetches the icons and fonts a theme names by https url for this user, and `ClearCache` (`just clear-cache`) deletes them |
+| `theme` | a `Theme`: the bar's and report window's stylesheets, fonts inlined, its icons for the buttons, and how the report window's frame looks; `ReadSet` finds the themes in any files, `Load` reads one, `Builtin` is one of the built-in themes, `Download` (`ledge theme cache`) fetches the icons and fonts a theme names by https url for this user, and `ClearCache` (`ledge theme clear-cache`) deletes them |
 | `shim` | the native layer (cgo + Objective-C): windows and WKWebView, opening links and copying to the pasteboard, and nothing else |
 
 ### Components
@@ -277,7 +277,8 @@ that's all. To try a theme of your own, `just preview path/to/neon.json`.
 The `.templ` files are compiled to `*_templ.go` with the templ CLI, and the generated
 files are committed, so building doesn't need it. The CSS, the pages' layout styles and the
 built-in themes', is linted with [Biome](https://biomejs.dev), set up in
-[biome.json](biome.json):
+[biome.json](../../biome.json). The recipes are in the repo's [justfile](../../justfile),
+run from its root:
 
 ```sh
 go install github.com/a-h/templ/cmd/templ@v0.3.1070
@@ -286,18 +287,18 @@ just generate      # templ generate
 just check-generated # fail if the committed *_templ.go are stale
 just lint          # biome lint, failing on warnings too, then gofmt -l
 just fmt           # format the CSS and sort each rule's properties, and gofmt the Go, writing the changes
-just test          # just lint, then go test ./...
-just gui           # the tests that open windows, those for each theme in only the default
+just test          # just lint, then go test ./..., ledge's tests too
+just gui           # the tests that open windows, those for each theme in only the default, then ledge's bar's
 just gui-themes default # only the tests for each theme, in those themes
 just gui-all       # every test that opens windows, in every theme (slow)
 just preview default # a bar and a report window in a theme (or a .json), until ctrl-c
 just inspect default # the same pages in the browser, to inspect (a card's menu opens in the report frame); theme edits show on a reload
 ```
 
-On GitHub, [ci.yml](.github/workflows/ci.yml) runs the lint (Biome and
+On GitHub, ledge's [ci.yml](../../.github/workflows/ci.yml) runs the lint (Biome and
 `gofmt`), `check-generated`, `go vet` and the tests that don't open windows on every push to `main` and
 every pull request, on macOS (the shim is Cocoa, so nothing builds elsewhere). The
-tests that open windows run only locally, with `just gui`.
+frontend's tests that open windows run only locally, with `just gui`.
 
 The tests that open windows put a bar on your screen and a report window over it for a
 few seconds. They read the pages' DOM through the shim and click from JavaScript; they
@@ -305,4 +306,4 @@ can't check hover, a real mouse drag, keyboard shortcuts or how the windows look
 
 ## License
 
-MIT; the vendored Idiomorph ([components/vendor/](components/vendor/)) is under 0BSD.
+MIT, as ledge's ([LICENSE](../../LICENSE)); the vendored Idiomorph ([components/vendor/](components/vendor/)) is under 0BSD.

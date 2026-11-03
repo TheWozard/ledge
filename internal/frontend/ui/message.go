@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/TheWozard/ledge-frontend/components"
-	"github.com/TheWozard/ledge-frontend/shim"
+	"github.com/TheWozard/ledge/internal/frontend/components"
+	"github.com/TheWozard/ledge/internal/frontend/shim"
 )
 
 // message is what a page posts: an action, the id it applies to, and for a click or a

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TheWozard/ledge-frontend/theme"
 	"github.com/TheWozard/ledge/internal/api"
 	"github.com/TheWozard/ledge/internal/app"
+	"github.com/TheWozard/ledge/internal/frontend/theme"
 	"github.com/TheWozard/ledge/internal/state"
 	"github.com/spf13/pflag"
 )

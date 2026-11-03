@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TheWozard/ledge-frontend/components"
-	"github.com/TheWozard/ledge-frontend/shim"
-	"github.com/TheWozard/ledge-frontend/theme"
+	"github.com/TheWozard/ledge/internal/frontend/components"
+	"github.com/TheWozard/ledge/internal/frontend/shim"
+	"github.com/TheWozard/ledge/internal/frontend/theme"
 )
 
 // A message is one of the page's actions, with an id if it takes one, an event of

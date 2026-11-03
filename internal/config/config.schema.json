@@ -14,7 +14,7 @@
     "commands": {"type": "boolean",
                  "description": "Whether events may carry a `command` to run when their card is clicked. Anything running as you can send events, so this lets anything running as you put a command on your bar. Default false: an event with a command is refused."},
     "theme": {"enum": ["default"],
-              "description": "How the bar looks. default, the only one, follows the system's light or dark mode. See ledge-frontend's theme package."}
+              "description": "How the bar looks. default, the only one, follows the system's light or dark mode. See internal/frontend/theme."}
   },
   "additionalProperties": false
 }

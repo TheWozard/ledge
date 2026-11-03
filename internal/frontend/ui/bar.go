@@ -10,9 +10,9 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/TheWozard/ledge-frontend/components"
-	"github.com/TheWozard/ledge-frontend/shim"
-	"github.com/TheWozard/ledge-frontend/theme"
+	"github.com/TheWozard/ledge/internal/frontend/components"
+	"github.com/TheWozard/ledge/internal/frontend/shim"
+	"github.com/TheWozard/ledge/internal/frontend/theme"
 )
 
 // Bar is the bar window and the report windows.

@@ -19,10 +19,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/TheWozard/ledge-frontend/components"
-	"github.com/TheWozard/ledge-frontend/shim"
-	"github.com/TheWozard/ledge-frontend/theme"
-	"github.com/TheWozard/ledge-frontend/ui"
+	"github.com/TheWozard/ledge/internal/frontend/components"
+	"github.com/TheWozard/ledge/internal/frontend/shim"
+	"github.com/TheWozard/ledge/internal/frontend/theme"
+	"github.com/TheWozard/ledge/internal/frontend/ui"
 )
 
 // index is the page at /: a frame for each of the bar's windows, the bar along the

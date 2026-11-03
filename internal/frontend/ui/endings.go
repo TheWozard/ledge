@@ -3,7 +3,7 @@ package ui
 import (
 	"time"
 
-	"github.com/TheWozard/ledge-frontend/components"
+	"github.com/TheWozard/ledge/internal/frontend/components"
 )
 
 // endings is the cards on the bar that end: a timer for each, to complete it when it's

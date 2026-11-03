@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/TheWozard/ledge-frontend/theme"
+	"github.com/TheWozard/ledge/internal/frontend/theme"
 )
 
 // builtinDir is where the built-in themes are, from the repository's root.
-const builtinDir = "theme/themes"
+const builtinDir = "internal/frontend/theme/themes"
 
 // loadTheme is the theme name: a built-in one, or the one whose manifest is the json
 // file name. With fromDisk, a built-in one is read from builtinDir when it's there.

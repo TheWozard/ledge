@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/TheWozard/ledge-frontend/ui"
+	"github.com/TheWozard/ledge/internal/frontend/ui"
 
 	"github.com/TheWozard/ledge/internal/api"
 	"github.com/TheWozard/ledge/internal/bar"

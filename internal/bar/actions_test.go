@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/TheWozard/ledge-frontend/ui"
+	"github.com/TheWozard/ledge/internal/frontend/ui"
 )
 
 func TestCardOpensURL(t *testing.T) {

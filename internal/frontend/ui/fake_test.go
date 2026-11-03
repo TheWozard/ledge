@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/TheWozard/ledge-frontend/shim"
-	"github.com/TheWozard/ledge-frontend/theme"
+	"github.com/TheWozard/ledge/internal/frontend/shim"
+	"github.com/TheWozard/ledge/internal/frontend/theme"
 )
 
 // fakeNative stands in for the windows in the tests that don't open any: it records

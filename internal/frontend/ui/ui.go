@@ -14,8 +14,8 @@
 package ui
 
 import (
-	"github.com/TheWozard/ledge-frontend/shim"
-	"github.com/TheWozard/ledge-frontend/theme"
+	"github.com/TheWozard/ledge/internal/frontend/shim"
+	"github.com/TheWozard/ledge/internal/frontend/theme"
 )
 
 // BarWindow is the bar's id in the shim, and MenuWindow the pop-up a theme's menu is

@@ -8,7 +8,7 @@ import (
 
 	"github.com/a-h/templ"
 
-	"github.com/TheWozard/ledge-frontend/components"
+	"github.com/TheWozard/ledge/internal/frontend/components"
 )
 
 // page is what a window shows, the bar, a report or a card's menu: a page that posts

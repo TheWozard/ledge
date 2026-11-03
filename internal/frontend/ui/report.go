@@ -12,8 +12,8 @@ import (
 
 	"github.com/a-h/templ"
 
-	"github.com/TheWozard/ledge-frontend/components"
-	"github.com/TheWozard/ledge-frontend/shim"
+	"github.com/TheWozard/ledge/internal/frontend/components"
+	"github.com/TheWozard/ledge/internal/frontend/shim"
 )
 
 // ReportSize is the size a report window opens at, in points: its page's, which fills

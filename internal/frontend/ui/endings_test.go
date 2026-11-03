@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TheWozard/ledge-frontend/components"
+	"github.com/TheWozard/ledge/internal/frontend/components"
 )
 
 // A card that ends has its Complete called once its end passes, once for that end

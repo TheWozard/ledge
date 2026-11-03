@@ -21,12 +21,19 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: gofmt
+      - uses: biomejs/setup-biome@v2
+        with:
+          version: 2.5.15 # biome.json's schema; a newer one can change the rules
+      # templ's CLI at go.mod's version of it, so an update to it there is checked
+      # with the CLI it needs.
+      - name: Install just and templ
         run: |
-          unformatted="$(gofmt -l .)"
-          if [ -n "$unformatted" ]; then
-            echo "Not gofmt'd:"; echo "$unformatted"; exit 1
-          fi
+          brew install just
+          go install github.com/a-h/templ/cmd/templ@$(go list -m -f '{{.Version}}' github.com/a-h/templ)
+      - name: The lint (Biome and gofmt)
+        run: just lint
+      - name: The *_templ.go files match the .templ files
+        run: just check-generated
       - name: go mod tidy
         run: go mod tidy -diff
       - run: go vet ./...
@@ -36,8 +43,9 @@ jobs:
       - run: go test -race ./...
 
   gui:
-    # The tests that open the bar's windows. A runner's window server can be flaky,
-    # so a failure here is reported but doesn't fail the run.
+    # The tests that open the bar's windows, through ledge. A runner's window server
+    # can be flaky, so a failure here is reported but doesn't fail the run. The
+    # frontend's own window tests run only locally, with just gui.
     runs-on: macos-latest
     continue-on-error: true
     steps:

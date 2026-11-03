@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/TheWozard/ledge-frontend/components"
+	"github.com/TheWozard/ledge/internal/frontend/components"
 	"github.com/a-h/templ"
 
 	"github.com/TheWozard/ledge/internal/store"

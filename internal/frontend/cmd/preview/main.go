@@ -23,9 +23,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/TheWozard/ledge-frontend/components"
-	"github.com/TheWozard/ledge-frontend/theme"
-	"github.com/TheWozard/ledge-frontend/ui"
+	"github.com/TheWozard/ledge/internal/frontend/components"
+	"github.com/TheWozard/ledge/internal/frontend/theme"
+	"github.com/TheWozard/ledge/internal/frontend/ui"
 )
 
 // barHeight is the bar's height, in points.

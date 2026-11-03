@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TheWozard/ledge-frontend/theme"
+	"github.com/TheWozard/ledge/internal/frontend/theme"
 	"github.com/spf13/cobra"
 )
 

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/TheWozard/ledge-frontend/theme"
+	"github.com/TheWozard/ledge/internal/frontend/theme"
 )
 
 func TestLoad(t *testing.T) {
@@ -65,9 +65,9 @@ func TestThemesMatchFrontend(t *testing.T) {
 		t.Fatal(err)
 	}
 	if allowed, names := slices.Sorted(slices.Values(schema.Properties.Theme.Enum)), slices.Sorted(slices.Values(theme.Builtins.Names())); !slices.Equal(allowed, names) {
-		t.Errorf("config.schema.json allows themes %v, but ledge-frontend has %v", allowed, names)
+		t.Errorf("config.schema.json allows themes %v, but the frontend has %v", allowed, names)
 	}
 	if Defaults.Theme != theme.Builtins.Default() {
-		t.Errorf("the default theme is %q, but ledge-frontend's is %q", Defaults.Theme, theme.Builtins.Default())
+		t.Errorf("the default theme is %q, but the frontend's is %q", Defaults.Theme, theme.Builtins.Default())
 	}
 }

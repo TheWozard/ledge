@@ -4,8 +4,10 @@
 
 ledge needs Go and Xcode's command line tools: the bar's window shim is Objective-C,
 built through cgo against AppKit and WebKit, so it builds only on macOS. The bar's
-windows, pages and themes are [ledge-frontend](https://github.com/TheWozard/ledge-frontend),
-a Go module that `go.mod` takes from GitHub.
+windows, pages and themes are the frontend, in [internal/frontend/](internal/frontend/),
+whose [README](internal/frontend/README.md) says how it works and how to work on it: its
+templ components are compiled to committed `*_templ.go` files, and its CSS is linted
+with Biome, so only changing those needs `templ` and `biome`.
 
 ```sh
 go build .                         # or go install .
@@ -47,7 +49,7 @@ bar. `just bar`, `just report`, `just feed` and `just clear` run them.
 ## Layout
 
 The bar and report windows (the native shim, window placement, pages, components and
-themes) are ledge-frontend. ledge is everything else:
+themes) are the frontend, in `internal/frontend/`. ledge is everything else:
 
 | Path | What it is |
 |---|---|
@@ -57,7 +59,8 @@ themes) are ledge-frontend. ledge is everything else:
 | `internal/api/` | the HTTP server on the socket, and the client the CLI uses |
 | `internal/store/` | the `Event` type sent events are checked and decoded into, the event and section schemas, and the events file |
 | `internal/schema/` | compiles a directory of JSON Schemas and picks the error to report |
-| `internal/bar/` | connects the store to ledge-frontend's bar: events as cards, reports as blocks, and what clicking asks for by id |
+| `internal/frontend/` | the frontend: `ui` (the bar and report windows), `components` (templ), `theme`, `shim` (cgo and Objective-C) and `cmd/preview` (`just preview`) |
+| `internal/bar/` | connects the store to the frontend's bar: events as cards, reports as blocks, and what clicking asks for by id |
 | `internal/config/` | the `--config` file and its schema |
 | `internal/background/` | `ledge start`, `stop` and `restart`: starting a background ledge, and finding and stopping one through its socket |
 | `internal/update/` | `ledge update`: finding the latest release, checking its checksum, replacing the binary |
@@ -91,13 +94,14 @@ LEDGE_GUI_TEST=1 go test ./internal/bar
 ```
 
 They check that the bar reaches ledge: a click dismisses from the store, opens a report
-or url, or runs a command. They read the pages' DOM through ledge-frontend's shim and
+or url, or runs a command. They read the pages' DOM through the frontend's shim and
 click from JavaScript; `open` is recorded rather than run, so they never open your
 browser, but commands do run. How the bar and reports look and behave is tested in
-ledge-frontend.
+the frontend, by `just gui`, which runs its window tests and then these.
 
-[CI](.github/workflows/ci.yml) checks gofmt, `go mod tidy`, `go vet` and staticcheck,
-runs the tests with `-race`, and shellchecks the scripts. It runs the window tests too,
+[CI](.github/workflows/ci.yml) runs `just lint` (Biome and gofmt), checks the
+`*_templ.go` files are current, `go mod tidy`, `go vet` and staticcheck, runs the tests
+with `-race`, and shellchecks the scripts. It runs the window tests too,
 in a job whose failure doesn't fail the run, as a runner's window server can be flaky.
 
 ## Releasing

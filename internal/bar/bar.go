@@ -1,4 +1,4 @@
-// Package bar connects the store to the bar from ledge-frontend: it turns events into
+// Package bar connects the store to the frontend's bar: it turns events into
 // the cards and reports the frontend shows, and carries out what clicking them asks
 // for, by id: dismissing an event, opening its report or url, running its command,
 // or running a report's command and showing its output as it comes.
@@ -9,9 +9,9 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/TheWozard/ledge-frontend/components"
-	"github.com/TheWozard/ledge-frontend/theme"
-	"github.com/TheWozard/ledge-frontend/ui"
+	"github.com/TheWozard/ledge/internal/frontend/components"
+	"github.com/TheWozard/ledge/internal/frontend/theme"
+	"github.com/TheWozard/ledge/internal/frontend/ui"
 
 	"github.com/TheWozard/ledge/internal/config"
 	"github.com/TheWozard/ledge/internal/store"

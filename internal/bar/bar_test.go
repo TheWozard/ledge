@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/TheWozard/ledge-frontend/shim"
-	"github.com/TheWozard/ledge-frontend/ui"
+	"github.com/TheWozard/ledge/internal/frontend/shim"
+	"github.com/TheWozard/ledge/internal/frontend/ui"
 
 	"github.com/TheWozard/ledge/internal/config"
 	"github.com/TheWozard/ledge/internal/schema"
@@ -20,7 +20,7 @@ import (
 
 // The tests that open the bar only run with LEDGE_GUI_TEST=1; the rest always run.
 // They check that the bar's pages reach the store and the actions: how the bar looks
-// and behaves is ledge-frontend's to test.
+// and behaves is the frontend's to test.
 var (
 	testBar   *Bar
 	testStore *store.Store

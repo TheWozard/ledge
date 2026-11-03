@@ -183,7 +183,7 @@ from starting:
 | `edge` | `bottom` (default) or `top` |
 | `height` | the bar's height in points; default 110 |
 | `level` | which windows the bar stays above: `top` for everything, the Dock included; `floating` for other apps' windows; `normal` (default) for none |
-| `theme` | how the bar and reports look: `default`, rounded cards, light or dark with the system. Themes live in [ledge-frontend](https://github.com/TheWozard/ledge-frontend). A theme's icons and fonts may need downloading; see [Themes](#themes). |
+| `theme` | how the bar and reports look: `default`, rounded cards, light or dark with the system. Themes live in [internal/frontend/theme/](internal/frontend/theme/). A theme's icons and fonts may need downloading; see [Themes](#themes). |
 | `commands` | `true` to let events carry a `command` (above); default `false` |
 
 ## Themes
