@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ledge preview: {{.Name}}</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { display: flex; flex-direction: column; background: #7a7a80; }
+  /* The report in front in the middle, whether or not the menu shows, and the menu to
+     its left. */
+  #windows { flex: auto; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px;
+             min-height: 0; padding: 16px; box-sizing: border-box; }
+  #windows iframe { border: 0; box-shadow: 0 8px 30px rgba(0, 0, 0, .35); }
+  #windows iframe[hidden] { display: none; }
+  #windows .report { grid-area: 1 / 2; width: 900px; max-width: calc(100vw - 32px); height: 700px; max-height: 100%; }
+  /* Until it's measured, the menu is laid out but unseen, with room for its layout, as
+     its pop-up isn't shown till then; then it's shown at its own size. */
+  #windows .menu.loading { visibility: hidden; }
+  #windows .menu { grid-area: 1 / 1; justify-self: end; width: 240px; height: 400px; max-height: 100%;
+                   box-shadow: none; background: transparent; }
+  #bar { flex: none; width: 100%; height: {{.BarHeight}}px; border: 0; }
+</style>
+</head>
+<body>
+<div id="windows"></div>
+<script>
+// The bar's windows, each a frame: the bar's along the bottom, the report in front
+// above it, and a card's menu, while it's shown, to the left of that. What the bar asks
+// of them comes from events, in order; what's done in them each frame posts to the bar
+// itself.
+const bar = {{.Bar}}, barWindow = {{.BarWindow}}, menuWindow = {{.MenuWindow}};
+const frames = new Map(); // by window
+let front = 0;
+
+// load gives window a frame with its page of gen, in place of any it had.
+function load(window, gen) {
+  frames.get(window)?.remove();
+  const frame = document.createElement("iframe");
+  frame.src = `/bar/${bar}/window/${window}?gen=${gen}`;
+  frame.dataset.gen = gen;
+  if (window === barWindow) {
+    frame.id = "bar";
+    document.body.append(frame);
+  } else {
+    frame.className = window === menuWindow ? "menu loading" : "report";
+    frame.hidden = window !== menuWindow && window !== front;
+    document.getElementById("windows").append(frame);
+  }
+  frames.set(window, frame);
+}
+
+// toFront has report window's frame in front, and hides the other reports'.
+function toFront(window) {
+  front = window;
+  for (const [w, frame] of frames) {
+    if (w !== barWindow && w !== menuWindow) frame.hidden = w !== window;
+  }
+}
+
+// showMenu shows the menu's frame at width by height, once it's measured, or hides it.
+function showMenu(shown, width, height) {
+  const frame = frames.get(menuWindow);
+  if (!frame) return;
+  frame.hidden = !shown;
+  if (shown) {
+    frame.style.width = width + "px";
+    frame.style.height = height + "px";
+    frame.classList.remove("loading");
+  }
+}
+
+// run runs js in window's page, if it's still of gen, and if ask isn't 0, answers it
+// with what it gives back.
+function run(window, gen, js, ask) {
+  const frame = frames.get(window);
+  if (frame?.dataset.gen !== String(gen)) return;
+  let answer;
+  try {
+    answer = { value: frame.contentWindow.eval(js) };
+  } catch (error) {
+    console.error(error);
+    answer = { error: String(error) };
+  }
+  if (ask) fetch(`/bar/${bar}/answer`, { method: "POST", body: JSON.stringify({ id: ask, ...answer }) });
+}
+
+let from = 0;
+function next() {
+  fetch(`/bar/${bar}/events?from=${from}`).then(r => r.json()).then(reply => {
+    if (reply.stale) return; // a newer bar has been opened, in another tab
+    for (const e of reply.events ?? []) {
+      if (e.load) load(e.window, e.gen);
+      else if (e.front) toFront(e.window);
+      else if (e.show || e.hide) showMenu(e.show, e.width, e.height);
+      else run(e.window, e.gen, e.js, e.ask);
+    }
+    from += reply.events?.length ?? 0;
+    next();
+  }, () => setTimeout(next, 1000));
+}
+next();
+</script>
+</body>
+</html>

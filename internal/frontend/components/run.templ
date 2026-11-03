@@ -1,0 +1,115 @@
+package components
+
+import "time"
+
+// Run is a command in a report, and its last run: a button that runs it, its dot, or
+// the theme's run icon, in a colour for how the run is going, then a word for it, when it started, and its
+// output so far in a Code block, with a button on the right that stops it. The app runs the command and keeps the run; give
+// the Run a Block's id to show its output as it comes, with ShowReportBlock.
+type Run struct {
+	ID string // the button's, as a Buttons' button's
+	// Title is the button's. With the theme's run icon, "" is the icon alone, "Run" its
+	// tooltip; without, "" is "Run".
+	Title string
+	// State is "running", "passed" or "failed", or "" for a command that hasn't run,
+	// the button's colour blue, green, red or gray. Anything else is "".
+	State string
+	// Status says how the run went, such as "exit status 1 after 3s"; "" is the
+	// State's word: "Not run", "Running", "Passed" or "Failed".
+	Status  string
+	Started time.Time // when the run started; zero if it hasn't
+	Output  string    // what it has printed so far
+	// Click is clicking the button, such as to run the command again. Without one
+	// it's disabled, such as while the command runs.
+	Click Click
+	// Stop is clicking the stop button, whose id is the ID with "/stop" after it.
+	// Without one it's disabled, such as while the command isn't running.
+	Stop Click
+}
+
+// runStates is each State's word and colour, for a Run without a Status.
+var runStates = map[string]struct{ word, color string }{
+	"":        {"Not run", "gray"},
+	"running": {"Running", "blue"},
+	"passed":  {"Passed", "green"},
+	"failed":  {"Failed", "red"},
+}
+
+// runState is state if it's a Run's State, or "".
+func runState(state string) string {
+	if _, ok := runStates[state]; ok {
+		return state
+	}
+	return ""
+}
+
+func (r Run) status() string {
+	if r.Status != "" {
+		return r.Status
+	}
+	return runStates[runState(r.State)].word
+}
+
+func (r Run) title() string {
+	if r.Title != "" {
+		return r.Title
+	}
+	return "Run"
+}
+
+// button is the Run's button, in its State's colour, with icon if it's not "", and
+// its tooltip: "Run" for the icon alone, or "".
+func (r Run) button(icon string) (Button, string) {
+	b := Button{ID: r.ID, Title: r.title(), Color: runStates[runState(r.State)].color, Click: r.Click}
+	if icon == "" {
+		return b, ""
+	}
+	if b.Title = r.Title; b.Title == "" {
+		return b, r.title()
+	}
+	return b, ""
+}
+
+// runButton is the Run's button, drawn with the theme's run icon if it has one.
+templ runButton(r Run) {
+	{{ icon := iconsIn(ctx).Run }}
+	{{ b, tooltip := r.button(icon) }}
+	@buttonWith(b, icon, tooltip)
+}
+
+// stopButton is the Run's stop button, red: the theme's stop icon alone, "Stop" its
+// tooltip, or, without one, a dot and "Stop".
+templ stopButton(r Run) {
+	{{ icon := iconsIn(ctx).Stop }}
+	if icon != "" {
+		@buttonWith(Button{ID: r.ID + "/stop", Color: "red", Click: r.Stop}, icon, "Stop")
+	} else {
+		@buttonWith(Button{ID: r.ID + "/stop", Title: "Stop", Color: "red", Click: r.Stop}, "", "")
+	}
+}
+
+// RunBlock is a Run: a .run with its state in data-state, holding a .run-bar (its
+// button, in a .buttons, with the theme's run icon in place of its dot if it has one, a .run-status
+// with its word, the <time> it started, if it has, and its stop button, in a
+// .buttons.run-stop), then its output as a Code
+// block. While its <pre> is scrolled to the bottom, the report keeps it there as
+// output comes.
+templ RunBlock(r Run) {
+	<div class="run" data-state={ runState(r.State) }>
+		<div class="run-bar">
+			<div class="buttons">
+				@runButton(r)
+			</div>
+			<span class="run-status">{ r.status() }</span>
+			if !r.Started.IsZero() {
+				<time datetime={ r.Started.Format(time.RFC3339) } title={ r.Started.Format(time.RFC1123) }>
+					{ "Started " + r.Started.Format("Mon Jan 2 15:04:05") }
+				</time>
+			}
+			<div class="buttons run-stop">
+				@stopButton(r)
+			</div>
+		</div>
+		@Code(r.Output)
+	</div>
+}

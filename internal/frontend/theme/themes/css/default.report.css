@@ -1,0 +1,271 @@
+/* default: the report in the system's light or dark mode. */
+:root {
+  --page: #fbfbfa;
+  --text: #1d1d1f;
+  --muted: #6b6b70;
+  --line: rgba(0, 0, 0, 0.1);
+  --accent: #2f5fd0;
+  --code: #f0efec;
+  --c-green: #2f8f4e;
+  --c-yellow: #c08a12;
+  --c-red: #c4352b;
+  --c-blue: #2f5fd0;
+  --c-gray: #8a8a90;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #1c1c1f;
+    --text: #ececef;
+    --muted: #9a9aa2;
+    --line: rgba(255, 255, 255, 0.1);
+    --accent: #7ea2ff;
+    --code: #26262b;
+    --c-green: #5cc27a;
+    --c-yellow: #e8b55a;
+    --c-red: #ff7b6e;
+    --c-blue: #7ea2ff;
+    --c-gray: #9a9aa2;
+  }
+}
+body {
+  font:
+    14px / 1.5 -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  color: var(--text);
+}
+/* Like a native title bar: the title small and centred over a hairline. */
+.titlebar {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--page);
+  border-bottom: 1px solid var(--line);
+}
+h2 {
+  padding-bottom: 4px;
+  font-size: 15px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--line);
+}
+h1 {
+  font-size: 18px;
+  font-weight: 600;
+}
+h3,
+h4,
+h5,
+h6 {
+  font-size: 14px;
+  font-weight: 600;
+}
+h4,
+h5,
+h6 {
+  color: var(--muted);
+}
+dt {
+  color: var(--muted);
+}
+blockquote {
+  padding-left: 12px;
+  color: var(--muted);
+  border-left: 3px solid var(--line);
+}
+hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+:not(pre) > code {
+  padding: 1px 4px;
+  font:
+    12px / 1.5 ui-monospace,
+    Menlo,
+    monospace;
+  background: var(--code);
+  border-radius: 4px;
+}
+.image-alt {
+  font-style: italic;
+  color: var(--muted);
+}
+th {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+th,
+td {
+  padding: 6px 12px 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+pre {
+  padding: 10px 12px;
+  font:
+    12px / 1.5 ui-monospace,
+    Menlo,
+    monospace;
+  background: var(--code);
+  border-radius: 8px;
+}
+/* A code block's copy button shows while the block's under the mouse. */
+.copy {
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--page);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.code:hover .copy,
+.copy:focus-visible {
+  opacity: 1;
+}
+.copy:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.copy:active {
+  background: var(--code);
+}
+/* With its icon, the copy button is a square around it. */
+.copy:has(.icon) {
+  --icon-size: 16px;
+  padding: 3px;
+}
+.note {
+  padding: 8px 12px;
+  background: color-mix(in srgb, var(--note) 12%, var(--page));
+  border-left: 3px solid var(--note);
+  border-radius: 6px;
+}
+a {
+  color: var(--accent);
+}
+/* Buttons like the bar's menu items: a dot in the button's colour before its title.
+   One whose Click is running blinks; one without a Click is faded. */
+.button {
+  gap: 6px;
+  padding: 4px 12px;
+  color: var(--text);
+  background: var(--page);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.button[data-click]:hover {
+  border-color: var(--accent);
+}
+.button:disabled {
+  opacity: 0.5;
+}
+.button-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--button);
+  border-radius: 50%;
+}
+.button[data-busy] {
+  animation: blink 1.2s ease-in-out infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0.4;
+  }
+}
+/* A drop-down like a button, with a chevron drawn on the right. One with its menu
+   open, or choosing, blinks; one that can't be changed is faded. */
+.select {
+  appearance: none;
+  padding: 4px 28px 4px 12px;
+  font: inherit;
+  color: var(--text);
+  background:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%) right 15px center / 5px 5px no-repeat,
+    linear-gradient(-45deg, transparent 50%, var(--muted) 50%) right 10px center / 5px 5px no-repeat,
+    var(--page);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.select:enabled:hover {
+  border-color: var(--accent);
+}
+.select:disabled {
+  opacity: 0.5;
+}
+.select[data-busy] {
+  animation: blink 1.2s ease-in-out infinite;
+}
+/* A checkbox is its box and label, plain: the box a rounded square, filled in the
+   accent with a white tick when checked. One whose Set is running blinks; one
+   without a Set is faded. */
+.checkbox {
+  gap: 6px;
+  padding: 0;
+  color: var(--text);
+  background: none;
+  border: none;
+}
+.checkbox-box {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  background: var(--page);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.checkbox[aria-checked="true"] .checkbox-box {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+/* The tick: an L of two borders, turned, in the middle of the box, and nudged up a
+   little, as the turned L's corner hangs below its middle. */
+.checkbox[aria-checked="true"] .checkbox-box::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  box-sizing: border-box;
+  width: 5px;
+  height: 9px;
+  content: "";
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: translate(-50%, -60%) rotate(45deg);
+}
+.checkbox:enabled:hover .checkbox-box {
+  border-color: var(--accent);
+}
+.checkbox:disabled {
+  opacity: 0.5;
+}
+.checkbox[data-busy] {
+  animation: blink 1.2s ease-in-out infinite;
+}
+/* A run's button's dot, or its icon, is in its state's colour, pulsing while it
+   runs; with its icon, 18px, the button's left side is narrower, and the stop
+   button's, the icon alone, both sides. Its status word
+   and when it started are muted. */
+.run[data-state="running"] .run-bar > .buttons:first-child :is(.button-dot, .icon) {
+  animation: blink 1.2s ease-in-out infinite;
+}
+.run .button:has(.icon) {
+  --icon-size: 18px;
+  padding-left: 9px;
+}
+.run-stop .button:has(.icon) {
+  padding-right: 9px;
+}
+.run-status,
+.run time {
+  font-size: 12px;
+  color: var(--muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .button[data-busy],
+  .select[data-busy],
+  .checkbox[data-busy],
+  .run[data-state="running"] .run-bar > .buttons:first-child :is(.button-dot, .icon) {
+    animation: none;
+  }
+}

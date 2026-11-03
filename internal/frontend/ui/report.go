@@ -1,0 +1,228 @@
+package ui
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/url"
+	"slices"
+	"strings"
+
+	"github.com/a-h/templ"
+
+	"github.com/TheWozard/ledge-frontend/components"
+	"github.com/TheWozard/ledge-frontend/shim"
+)
+
+// ReportSize is the size a report window opens at, in points: its page's, which fills
+// the window, title bar and all. A zero Width or Height is DefaultReportSize's, and
+// one less than MinReportSize's is that; one bigger than the screen is made to fit
+// on it.
+type ReportSize struct{ Width, Height float64 }
+
+var (
+	// DefaultReportSize is the size a report window opens at by default.
+	DefaultReportSize = ReportSize{900, 700}
+	// MinReportSize is the smallest a report window can be, as it opens or by
+	// resizing it.
+	MinReportSize = ReportSize{480, 320}
+)
+
+// resolved is s with each zero side DefaultReportSize's, and each too small side
+// MinReportSize's.
+func (s ReportSize) resolved() ReportSize {
+	if s.Width == 0 {
+		s.Width = DefaultReportSize.Width
+	}
+	if s.Height == 0 {
+		s.Height = DefaultReportSize.Height
+	}
+	s.Width, s.Height = max(s.Width, MinReportSize.Width), max(s.Height, MinReportSize.Height)
+	return s
+}
+
+// ShowReport is ShowReportSized at DefaultReportSize.
+func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
+	return b.ShowReportSized(id, title, ReportSize{}, blocks)
+}
+
+// ShowReportSized shows title and blocks in id's report window, in the bar's theme,
+// and brings it forward. A window that isn't open opens at size; one that is keeps
+// its size, however it's been resized. If they can't be rendered, it says why, and
+// nothing changes. Each id has its own window: showing an id again replaces what its
+// window shows, keeping its scroll, and one that's been closed opens anew. id is
+// the app's, such as the card or action the report is for. A block is any component;
+// components has the usual ones. Clicking what's in them, such as a Buttons' button,
+// calls its Click, as one on the bar does, until the report is shown again or closed.
+// The blocks are rendered with the bar's lock held, as cards are, so they mustn't
+// call back into the bar.
+func (b *Bar) ShowReportSized(id, title string, size ReportSize, blocks []templ.Component) error {
+	blocks = slices.Clone(blocks)
+	b.mu.Lock()
+	t := b.options.Theme
+	icons := components.Icons(t.Icons)
+	html, clicks, err := b.renderReport(id, blocks, icons)
+	if err != nil {
+		b.mu.Unlock()
+		return err
+	}
+	p := b.report(id)
+	b.mu.Unlock()
+	// These wait for the main thread, which can be waiting for the lock to say a
+	// window closed, so they're called without it.
+	size = size.resolved()
+	b.windows.CreateWindow(p.window, title, size.Width, size.Height)
+	b.windows.SetTitle(p.window, title)
+	b.windows.SetAppearance(p.window, t.Frame.Appearance)
+	b.windows.SetFrameless(p.window, t.Frame.Frameless)
+	b.mu.Lock()
+	if !p.hasPage || p.css != t.Report || p.icons != icons {
+		if err := b.loadReport(p, t.Report, icons); err != nil {
+			b.mu.Unlock()
+			return err
+		}
+	}
+	p.title, p.blocks = title, blocks
+	p.show(title, html, clicks)
+	b.mu.Unlock()
+	b.windows.ShowWindow(p.window)
+	return nil
+}
+
+// ShowReportBlock replaces the components.Block with block's ID in id's report by
+// block, leaving the rest of the report, its scroll and where its window is as they
+// are, as a ShowReport of it all with only that block changed would, but for bringing
+// the window forward. It reports whether id's report is open with such a block; if
+// not, or if block can't be rendered, nothing changes. Called just after ShowReport,
+// the block is replaced once the new page has loaded.
+func (b *Bar) ShowReportBlock(id string, block components.Block) (bool, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	p, ok := b.reports[id]
+	if !ok {
+		return false, nil
+	}
+	blocks, ok := components.ReplaceBlock(p.blocks, block)
+	if !ok {
+		return false, nil
+	}
+	html, clicks, err := b.renderReport(id, blocks, p.icons)
+	if err != nil {
+		return true, err
+	}
+	p.blocks = blocks
+	p.show(p.title, html, clicks)
+	return true, nil
+}
+
+// renderReport renders blocks as id's report shows them, and the Clicks in them, with
+// icons for a Code block's button, which copies its text to the pasteboard, and a
+// Dropdown's options popped up as a card's menu is, where the theme opens them.
+func (b *Bar) renderReport(id string, blocks []templ.Component, icons components.Icons) (string, *components.Clicks, error) {
+	var html strings.Builder
+	clicks := &components.Clicks{}
+	ctx := components.WithCopy(components.WithClicks(context.Background(), clicks), b.windows.Copy)
+	ctx = components.WithMenu(components.WithIcons(ctx, icons), func(items []components.MenuItem, at string) int {
+		return b.chooseFrom(items, b.dropdownAnchor(id, at)).index
+	})
+	err := components.ReportContent(blocks).Render(ctx, &html)
+	return html.String(), clicks, err
+}
+
+// measureDropdown, with the data-click of an element in a report as a JS string, is
+// its rectangle, as [left, top, bottom], or null if it's not there.
+const measureDropdown = `(e => e && (r => [r.left, r.top, r.bottom])(e.getBoundingClientRect()))(document.querySelector('[data-click="' + CSS.escape(%s) + '"]'))`
+
+// dropdownAnchor is what the menu of the drop-down whose data-click is at, in id's
+// report, opens under: the drop-down, in a theme that opens it below, or nil, for the
+// mouse, in one that doesn't, or if the report's closed or the drop-down's gone.
+func (b *Bar) dropdownAnchor(id, at string) *shim.Anchor {
+	b.mu.Lock()
+	below := b.options.Theme.Dropdown.Menu == "below"
+	p := b.reports[id]
+	b.mu.Unlock()
+	if !below || p == nil {
+		return nil
+	}
+	atJS, _ := json.Marshal(at)
+	value, err := b.windows.EvalResult(p.window, fmt.Sprintf(measureDropdown, atJS))
+	var rect []float64
+	if err == nil {
+		err = json.Unmarshal(value, &rect)
+	}
+	if err != nil || len(rect) != 3 {
+		log.Printf("ui: finding drop-down %q to open its menu under: %s, %v", at, value, err)
+		return nil
+	}
+	return &shim.Anchor{Window: p.window, Left: rect[0], Top: rect[1], Bottom: rect[2]}
+}
+
+// loadReport loads p, a report's page, afresh, in css, the theme's stylesheet for it,
+// with its icons. Call it with the bar's lock held.
+func (b *Bar) loadReport(p *page, css string, icons components.Icons) error {
+	var html bytes.Buffer
+	if err := components.ReportPage(css, icons).Render(context.Background(), &html); err != nil {
+		return err
+	}
+	p.css, p.icons = css, icons
+	p.load(html.String())
+	return nil
+}
+
+// show has p, a report's page, show title and html, rendered from ReportContent with
+// clicks, the Clicks in it, from then; until it's ready, it waits. Call it with the
+// bar's lock held.
+func (p *page) show(title, html string, clicks *components.Clicks) {
+	p.clicks = clicks
+	// Marshalled, the title and html are JS strings; <, > and & are escaped in them.
+	titleJS, _ := json.Marshal(title)
+	htmlJS, _ := json.Marshal(html)
+	// The busy marks go with it, in one go, as on the bar.
+	p.eval("update(" + string(titleJS) + ", " + string(htmlJS) + "); " + p.busyJS())
+}
+
+// report is id's report's page, given a new window if it hasn't one open. Each
+// report has its own window, its id never reused. Call it with the bar's lock held.
+func (b *Bar) report(id string) *page {
+	if p, ok := b.reports[id]; ok {
+		return p
+	}
+	b.last++
+	p := newPage(b.windows, b.last, fmt.Sprintf("report window %d", b.last), pageMessages, b.reportMessage)
+	p.report = id
+	b.reports[id], b.pages[p.window] = p, p
+	return p
+}
+
+// closed forgets a report window that's been closed, so its id opens a new one. The
+// shim calls it on the main thread.
+func (b *Bar) closed(window int) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	p := b.pages[window]
+	if p == nil || b.reports[p.report] != p {
+		return // not a report's
+	}
+	delete(b.pages, window)
+	delete(b.reports, p.report)
+}
+
+// navigate says whether a window may go to target. Every window only ever shows the
+// page it was given. A link clicked in a report opens in the browser instead, if it's
+// http(s); anything else is blocked.
+func (b *Bar) navigate(window int, target string, clicked bool) bool {
+	if target == "about:blank" {
+		return true
+	}
+	if window == BarWindow || window == MenuWindow || !clicked {
+		return false
+	}
+	if u, err := url.Parse(target); err == nil {
+		if scheme := strings.ToLower(u.Scheme); scheme == "http" || scheme == "https" {
+			go b.windows.OpenURL(target)
+		}
+	}
+	return false
+}

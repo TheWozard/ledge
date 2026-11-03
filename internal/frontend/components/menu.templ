@@ -1,0 +1,53 @@
+package components
+
+import "strconv"
+
+// MenuPage is a menu, a card's or a Dropdown's, drawn as a page for a theme's menu:
+// an item for each of items, in order, styled by themeCSS (a theme.Theme's Menu). Its
+// layout is page/menu.css, and its script page/menu.js.
+//
+// The page posts to window.webkit.messageHandlers.ledge only {action: "ready"} once
+// loaded, for the app to measure #menu and show it; {action: "choose", id, event},
+// with the index of the item chosen, by a click or Return, and the modifier keys held
+// as it was, {alt, cmd, shift, ctrl}; and {action: "close"}, on Escape.
+templ MenuPage(themeCSS string, items []MenuItem) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			@menuCSP
+			@style(menuCSS)
+			@style(themeCSS)
+		</head>
+		<body>
+			<div id="menu" role="menu">
+				for i, item := range items {
+					<div
+						class="menu-item"
+						role="menuitem"
+						data-index={ strconv.Itoa(i) }
+						if item.Color != "" {
+							data-color={ colorName(item.Color) }
+							style={ templ.SafeCSS("--item-color: " + cssColor(item.Color)) }
+						}
+						if !item.Enabled {
+							aria-disabled="true"
+						}
+						if item.Checked {
+							aria-checked="true"
+						}
+					>
+						if item.Color != "" {
+							<span class="menu-dot"></span><span class="menu-title">{ item.Title }</span>
+						} else {
+							<span class="menu-title">{ item.Title }</span>
+						}
+					</div>
+				}
+			</div>
+			for _, js := range menuScripts {
+				@script(js)
+			}
+		</body>
+	</html>
+}

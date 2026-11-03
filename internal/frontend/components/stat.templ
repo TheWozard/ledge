@@ -1,0 +1,80 @@
+package components
+
+import (
+	"fmt"
+	"math"
+	"slices"
+	"strings"
+)
+
+// Stat is a Basic card that shows a number: its title, then its Value, with its
+// Change beside the value and its description beside them both, and a sparkline of
+// its History behind the whole card. Its kind is "stat".
+type Stat struct {
+	Basic
+	Value string // the number, as the app shows it, such as "2.3%"
+	// Change is how the number has moved, such as "↑0.8", or "" for none. Its colour
+	// is ChangeColor, a theme's named colour or #rrggbb, or "" for the text's: the app
+	// says whether up is good.
+	Change      string
+	ChangeColor string
+	// History is the number's recent values, oldest first, drawn as a line, lowest at
+	// the bottom; with fewer than two, there's none.
+	History []float64
+}
+
+// Frame is the frame of the stat's Basic card, of the kind "stat".
+func (s Stat) Frame() Frame {
+	f := s.Basic.Frame()
+	f.Kind = "stat"
+	return f
+}
+
+// Body is the stat's title, its value, change and description, and its sparkline.
+func (s Stat) Body() templ.Component { return statBody(s, sparkline(s.History)) }
+
+// sparkline is history as the points of an SVG polyline in a 100 by 100 box: oldest
+// on the left and newest on the right, the lowest value at the bottom and the
+// highest at the top, or all in the middle if they're the same. Values that aren't
+// finite are left out; with fewer than two left, it's "".
+func sparkline(history []float64) string {
+	values := slices.DeleteFunc(slices.Clone(history), func(v float64) bool { return math.IsNaN(v) || math.IsInf(v, 0) })
+	if len(values) < 2 {
+		return ""
+	}
+	low, high := slices.Min(values), slices.Max(values)
+	points := make([]string, len(values))
+	for i, v := range values {
+		y := 50.0
+		if high > low {
+			y = 100 * (high - v) / (high - low)
+		}
+		points[i] = fmt.Sprintf("%.2f,%.2f", 100*float64(i)/float64(len(values)-1), y)
+	}
+	return strings.Join(points, " ")
+}
+
+// statBody is a Stat's body: its title, then a row of its value and change, with its
+// description beside them, and points, its sparkline, if it has one, which the layout
+// puts behind the card.
+templ statBody(s Stat, points string) {
+	<span class="title">{ s.Title }</span>
+	<div class="reading">
+		<div class="reading-value">
+			{ s.Value }
+			if s.Change != "" {
+				if s.ChangeColor != "" {
+					<span class="change" data-color={ colorName(s.ChangeColor) } style={ templ.SafeCSS("--change: " + cssColor(s.ChangeColor)) }>{ s.Change }</span>
+				} else {
+					<span class="change">{ s.Change }</span>
+				}
+			}
+		</div>
+		if s.Description != "" {
+			<div class="description">{ s.Description }</div>
+		}
+	</div>
+	if points != "" {
+		<svg class="sparkline" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points={ points }></polyline></svg>
+	}
+}

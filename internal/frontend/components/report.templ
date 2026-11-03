@@ -1,0 +1,52 @@
+package components
+
+// ReportPage is the report window's page, styled by themeCSS (a theme.Theme's
+// Report): a title bar the page draws, and an empty <article> under it that scrolls
+// under the title bar. It posts {action: "ready"} once loaded, and from then takes
+// update(title, html), with html rendered from ReportContent: it shows title in its
+// title bar, and morphs the <article> into html, so what's still there keeps its
+// element and the report its scroll. It also takes setBusy(ids), which marks
+// data-busy what's clicked with those ids. Its layout is page/report.css, and its
+// script page/report.js. icons are the theme's too, and its ReportContent is to be
+// rendered WithIcons the same.
+//
+// Apart from ready, the page posts to window.webkit.messageHandlers.ledge only
+// {action: "click", id, event} when something with data-click is clicked, with the
+// main or middle button, such as a Buttons' button: the id is one ClickID gave out
+// as it was rendered, and event how it was clicked, as on the bar. All it can ask of
+// its window, through
+// its "frame" handler (see the shim), is: a mouse-down on the title bar starts a drag
+// (the second of a double-click zooms), and the title bar's buttons, when a theme
+// shows them, close, minimise and zoom it. A LinkTo is a real <a>; clicking one asks
+// the window to navigate, which the app decides on.
+templ ReportPage(themeCSS string, icons Icons) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			@reportCSP
+			@style(reportCSS)
+			@iconStyle(icons)
+			@style(themeCSS)
+		</head>
+		<body>
+			<header class="titlebar"><span></span><button class="minimise" title="Minimise" aria-label="Minimise"></button><button class="zoom" title="Zoom" aria-label="Zoom"></button><button class="close" title="Close" aria-label="Close"></button></header>
+			<main tabindex="-1">
+				<article></article>
+			</main>
+			for _, js := range reportScripts {
+				@script(js)
+			}
+		</body>
+	</html>
+}
+
+// ReportContent is what a report shows in its page's <article>: blocks, top to
+// bottom. A block is any component; the ones in blocks.templ are Heading, Paragraph,
+// Fields, Table, List, Code, Note, Quote, Rule, Details, Image and Buttons, with
+// RunBlock in run.templ, and any of them can be given an id with Block.
+templ ReportContent(blocks []templ.Component) {
+	for _, block := range blocks {
+		@block
+	}
+}

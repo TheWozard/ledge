@@ -1,0 +1,21 @@
+# Weekly pull requests for newer Go modules (templ) and GitHub Actions. A templ
+# update needs the *_templ.go files regenerated: CI's check-generated fails until
+# they are.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: deps
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ["*"]

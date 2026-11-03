@@ -1,0 +1,93 @@
+#pragma once
+
+// The native shim: NSWindow + WKWebView, and nothing else. Go calls these; the shim
+// calls back through the go* functions exported in shim.go. It holds no app logic.
+#include <stdint.h>
+
+typedef struct { double x, y, width, height; } LedgeRect;
+
+// Which windows a window stays above: none (an ordinary window), other apps' windows
+// but not the Dock, or everything, the Dock included.
+typedef enum { LedgeLevelNormal, LedgeLevelFloating, LedgeLevelTop } LedgeLevel;
+// How a window's frame and controls look: as the system does, light or dark.
+typedef enum { LedgeAppearanceSystem, LedgeAppearanceLight, LedgeAppearanceDark } LedgeAppearance;
+
+// ledgeInit makes this an accessory app (no Dock icon or menu bar), gives it a menu
+// of key equivalents only (copy, select all, close window), and starts reporting
+// screen changes.
+void ledgeInit(void);
+// ledgeRun runs the main loop until ledgeStop. Main thread only.
+void ledgeRun(void);
+void ledgeStop(void);
+
+// ledgeCreateBar creates `window` as the bar, if it doesn't exist yet: borderless, at the normal window level.
+// It opens on the current Space and stays there, like any window.
+void ledgeCreateBar(int window);
+// ledgePlaceBar stretches the bar across the visible area of screen `screen` (screen
+// 0 if there's no such screen) along the top or bottom edge, and returns its frame.
+LedgeRect ledgePlaceBar(int window, int screen, int top, double height);
+
+// ledgeCreatePopup creates `window` as a pop-up, if it doesn't exist yet: borderless,
+// see-through where its page is, above other windows, and taking keys without
+// taking focus from the app that has it. Its page can post to Go, as the bar's can.
+void ledgeCreatePopup(int window);
+// Where a pop-up or menu opens: under a rectangle in `window`'s page, its left edge
+// and its top and bottom in CSS pixels from the page's top left, such as a button's;
+// or, with `window` 0, at the mouse.
+typedef struct { int window; double left, top, bottom; } LedgeAnchor;
+// ledgeShowPopup shows the pop-up `width` by `height` at `at`: down and to the right
+// of the mouse, or under the anchor's rectangle, lined up with its left edge; or up
+// or left to stay on its screen. It gives it the keys. A click anywhere but on it
+// dismisses it: it's hidden, and goLedgePopupDismissed is told.
+void ledgeShowPopup(int window, double width, double height, LedgeAnchor at);
+// ledgeHidePopup hides the pop-up, without it being dismissed.
+void ledgeHidePopup(int window);
+
+// ledgeCreateWindow creates `window` as a titled window, if it doesn't exist yet,
+// down and to the right of the last one. Its page fills the window under a
+// see-through title bar that shows only the close, minimise and zoom buttons, so the
+// page draws its own title. The page posts to Go through its "ledge" handler, as the
+// bar's does; its "frame" handler only moves, closes, minimises or zooms its window,
+// natively. Closing it destroys it, and is
+// reported to goLedgeWindowClosed; `window` can then be created again.
+void ledgeCreateWindow(int window, const char *title, double width, double height);
+// ledgeShowWindow brings a window to the front and activates the app, so it takes focus.
+void ledgeShowWindow(int window);
+void ledgeSetTitle(int window, const char *title);
+// ledgeSetFrameless takes a window's macOS frame away (1) or gives it back (0). A
+// frameless window has square corners and no title bar or buttons: its page draws
+// them, and moves and closes the window through its "frame" message handler.
+void ledgeSetFrameless(int window, int frameless);
+// ledgeWindowVisible reports whether a window is on screen.
+int ledgeWindowVisible(int window);
+// ledgeWindowFrame is a window's frame, or all zeros if there's no such window.
+LedgeRect ledgeWindowFrame(int window);
+// ledgeSetLevel sets which windows a window stays above.
+void ledgeSetLevel(int window, LedgeLevel level);
+// ledgeSetAppearance sets how a window's frame and controls look.
+void ledgeSetAppearance(int window, LedgeAppearance appearance);
+
+// Every navigation in every window asks goLedgeNavigate, which says whether to allow
+// it. One that would open a new window goes nowhere.
+void ledgeLoadHTML(int window, const char *html);
+void ledgeEval(int window, const char *js);
+// ledgeOpenURL opens url in its default app, such as the browser for an http(s) one.
+void ledgeOpenURL(const char *url);
+
+// ledgeCopy puts text on the general pasteboard, in place of what was there.
+void ledgeCopy(const char *text);
+// ledgeEvalResult runs js and reports its result, as JSON, to goLedgeEvalResult.
+void ledgeEvalResult(int window, const char *js, uintptr_t handle);
+
+// An item in a menu ledgeShowMenu pops up: its title, the colour of a dot before it
+// (green, yellow, red, blue or gray as the system's, or #rrggbb; "" for none),
+// whether it can be chosen, and whether it has a checkmark.
+typedef struct { const char *title; const char *color; int enabled; int checked; } LedgeMenuItem;
+// The modifier keys held as a menu item is chosen, or'd together.
+enum { LedgeAlt = 1, LedgeCmd = 2, LedgeShift = 4, LedgeCtrl = 8 };
+// ledgeShowMenu pops up a menu of `count` items at `at`, and reports the index
+// of the one chosen, or -1 if none was, to goLedgeMenuChosen with `handle`, with the
+// modifier keys held as it was chosen (none with none chosen). It copies
+// the items before it returns. The menu is run from the main run loop, not the main
+// queue, so what's queued for the main thread still runs while it's open.
+void ledgeShowMenu(const LedgeMenuItem *items, int count, LedgeAnchor at, uintptr_t handle);
