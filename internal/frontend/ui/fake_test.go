@@ -13,8 +13,8 @@ import (
 
 // fakeNative stands in for the windows in the tests that don't open any: it records
 // what each window is loaded with and what's run in it, which windows are showing,
-// the native menus popped up and what each opened under, the links opened and the text
-// copied. It measures a theme's menu as 120 by 40, answers the JS answers has, and
+// the native menus popped up and what each opened under, the links opened, the text
+// copied and the size each window was created at. It measures a theme's menu as 120 by 40, answers the JS answers has, and
 // chooses from a native menu what choose says, or nothing.
 type fakeNative struct {
 	mu      sync.Mutex
@@ -28,6 +28,7 @@ type fakeNative struct {
 	answers map[string]json.RawMessage // what's answered to JS run in a page, by the JS
 	urls    []string
 	copied  []string
+	sizes   map[int]ReportSize // the size each window was created at
 }
 
 func (f *fakeNative) LoadHTML(window int, html string) {
@@ -62,7 +63,16 @@ func (f *fakeNative) EvalResult(window int, js string) (json.RawMessage, error) 
 	return nil, errors.New("the fake runs no JS")
 }
 
-func (f *fakeNative) CreateWindow(int, string, float64, float64)         {}
+func (f *fakeNative) CreateWindow(window int, _ string, width, height float64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.sizes == nil {
+		f.sizes = map[int]ReportSize{}
+	}
+	if _, ok := f.sizes[window]; !ok { // as the shim, only a new window's
+		f.sizes[window] = ReportSize{width, height}
+	}
+}
 func (f *fakeNative) SetTitle(int, string)                               {}
 func (f *fakeNative) SetAppearance(int, string)                          {}
 func (f *fakeNative) SetFrameless(int, bool)                             {}

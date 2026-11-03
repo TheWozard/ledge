@@ -6,7 +6,8 @@
    a .button-dot; one with a Click has data-click, and data-busy while it runs, and
    one without is disabled. A Dropdown is a <button class="select"> showing its
    value, with data-click, and data-busy while its menu's open and choosing from it
-   runs; one without a Choose is disabled. Its options pop up in the theme's menu. A
+   runs; one without a Choose is disabled. Its value stays on one line, here, however
+   long, widening its table's column. Its options pop up in the theme's menu. A
    Checkbox is a <button class="checkbox" role="checkbox">, aria-checked "true" or
    "false": a .checkbox-box, for the theme to draw the box and its tick in, then its
    label. It has data-click, and data-busy while its Set runs; one without a Set is
@@ -238,6 +239,9 @@ pre {
 }
 .checkbox-box {
   flex: none;
+}
+.select {
+  white-space: nowrap;
 }
 [data-click] {
   cursor: pointer;

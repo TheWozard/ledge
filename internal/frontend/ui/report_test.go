@@ -335,6 +335,50 @@ func TestReportCheckbox(t *testing.T) {
 	eventually(t, "the report window to close", func() bool { return !shim.WindowVisible(w) })
 }
 
+// A report window opens at the size it's shown at: the default for none, or for a
+// side that's zero, and the least for one too small. Shown again, it keeps its size.
+func TestReportSizes(t *testing.T) {
+	b, f := fakeBar(t, theme.Theme{})
+	blocks := []templ.Component{components.Paragraph(components.Text("Sized"))}
+	for _, c := range []struct {
+		id   string
+		size ReportSize
+		want ReportSize
+	}{
+		{"none", ReportSize{}, DefaultReportSize},
+		{"wide", ReportSize{Width: 1400}, ReportSize{1400, DefaultReportSize.Height}},
+		{"small", ReportSize{600, 400}, ReportSize{600, 400}},
+		{"tiny", ReportSize{100, 1000}, ReportSize{MinReportSize.Width, 1000}},
+	} {
+		if err := b.ShowReportSized(c.id, c.id, c.size, blocks); err != nil {
+			t.Fatal(err)
+		}
+		if err := b.ShowReportSized(c.id, c.id, ReportSize{2000, 2000}, blocks); err != nil {
+			t.Fatal(err)
+		}
+		b.mu.Lock()
+		w := b.reports[c.id].window
+		b.mu.Unlock()
+		f.mu.Lock()
+		got := f.sizes[w]
+		f.mu.Unlock()
+		if got != c.want {
+			t.Errorf("%s at %+v opened at %+v, want %+v", c.id, c.size, got, c.want)
+		}
+	}
+	if err := b.ShowReport("plain", "Plain", blocks); err != nil {
+		t.Fatal(err)
+	}
+	b.mu.Lock()
+	w := b.reports["plain"].window
+	b.mu.Unlock()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.sizes[w] != DefaultReportSize {
+		t.Errorf("ShowReport opened at %+v, want %+v", f.sizes[w], DefaultReportSize)
+	}
+}
+
 // In a theme without a menu of its own, a report's drop-down pops its options up in
 // the native menu, the one it shows checked and none with a dot, and calls its Choose
 // with the one chosen; with none chosen, it doesn't. The menu opens at the mouse, or,

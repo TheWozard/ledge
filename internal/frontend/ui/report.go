@@ -16,15 +16,49 @@ import (
 	"github.com/TheWozard/ledge-frontend/shim"
 )
 
-// ShowReport shows title and blocks in id's report window, in the bar's theme, and
-// brings it forward. If they can't be rendered, it says why, and nothing changes. Each id has its own window: showing an id again replaces what
-// its window shows, keeping its scroll, and one that's been closed opens anew. id is
+// ReportSize is the size a report window opens at, in points: its page's, which fills
+// the window, title bar and all. A zero Width or Height is DefaultReportSize's, and
+// one less than MinReportSize's is that; one bigger than the screen is made to fit
+// on it.
+type ReportSize struct{ Width, Height float64 }
+
+var (
+	// DefaultReportSize is the size a report window opens at by default.
+	DefaultReportSize = ReportSize{900, 700}
+	// MinReportSize is the smallest a report window can be, as it opens or by
+	// resizing it.
+	MinReportSize = ReportSize{480, 320}
+)
+
+// resolved is s with each zero side DefaultReportSize's, and each too small side
+// MinReportSize's.
+func (s ReportSize) resolved() ReportSize {
+	if s.Width == 0 {
+		s.Width = DefaultReportSize.Width
+	}
+	if s.Height == 0 {
+		s.Height = DefaultReportSize.Height
+	}
+	s.Width, s.Height = max(s.Width, MinReportSize.Width), max(s.Height, MinReportSize.Height)
+	return s
+}
+
+// ShowReport is ShowReportSized at DefaultReportSize.
+func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
+	return b.ShowReportSized(id, title, ReportSize{}, blocks)
+}
+
+// ShowReportSized shows title and blocks in id's report window, in the bar's theme,
+// and brings it forward. A window that isn't open opens at size; one that is keeps
+// its size, however it's been resized. If they can't be rendered, it says why, and
+// nothing changes. Each id has its own window: showing an id again replaces what its
+// window shows, keeping its scroll, and one that's been closed opens anew. id is
 // the app's, such as the card or action the report is for. A block is any component;
 // components has the usual ones. Clicking what's in them, such as a Buttons' button,
 // calls its Click, as one on the bar does, until the report is shown again or closed.
 // The blocks are rendered with the bar's lock held, as cards are, so they mustn't
 // call back into the bar.
-func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
+func (b *Bar) ShowReportSized(id, title string, size ReportSize, blocks []templ.Component) error {
 	blocks = slices.Clone(blocks)
 	b.mu.Lock()
 	t := b.options.Theme
@@ -38,7 +72,8 @@ func (b *Bar) ShowReport(id, title string, blocks []templ.Component) error {
 	b.mu.Unlock()
 	// These wait for the main thread, which can be waiting for the lock to say a
 	// window closed, so they're called without it.
-	b.windows.CreateWindow(p.window, title, 900, 700)
+	size = size.resolved()
+	b.windows.CreateWindow(p.window, title, size.Width, size.Height)
 	b.windows.SetTitle(p.window, title)
 	b.windows.SetAppearance(p.window, t.Frame.Appearance)
 	b.windows.SetFrameless(p.window, t.Frame.Frameless)

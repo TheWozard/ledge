@@ -53,7 +53,7 @@ func must[T any](v T, err error) T {
 
 | Package | What it is |
 |---|---|
-| `ui` | the bar and report windows: `Open` places the bar and loads its page, `Render` shows cards and `RenderCard` replaces one by its ID, `ShowReport` shows a report in its id's own window and `ShowReportBlock` replaces one block in it; clicks call the cards' `Click`s, a card's right-click menu its actions', and a report's buttons theirs |
+| `ui` | the bar and report windows: `Open` places the bar and loads its page, `Render` shows cards and `RenderCard` replaces one by its ID, `ShowReport` (or `ShowReportSized`) shows a report in its id's own window and `ShowReportBlock` replaces one block in it; clicks call the cards' `Click`s, a card's right-click menu its actions', and a report's buttons theirs |
 | `components` | the templ components: the pages (`BarPage`, `ReportPage`), the bar's contents (`BarContent`, from `Card`s of any kind, such as the built-in `Basic`, and their `Action`s), and the report blocks |
 | `theme` | a `Theme`: the bar's and report window's stylesheets, fonts inlined, its icons for the buttons, and how the report window's frame looks; `ReadSet` finds the themes in any files, `Load` reads one, `Builtin` is one of the built-in themes, `Download` (`just cache-theme`) fetches the icons and fonts a theme names by https url for this user, and `ClearCache` (`just clear-cache`) deletes them |
 | `shim` | the native layer (cgo + Objective-C): windows and WKWebView, opening links and copying to the pasteboard, and nothing else |
@@ -145,7 +145,9 @@ A report is a title and any `templ.Component`s, drawn top to bottom, shown for a
 such as the card it's about. Each id has its own window: showing the same id again
 replaces what's in it, morphing it as the bar is, so it keeps its scroll, and closing
 it destroys it, so the next `ShowReport` for that id opens a new one. New windows open
-down and to the right of the last. A block given an id, as a
+down and to the right of the last, at 900 by 700 points, or at the `ReportSize` given to
+`ShowReportSized` (a zero side is the default's; at least 480 by 320, and no bigger
+than the screen); a window that's open keeps its size. A block given an id, as a
 `components.Block{ID: id, Content: block}`, can be replaced on its own by
 `ShowReportBlock(report, block)`, with another `Block` with that ID, which leaves the rest of
 the report as it is and doesn't bring its window forward; it says whether the report is

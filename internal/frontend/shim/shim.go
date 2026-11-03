@@ -129,8 +129,9 @@ func ShowPopup(id int, width, height float64, at *Anchor) {
 // HidePopup hides the pop-up, without it being dismissed.
 func HidePopup(id int) { C.ledgeHidePopup(C.int(id)) }
 
-// CreateWindow creates window id as a titled window, if it doesn't exist yet, down
-// and to the right of the last one. Closing it destroys it (see OnWindowClosed). Its
+// CreateWindow creates window id as a titled window, width by height, if it doesn't
+// exist yet, down and to the right of the last one; one too big for the screen is
+// made to fit on it. Closing it destroys it (see OnWindowClosed). Its
 // page fills the window under a see-through title bar, so the page draws its own
 // title; only the close, minimise and zoom buttons show. It can't post messages to Go,
 // only move or close its own window (see SetFrameless).

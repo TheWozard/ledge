@@ -406,7 +406,9 @@ void ledgeCreateWindow(int window, const char *title, double width, double heigh
         if (windows[@(window)] != nil) {
             return;
         }
-        NSRect frame = NSMakeRect(0, 0, width, height);
+        // Too big for the screen, it fits on it: its content is the whole window.
+        NSSize screen = NSScreen.mainScreen.visibleFrame.size;
+        NSRect frame = NSMakeRect(0, 0, MIN(width, screen.width), MIN(height, screen.height));
         // A LedgeWindow, so it can still take keys with ledgeSetFrameless.
         NSWindow *win = [[LedgeWindow alloc] initWithContentRect:frame
                                                        styleMask:titledMask
