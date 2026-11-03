@@ -3,12 +3,15 @@ package bar
 import (
 	"log"
 
+	"github.com/TheWozard/ledge/internal/frontend/ui"
+
 	"github.com/TheWozard/ledge/internal/store"
 )
 
-// showReport shows the event's report in the report window.
+// showReport shows the event's report in its window, which opens at its report_size.
 func (b *Bar) showReport(event store.Event) {
-	if err := b.ui.ShowReport(event.ID, event.Title, (&report{bar: b, event: event}).blocks(event.Report)); err != nil {
+	size := ui.ReportSize{Width: event.ReportSize.Width, Height: event.ReportSize.Height}
+	if err := b.ui.ShowReportSized(event.ID, event.Title, size, (&report{bar: b, event: event}).blocks(event.Report)); err != nil {
 		log.Printf("showing the report of %s: %v", event.ID, err)
 	}
 }

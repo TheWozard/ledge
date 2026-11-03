@@ -40,6 +40,7 @@ type Event struct {
 	Schedule    []Step    `json:"schedule,omitempty"` // in time order
 	URL         string    `json:"url,omitempty"`
 	Report      []Block   `json:"report,omitempty"`
+	ReportSize  Size      `json:"report_size,omitzero"`
 	Command     string    `json:"command,omitempty"`
 	Source      string    `json:"source"`
 	Received    time.Time `json:"received"`
@@ -65,6 +66,13 @@ type Event struct {
 	From   string    `json:"from,omitempty"`
 	Sent   time.Time `json:"sent,omitzero"`
 	Avatar string    `json:"avatar,omitempty"`
+}
+
+// Size is the size a report's window opens at, in points; 0 for a side that wasn't
+// sent.
+type Size struct {
+	Width  float64 `json:"width,omitempty"`
+	Height float64 `json:"height,omitempty"`
 }
 
 // Step is a colour change in an event's schedule.

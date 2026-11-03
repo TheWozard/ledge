@@ -7,7 +7,8 @@
 #     table cells, and a nested list. Links open in your browser; Retry and the run's
 #     Re-run lint run only with commands on; an outcome chosen in a drop-down, and a
 #     ticked Muted, are kept, and show in `ledge list`; and Done dismisses the card.
-#   - a long report, to scroll, whose text looks like HTML but must show as text
+#   - a long report, to scroll, in a tall, narrow window, whose text looks like HTML
+#     but must show as text
 #
 #   report.sh         send the cards
 #   report.sh clear   remove them
@@ -75,5 +76,6 @@ for i in $(seq 1 12); do
 done
 send '{"id": "report-long", "source": "example-report", "title": "A long report",
        "description": "Twelve sections, to scroll. Its HTML-looking text should show as text.",
+       "report_size": {"width": 560, "height": 900},
        "report": ['"$paragraphs"' {"type": "text", "text": "The end."}]}'
 echo "Sent 2 cards with reports" >&2

@@ -99,6 +99,10 @@ it on if you trust what sends to ledge.
 An event's `report` is its details as a list of blocks, drawn top to bottom in the bar's
 theme. You send what to show; ledge decides how it looks. Text is always shown as text,
 never as HTML. Each card's report has its own window, where Cmd-C, Cmd-A and Cmd-W work.
+The window opens at 900 by 700 points, or at the event's `report_size`, such as
+`{"width": 560, "height": 900}`: a side left out is the default's, each is at least
+480 by 320, and a window too big for the screen is made to fit on it. An open window
+keeps its size, however you've resized it, until it's closed.
 
 ```json
 {"title": "CI: 2 failures on main", "report": [
